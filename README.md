@@ -264,20 +264,38 @@ discovery:
 
 ## 📊 Monitoring
 
-Track Sugar across all your projects:
+### Per-Project Monitoring
+
+Each project has its own isolated Sugar instance. Commands are project-specific:
 
 ```bash
-# Check status
+# Check status for current project
 sugar status
 
-# Monitor logs
+# Monitor logs for current project
 tail -f .sugar/sugar.log
 
-# List recent work
+# List recent work for current project
 sugar list --status completed --limit 10
 
-# Background operation
+# Background operation for current project
 nohup sugar run > sugar-autonomous.log 2>&1 &
+```
+
+### Multi-Project Monitoring
+
+To monitor Sugar across multiple projects, you need to check each project directory:
+
+```bash
+# Example script to check all projects
+for project in ~/projects/*; do
+  if [ -d "$project/.sugar" ]; then
+    echo "📂 Project: $(basename $project)"
+    cd "$project"
+    sugar status | grep -E "(Total Tasks|Pending|Active|Completed)"
+    echo
+  fi
+done
 ```
 
 ## 🎛️ Advanced Usage

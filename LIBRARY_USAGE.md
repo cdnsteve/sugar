@@ -161,17 +161,19 @@ sugar add "Refactor user service" --type refactor --priority 3
 
 ### 4. Monitor Status
 
+**Note:** All Sugar commands are project-specific. Make sure you're in the correct project directory.
+
 ```bash
-# Check system status and queue statistics
+# Check system status and queue statistics (for current project)
 sugar status
 
-# List pending tasks
+# List pending tasks (for current project)
 sugar list --status pending
 
-# List completed work
+# List completed work (for current project)
 sugar list --status completed --limit 10
 
-# List all tasks with type filter
+# List all tasks with type filter (for current project)
 sugar list --status all --type feature --limit 20
 
 # View detailed task information
@@ -352,6 +354,8 @@ tail -f .sugar/sugar.log
 
 ### Multiple Project Monitoring
 
+**Important:** Sugar commands are project-specific, not global. Each `sugar status` command only shows information for the current project directory.
+
 ```bash
 #!/bin/bash
 # monitor_all_sugar.sh - Monitor all Sugar instances
@@ -367,6 +371,8 @@ for project in ~/projects/*; do
   fi
 done
 ```
+
+**Key Point:** You must be in the project directory (or specify `--config` path) for Sugar commands to work with that project's data.
 
 ## Troubleshooting
 
