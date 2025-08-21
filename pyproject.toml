@@ -48,10 +48,10 @@ dev = [
 ccal = "claude_ccal.main:cli"
 
 [project.urls]
-Homepage = "https://github.com/anthropics/claude-ccal"
+Homepage = "https://github.com/cdnsteve/sugar"
 Documentation = "https://docs.anthropic.com/claude-code"
-Repository = "https://github.com/anthropics/claude-ccal"
-"Bug Tracker" = "https://github.com/anthropics/claude-ccal/issues"
+Repository = "https://github.com/cdnsteve/sugar"
+"Bug Tracker" = "https://github.com/cdnsteve/sugar/issues"
 
 [tool.setuptools.packages.find]
 where = ["."]

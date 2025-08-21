@@ -16,7 +16,7 @@ setup(
     long_description_content_type="text/markdown",
     author="Steven Leggett",
     author_email="contact@roboticforce.io",
-    url="https://github.com/anthropics/claude-ccal",
+    url="https://github.com/cdnsteve/sugar",
     packages=find_packages(),
     include_package_data=True,
     install_requires=requirements,
@@ -39,7 +39,7 @@ setup(
     keywords=["claude", "autonomous", "development", "ai", "automation"],
     project_urls={
         "Documentation": "https://docs.anthropic.com/claude-code",
-        "Source": "https://github.com/anthropics/claude-ccal",
-        "Tracker": "https://github.com/anthropics/claude-ccal/issues",
+        "Source": "https://github.com/cdnsteve/sugar",
+        "Tracker": "https://github.com/cdnsteve/sugar/issues",
     },
 )

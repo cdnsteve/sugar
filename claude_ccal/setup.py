@@ -16,7 +16,7 @@ setup(
     description="Claude Code Autonomous Loop - Proactive autonomous development system",
     long_description=long_description,
     long_description_content_type="text/markdown",
-    url="https://github.com/yourusername/ccal",
+    url="https://github.com/cdnsteve/sugar",
     packages=find_packages(),
     classifiers=[
         "Development Status :: 3 - Alpha",
