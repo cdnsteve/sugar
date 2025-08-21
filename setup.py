@@ -38,7 +38,7 @@ setup(
     },
     keywords=["claude", "autonomous", "development", "ai", "automation"],
     project_urls={
-        "Documentation": "https://docs.anthropic.com/claude-code",
+        "Documentation": "https://docs.roboticforce.io/sugar",
         "Source": "https://github.com/cdnsteve/sugar",
         "Tracker": "https://github.com/cdnsteve/sugar/issues",
     },

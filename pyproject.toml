@@ -49,7 +49,7 @@ ccal = "claude_ccal.main:cli"
 
 [project.urls]
 Homepage = "https://github.com/cdnsteve/sugar"
-Documentation = "https://docs.anthropic.com/claude-code"
+Documentation = "https://docs.roboticforce.io/sugar"
 Repository = "https://github.com/cdnsteve/sugar"
 "Bug Tracker" = "https://github.com/cdnsteve/sugar/issues"
 
