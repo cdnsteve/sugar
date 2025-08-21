@@ -20,7 +20,7 @@ pip install -e .
 pip install -e git+<repository-url>#egg=claude-ccal
 ```
 
-### Option 2: Future PyPI Installation (Coming Soon)
+### Option 2: PyPI Installation (Available)
 
 ```bash
 pip install claude-ccal
@@ -40,6 +40,8 @@ ccal init
 This creates:
 - `.ccal/` directory with project-specific configuration and database
 - `.ccal/config.yaml` - customizable configuration file
+- `.ccal/ccal.db` - SQLite database for task storage
+- `.ccal/logs/` - CCAL-specific log directory
 - `logs/errors/` directory with sample error log for testing
 - Auto-detects Claude CLI location
 
@@ -49,26 +51,61 @@ Edit `.ccal/config.yaml` to match your project:
 
 ```yaml
 ccal:
-  dry_run: true  # Set to false when ready for real execution
+  # Core Loop Settings
+  loop_interval: 300  # 5 minutes between cycles
+  max_concurrent_work: 3  # Execute multiple tasks per cycle
+  dry_run: true       # Set to false when ready for real execution
   
+  # Claude Code Integration
   claude:
     command: "/path/to/claude"  # Auto-detected, but can be customized
+    timeout: 1800       # 30 minutes max per task
+    context_file: ".ccal/context.json"
     
+  # Work Discovery
   discovery:
     error_logs:
+      enabled: true
       paths:
         - "logs/errors/"      # Your error log directories
         - "logs/feedback/"
-        - "app/logs/"
+        - ".ccal/logs/"
+      patterns: ["*.json", "*.log"]
+      max_age_hours: 24
     
     code_quality:
+      enabled: true
       root_path: "."          # Project root to analyze
+      file_extensions: [".py", ".js", ".ts", ".jsx", ".tsx"]
       source_dirs: ["src", "lib", "app"]  # Your source directories
+      excluded_dirs: ["node_modules", ".git", "__pycache__", "venv", ".venv", ".ccal"]
+      max_files_per_scan: 50
+      
+    test_coverage:
+      enabled: true
+      root_path: "."
+      source_dirs: ["src", "lib", "app", "api", "server"]
+      test_dirs: ["tests", "test", "__tests__", "spec"]
       
     github:
       enabled: false          # Enable for GitHub integration
       repo: "owner/repo"      # Your repository
       token: "ghp_..."        # GitHub token
+      
+  # Storage
+  storage:
+    database: ".ccal/ccal.db"  # Project-specific database
+    backup_interval: 3600  # 1 hour
+    
+  # Safety
+  safety:
+    max_retries: 3
+    excluded_paths: ["/System", "/usr/bin", "/etc", ".ccal"]
+    
+  # Logging
+  logging:
+    level: "INFO"
+    file: ".ccal/ccal.log"  # Project-specific logs
 ```
 
 ### 3. Add Tasks
@@ -85,17 +122,26 @@ ccal add "Refactor user service" --type refactor --priority 3
 ### 4. Monitor Status
 
 ```bash
-# Check system status
+# Check system status and queue statistics
 ccal status
 
 # List pending tasks
 ccal list --status pending
 
 # List completed work
-ccal list --status completed
+ccal list --status completed --limit 10
 
-# List all tasks
-ccal list --status all --limit 20
+# List all tasks with type filter
+ccal list --status all --type feature --limit 20
+
+# View detailed task information
+ccal view TASK_ID
+
+# Update or modify existing tasks
+ccal update TASK_ID --priority 5 --status active
+
+# Remove unwanted tasks
+ccal remove TASK_ID
 ```
 
 ### 5. Start Autonomous Operation
@@ -155,10 +201,11 @@ your-project/
 │   └── errors/
 ├── .ccal/                  # CCAL-specific files (isolated)
 │   ├── config.yaml         # Project-specific config
-│   ├── ccal.db            # Project-specific database
+│   ├── ccal.db            # Project-specific SQLite database
 │   ├── ccal.log           # Project-specific logs
-│   ├── context.json       # Claude context (auto-managed)
-│   └── backups/           # Database backups
+│   ├── context.json       # Claude Code session context
+│   ├── logs/              # CCAL internal logs
+│   └── backups/           # Automated database backups
 └── .gitignore             # Add .ccal/ to ignore CCAL files
 ```
 
@@ -400,13 +447,15 @@ safety:
 
 Claude CCAL as a library provides:
 
-✅ **Project Isolation** - Each project gets independent CCAL instance  
+✅ **Project Isolation** - Each project gets independent CCAL instance with isolated database and logs  
 ✅ **Easy Installation** - Simple `ccal init` setup in any project  
 ✅ **Auto-Configuration** - Detects Claude CLI and sets sensible defaults  
 ✅ **Cross-Platform** - Works on any system with Python 3.11+ and Claude CLI  
 ✅ **Safe Defaults** - Starts in dry-run mode for testing  
-✅ **Flexible Discovery** - Configurable error logs, code analysis, GitHub integration  
+✅ **Comprehensive CLI** - Full task management with add, list, view, update, remove commands  
+✅ **Flexible Discovery** - Configurable error logs, code analysis, test coverage, GitHub integration  
 ✅ **No Conflicts** - Uses `.ccal/` directory to avoid naming conflicts  
 ✅ **Multi-Project** - Run autonomous development across multiple projects simultaneously  
+✅ **Persistent Storage** - SQLite database with automated backups and task history  
 
 This enables truly autonomous development at scale - install once, configure per project, and let Claude Code work 24/7 across your entire development portfolio.

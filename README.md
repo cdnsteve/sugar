@@ -70,23 +70,61 @@ Auto-generated `.ccal/config.yaml` with sensible defaults:
 
 ```yaml
 ccal:
-  dry_run: true  # Safe mode by default
+  # Core Loop Settings
+  loop_interval: 300  # 5 minutes between cycles
+  max_concurrent_work: 3  # Execute multiple tasks per cycle
+  dry_run: true       # Start in safe mode - change to false when ready
   
+  # Claude Code Integration
   claude:
-    command: "/path/to/claude"  # Auto-detected
-    # NEW: Context Persistence Settings
-    use_continuous: true              # Enable --continue flag support
-    context_strategy: "project"       # project|task_type|session
-    max_context_age_hours: 24         # Hours before starting fresh session
+    command: "/path/to/claude"  # Auto-detected Claude CLI path
+    timeout: 1800       # 30 minutes max per task
+    context_file: ".ccal/context.json"
     
+  # Work Discovery
   discovery:
     error_logs:
-      paths: ["logs/errors/", "logs/feedback/"]
-    code_quality:
-      root_path: "."
-      source_dirs: ["src", "lib", "app"]
+      enabled: true
+      paths: ["logs/errors/", "logs/feedback/", ".ccal/logs/"]
+      patterns: ["*.json", "*.log"]
+      max_age_hours: 24
+    
     github:
-      enabled: false  # Enable for GitHub integration
+      enabled: false  # Set to true and configure to enable
+      repo: ""  # e.g., "user/repository"
+      token: ""  # GitHub token for API access
+      
+    code_quality:
+      enabled: true
+      root_path: "."
+      file_extensions: [".py", ".js", ".ts", ".jsx", ".tsx"]
+      excluded_dirs: ["node_modules", ".git", "__pycache__", "venv", ".venv", ".ccal"]
+      max_files_per_scan: 50
+      
+    test_coverage:
+      enabled: true
+      root_path: "."
+      source_dirs: ["src", "lib", "app", "api", "server"]
+      test_dirs: ["tests", "test", "__tests__", "spec"]
+      
+  # Storage
+  storage:
+    database: ".ccal/ccal.db"  # Project-specific database
+    backup_interval: 3600  # 1 hour
+    
+  # Safety
+  safety:
+    max_retries: 3
+    excluded_paths:
+      - "/System"
+      - "/usr/bin"
+      - "/etc"
+      - ".ccal"
+    
+  # Logging
+  logging:
+    level: "INFO"
+    file: ".ccal/ccal.log"  # Project-specific logs
 ```
 
 ## 📋 Command Reference
@@ -94,7 +132,7 @@ ccal:
 ### Task Management
 ```bash
 # Add tasks with different types and priorities
-ccal add "Task title" [--type TYPE] [--priority 1-5] [--urgent]
+ccal add "Task title" [--type TYPE] [--priority 1-5] [--urgent] [--description DESC]
 
 # Types: bug_fix, feature, test, refactor, documentation
 # Priority: 1 (low) to 5 (urgent)
@@ -102,7 +140,16 @@ ccal add "Task title" [--type TYPE] [--priority 1-5] [--urgent]
 # List tasks
 ccal list [--status STATUS] [--type TYPE] [--limit N]
 
-# Check status
+# View specific task details
+ccal view TASK_ID
+
+# Update existing task
+ccal update TASK_ID [--title TITLE] [--description DESC] [--priority 1-5] [--type TYPE] [--status STATUS]
+
+# Remove task
+ccal remove TASK_ID
+
+# Check system status
 ccal status
 ```
 
@@ -150,19 +197,16 @@ Each project operates independently with isolated:
 - **Auto-detection** - Finds Claude CLI automatically
 - **Graceful shutdown** - Handles interrupts cleanly
 
-## 🧠 Context Persistence (NEW!)
+## 💾 Storage & Context
 
-CCAL now uses Claude's `--continue` flag for intelligent context preservation:
+CCAL maintains project-specific data isolation:
 
-- **Session Continuity**: Each task builds on previous work in the project
-- **Smart Context Management**: Configurable strategies for when to continue vs start fresh
-- **Learning Acceleration**: Claude remembers codebase patterns, previous solutions, and project context
-- **Compound Intelligence**: Each task makes the next one smarter and faster
+- **Project Database**: `.ccal/ccal.db` stores all task data, execution history, and learning
+- **Context Management**: `.ccal/context.json` preserves Claude Code session context
+- **Automated Backups**: Regular database backups with configurable intervals
+- **Isolated Logs**: Project-specific logging in `.ccal/ccal.log`
 
-### Context Strategies
-- **`project`** (default): Continue all tasks within same project 
-- **`task_type`**: Continue only tasks of same type (feature, bug_fix, etc.)
-- **`session`**: Continue only related tasks (same component/area)
+Each CCAL instance is completely isolated - you can run multiple projects simultaneously without interference.
 
 ## 🔍 Work Discovery
 
