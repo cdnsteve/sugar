@@ -4,6 +4,17 @@ A lightweight autonomous development system specifically designed for Claude Cod
 
 ## 🚀 Quick Start
 
+### Prerequisites
+
+**Required:** Sugar requires Claude Code CLI to be installed and accessible.
+
+1. **Install Claude Code CLI** (if not already installed):
+   - Visit [Claude Code CLI documentation](https://docs.anthropic.com/en/docs/claude-code) for installation instructions
+   - Or install via npm: `npm install -g @anthropic-ai/claude-code-cli`
+   - Verify installation: `claude --version`
+
+2. **Ensure Claude CLI is in your PATH** or note its location for configuration
+
 ### Installation
 
 ```bash
@@ -22,6 +33,8 @@ pip install -e .
 cd /path/to/your/project
 sugar init
 ```
+
+**Note:** Sugar will auto-detect your Claude CLI installation. If it's not in your PATH, you can specify the location in `.sugar/config.yaml` after initialization.
 
 ### Add Some Work
 
@@ -302,8 +315,15 @@ discovery:
 
 **Claude CLI not found:**
 ```bash
-claude --version  # Verify installation
-# Edit .sugar/config.yaml if needed
+# First, check if Claude CLI is installed
+claude --version
+
+# If not installed, install it:
+npm install -g @anthropic-ai/claude-code-cli
+
+# If installed but not found by Sugar, edit .sugar/config.yaml:
+claude:
+  command: "/full/path/to/claude"  # Specify exact path
 ```
 
 **No work discovered:**

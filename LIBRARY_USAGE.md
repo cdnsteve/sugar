@@ -4,6 +4,36 @@
 
 Sugar is an AI-powered autonomous development system packaged as a reusable Python library that can be installed in any project to provide 24/7 autonomous development capabilities. Each project gets its own isolated Sugar instance with project-specific configuration, database, and logs.
 
+## Prerequisites
+
+**Required:** Sugar requires Claude Code CLI to be installed and accessible on your system.
+
+### Install Claude Code CLI
+
+1. **Install Claude Code CLI** (if not already installed):
+   ```bash
+   # Install via npm (recommended)
+   npm install -g @anthropic-ai/claude-code-cli
+   
+   # Or follow official installation guide
+   # Visit: https://docs.anthropic.com/en/docs/claude-code
+   ```
+
+2. **Verify installation:**
+   ```bash
+   claude --version
+   ```
+
+3. **Ensure Claude CLI is accessible:**
+   - Add to your PATH, or
+   - Note the full path for Sugar configuration
+
+**System Requirements:**
+- Python 3.11 or higher
+- Claude Code CLI installed and accessible
+- Git (for project management)
+- Internet connection (for Claude API access)
+
 ## Installation
 
 ### Option 1: Install from Source (Recommended for now)
@@ -20,7 +50,7 @@ pip install -e .
 pip install -e git+https://github.com/cdnsteve/sugar.git#egg=sugar
 ```
 
-### Option 2: PyPI Installation (Available)
+### Option 2: PyPI Installation (Coming Soon)
 
 ```bash
 pip install sugar
@@ -44,6 +74,16 @@ This creates:
 - `.sugar/logs/` - Sugar-specific log directory
 - `logs/errors/` directory with sample error log for testing
 - Auto-detects Claude CLI location
+
+**Claude CLI Detection:**
+Sugar will automatically search for Claude CLI in common locations:
+- `claude` (in PATH)
+- `/usr/local/bin/claude`
+- `/opt/homebrew/bin/claude`
+- `~/.claude/local/claude`
+- `~/.local/bin/claude`
+
+If Claude CLI is not found automatically, you'll see a warning and can manually configure the path in `.sugar/config.yaml`.
 
 ### 2. Customize Configuration (Optional)
 
@@ -337,7 +377,10 @@ done
 # Check if Claude CLI is accessible
 claude --version
 
-# If not found, install Claude CLI or update config
+# If not found, install Claude CLI first:
+npm install -g @anthropic-ai/claude-code-cli
+
+# Or update config with full path:
 # Edit .sugar/config.yaml to set correct path:
 claude:
   command: "/full/path/to/claude"
