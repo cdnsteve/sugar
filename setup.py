@@ -14,7 +14,7 @@ setup(
     description="Claude Code Autonomous Loop - 24/7 autonomous development system",
     long_description=README,
     long_description_content_type="text/markdown",
-    author="Claude CCAL",
+    author="Steven Leggett",
     author_email="noreply@anthropic.com",
     url="https://github.com/anthropics/claude-ccal",
     packages=find_packages(),

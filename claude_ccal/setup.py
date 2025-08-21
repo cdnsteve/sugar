@@ -11,7 +11,7 @@ with open("requirements.txt", "r", encoding="utf-8") as fh:
 setup(
     name="ccal",
     version="1.0.0",
-    author="CCAL Team",
+    author="Steven Leggett",
     description="Claude Code Autonomous Loop - Proactive autonomous development system",
     long_description=long_description,
     long_description_content_type="text/markdown",
