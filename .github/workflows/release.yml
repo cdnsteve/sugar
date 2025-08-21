@@ -1,0 +1,70 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+jobs:
+  create-release:
+    name: Create Release
+    runs-on: ubuntu-latest
+    
+    steps:
+    - uses: actions/checkout@v4
+      with:
+        fetch-depth: 0
+    
+    - name: Generate changelog
+      id: changelog
+      run: |
+        # Generate changelog from git commits since last tag
+        PREV_TAG=$(git describe --tags --abbrev=0 HEAD~1 2>/dev/null || echo "")
+        if [ -z "$PREV_TAG" ]; then
+          CHANGES=$(git log --pretty=format:"- %s" --no-merges)
+        else
+          CHANGES=$(git log --pretty=format:"- %s" --no-merges ${PREV_TAG}..HEAD)
+        fi
+        
+        echo "Changes since last release:" > CHANGELOG.md
+        echo "" >> CHANGELOG.md
+        echo "$CHANGES" >> CHANGELOG.md
+        
+        # Set output for GitHub release
+        echo "changes<<EOF" >> $GITHUB_OUTPUT
+        cat CHANGELOG.md >> $GITHUB_OUTPUT
+        echo "EOF" >> $GITHUB_OUTPUT
+    
+    - name: Create Release
+      uses: actions/create-release@v1
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      with:
+        tag_name: ${{ github.ref }}
+        release_name: Sugar ${{ github.ref }}
+        body: |
+          ## What's Changed
+          
+          ${{ steps.changelog.outputs.changes }}
+          
+          ## Installation
+          
+          ```bash
+          pip install sugar==${{ github.ref_name }}
+          ```
+          
+          Or from source:
+          ```bash
+          git clone https://github.com/cdnsteve/sugar.git
+          cd sugar
+          git checkout ${{ github.ref_name }}
+          pip install -e .
+          ```
+          
+          ## Docker
+          
+          ```bash
+          docker pull ghcr.io/cdnsteve/sugar:${{ github.ref_name }}
+          ```
+        draft: false
+        prerelease: ${{ contains(github.ref, '-') }}
