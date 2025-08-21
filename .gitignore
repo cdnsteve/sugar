@@ -149,3 +149,48 @@ Desktop.ini
 sugar.log
 *.db
 logs/
+
+# Claude CLI
+.claude/
+sugar_context.json
+sugar-context.json
+
+# Testing and development (additional)
+test-results/
+
+# Build artifacts (additional)
+*.egg-info/
+
+# Development tools
+.pre-commit-cache/
+.mypy_cache/
+.ruff_cache/
+
+# Temporary files
+*.tmp
+*.temp
+*.swp
+*.swo
+*~
+.#*
+
+# Backup files
+*.bak
+*.backup
+*.orig
+
+# OS specific
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+ehthumbs_vista.db
+Thumbs.db
+Thumbs.db:encryptable
+
+# Documentation builds
+docs/_build/
+docs/build/
+site/

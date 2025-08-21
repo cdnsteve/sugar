@@ -1,0 +1,59 @@
+# Git attributes for Sugar project
+
+# Auto detect text files and perform LF normalization
+* text=auto
+
+# Explicitly declare text files
+*.py text
+*.yaml text
+*.yml text  
+*.json text
+*.md text
+*.txt text
+*.toml text
+*.ini text
+*.cfg text
+
+# Explicitly declare binary files
+*.db binary
+*.sqlite binary
+*.sqlite3 binary
+*.jpg binary
+*.jpeg binary
+*.png binary
+*.gif binary
+*.ico binary
+*.pdf binary
+
+# Scripts should have unix line endings
+*.sh text eol=lf
+
+# Windows batch files should have CRLF line endings
+*.bat text eol=crlf
+*.cmd text eol=crlf
+
+# Docker files
+Dockerfile text
+*.dockerfile text
+
+# Documentation
+*.md text
+CHANGELOG* text
+README* text
+LICENSE* text
+CONTRIBUTING* text
+
+# Configuration files
+.gitignore text
+.gitattributes text
+.editorconfig text
+
+# Python specific
+*.py text diff=python
+
+# YAML files
+*.yaml text
+*.yml text
+
+# Jupyter notebooks (treat as binary to avoid merge conflicts)
+*.ipynb binary
