@@ -8,10 +8,10 @@ A lightweight autonomous development system specifically designed for Claude Cod
 
 ```bash
 # Install from source (recommended for now)
-pip install -e git+<repository-url>#egg=sugar
+pip install -e git+https://github.com/cdnsteve/sugar.git#egg=sugar
 
 # Or clone and install locally
-git clone <repository-url> sugar
+git clone https://github.com/cdnsteve/sugar.git
 cd sugar
 pip install -e .
 ```

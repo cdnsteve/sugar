@@ -10,14 +10,14 @@ Sugar is an AI-powered autonomous development system packaged as a reusable Pyth
 
 ```bash
 # Clone or download the sugar package
-git clone <repository-url> sugar
+git clone https://github.com/cdnsteve/sugar.git
 
 # Install in development mode (allows for easy updates)
 cd sugar
 pip install -e .
 
 # Or install directly without cloning
-pip install -e git+<repository-url>#egg=sugar
+pip install -e git+https://github.com/cdnsteve/sugar.git#egg=sugar
 ```
 
 ### Option 2: PyPI Installation (Available)
