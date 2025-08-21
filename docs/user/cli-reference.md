@@ -15,6 +15,33 @@ sugar [OPTIONS] COMMAND [ARGS]...
 
 ## Commands
 
+### `sugar help`
+
+Show comprehensive Sugar help and getting started guide.
+
+```bash
+sugar help
+```
+
+**What it shows:**
+- Quick start steps
+- Overview of Sugar's dual operation modes (autonomous + manual)
+- Core commands summary
+- Configuration basics
+- Project structure
+- Safety features
+- Documentation links
+- Tips and troubleshooting
+
+**Example:**
+```bash
+sugar help
+```
+
+This command provides a complete overview of Sugar in your terminal, perfect for quick reference without needing to open documentation files.
+
+---
+
 ### `sugar init`
 
 Initialize Sugar in a project directory.

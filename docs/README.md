@@ -9,9 +9,10 @@ Documentation for developers who want to **use** Sugar in their projects:
 
 - **[Installation Guide](user/installation-guide.md)** - Complete installation and setup instructions
 - **[Quick Start Guide](user/quick-start.md)** - Get up and running in 5 minutes
-- **[Configuration Reference](user/configuration.md)** - Complete configuration options
+- **[Execution Context](user/execution-context.md)** - Where and how to run Sugar correctly
 - **[CLI Reference](user/cli-reference.md)** - All Sugar commands and options
 - **[Examples](user/examples.md)** - Real-world usage examples
+- **[Configuration Reference](user/configuration.md)** - Complete configuration options
 - **[Troubleshooting](user/troubleshooting.md)** - Common issues and solutions
 - **[FAQ](user/faq.md)** - Frequently asked questions
 

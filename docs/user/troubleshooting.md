@@ -201,6 +201,45 @@ Common issues and solutions for Sugar users.
 
 ---
 
+### Running Sugar Inside Claude Code
+
+**Problem:** User tries to run Sugar from within a Claude Code session.
+
+**Issue:** This creates a recursive execution pattern that can cause:
+- Context confusion between Sugar and Claude Code states
+- Authentication conflicts
+- Resource conflicts with file management
+- Nested Claude CLI calls
+
+**Solution:**
+Sugar should be run **outside** of Claude Code sessions:
+
+1. **Exit Claude Code** if you're currently in a session
+2. **Open a regular terminal/shell** in your project directory
+3. **Run Sugar directly:**
+   ```bash
+   # Correct: Run in regular terminal
+   cd /path/to/your/project
+   sugar init
+   sugar run
+   ```
+4. **Let Sugar call Claude Code** as needed for task execution
+
+**Architecture:**
+```
+✅ Correct: Terminal → Sugar → Claude Code CLI (for tasks)
+❌ Incorrect: Claude Code → Sugar → Claude Code CLI (recursive)
+```
+
+**Verification:**
+Check that you're in a regular terminal (not Claude Code) by running:
+```bash
+echo $CLAUDE_SESSION  # Should be empty
+which sugar          # Should show Sugar path
+```
+
+---
+
 ## 🔍 Diagnostic Commands
 
 ### Check Sugar Status

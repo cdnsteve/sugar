@@ -398,6 +398,113 @@ def status(ctx):
         click.echo(f"❌ Error getting status: {e}", err=True)
         sys.exit(1)
 
+@cli.command()  
+def help():
+    """Show comprehensive Sugar help and getting started guide"""
+    
+    click.echo("""
+🤖 Sugar - AI-Powered Autonomous Development System
+================================================
+
+Sugar is an autonomous development system that works with Claude Code CLI to 
+provide 24/7 development assistance through task discovery and execution.
+
+📋 QUICK START
+--------------
+1. Initialize Sugar in your project:
+   sugar init
+
+2. Add your first task:
+   sugar add "Implement user authentication" --type feature --priority 4
+
+3. Test Sugar in safe mode:
+   sugar run --dry-run --once
+
+4. Start autonomous development:
+   sugar run
+
+🎯 WHAT SUGAR DOES
+------------------
+Sugar operates in TWO modes:
+
+🤖 AUTONOMOUS DISCOVERY:
+   • Discovers work from error logs, GitHub issues, code quality analysis
+   • Analyzes test coverage gaps and suggests improvements  
+   • Continuously monitors and adapts to your project needs
+
+👤 MANUAL TASK MANAGEMENT:
+   • Add specific tasks via CLI: sugar add "task description"
+   • Set priorities and task types (bug_fix, feature, test, refactor, documentation)
+   • Full control over work queue with sugar list, sugar view, sugar update
+
+📚 CORE COMMANDS
+----------------
+sugar init              Initialize Sugar in current project
+sugar add TITLE         Add new task to work queue
+sugar list              List tasks (--status, --type, --limit options)
+sugar view TASK_ID      Show detailed task information
+sugar update TASK_ID    Update existing task (--title, --priority, etc.)
+sugar remove TASK_ID    Remove task from queue
+sugar status            Show system status and queue statistics
+sugar run               Start autonomous development system
+                        (--dry-run, --once, --validate options)
+
+🔧 CONFIGURATION
+----------------
+Sugar uses .sugar/config.yaml for project-specific settings:
+• Discovery sources (error logs, GitHub, code analysis)
+• Claude CLI integration settings
+• Safety controls and execution limits
+• Task prioritization and scheduling
+
+📁 PROJECT STRUCTURE
+--------------------
+your-project/
+├── .sugar/                    Sugar configuration and data
+│   ├── config.yaml           Project settings
+│   ├── sugar.db             Task database  
+│   └── sugar.log            Activity logs
+└── logs/errors/             Error logs monitored by Sugar
+
+🛡️ SAFETY FEATURES
+-------------------
+• Dry-run mode by default (no changes until you set dry_run: false)
+• Path exclusions prevent system file modifications
+• Timeout protection prevents runaway processes
+• Project isolation - each project gets its own Sugar instance
+
+⚠️  EXECUTION CONTEXT
+---------------------
+• Run Sugar OUTSIDE of Claude Code sessions (in regular terminal)
+• Sugar calls Claude Code CLI as needed for task execution
+• Architecture: Terminal → Sugar → Claude Code CLI
+• Avoid: Claude Code → Sugar (recursive execution)
+
+📖 DOCUMENTATION
+----------------
+Complete documentation: docs/README.md
+• User Guide: docs/user/quick-start.md
+• CLI Reference: docs/user/cli-reference.md
+• Examples: docs/user/examples.md
+• Troubleshooting: docs/user/troubleshooting.md
+• Contributing: docs/dev/contributing.md
+
+🆘 NEED HELP?
+--------------
+• Check troubleshooting guide: docs/user/troubleshooting.md
+• GitHub Issues: https://github.com/cdnsteve/sugar/issues
+• Email: contact@roboticforce.io
+
+💡 TIPS
+-------
+• Start with 'sugar run --dry-run --once' to see what Sugar would do
+• Monitor logs with 'tail -f .sugar/sugar.log'
+• Use 'sugar status' to check queue health
+• Each project needs its own 'sugar init'
+
+Ready to supercharge your development workflow? 🚀
+""")
+
 @cli.command()
 @click.option('--dry-run', is_flag=True, help='Run in simulation mode (override config)')
 @click.option('--once', is_flag=True, help='Run one cycle and exit')

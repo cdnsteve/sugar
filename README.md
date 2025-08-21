@@ -15,6 +15,8 @@ A lightweight autonomous development system specifically designed for Claude Cod
 
 2. **Ensure Claude CLI is in your PATH** or note its location for configuration
 
+⚠️ **Important:** Sugar is designed to run **outside** of Claude Code sessions. Run Sugar directly in your terminal/shell, not within a Claude Code session. Sugar will call Claude Code CLI as needed to execute tasks.
+
 ### Installation
 
 ```bash
@@ -42,6 +44,17 @@ sugar init
 sugar add "Implement user authentication" --type feature --priority 4
 sugar add "Fix memory leak in auth module" --type bug_fix --urgent
 sugar add "Add unit tests for payments" --type test --priority 3
+```
+
+### Get Help Anytime
+
+```bash
+# Comprehensive help and quick reference
+sugar help
+
+# Command-specific help
+sugar add --help
+sugar run --help
 ```
 
 ### Start Autonomous Development
