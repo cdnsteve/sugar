@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-CCAL Main Entry Point - Start the Claude Code Autonomous Loop
+Sugar Main Entry Point - Start the AI-powered autonomous development system
 """
 import asyncio
 import logging
@@ -10,7 +10,7 @@ from pathlib import Path
 import click
 from datetime import datetime
 
-from .core.loop import CCLALoop
+from .core.loop import SugarLoop
 
 # Configure logging
 logging.basicConfig(
@@ -18,26 +18,26 @@ logging.basicConfig(
     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
     handlers=[
         logging.StreamHandler(),
-        logging.FileHandler('ccal.log')
+        logging.FileHandler('sugar.log')
     ]
 )
 
 logger = logging.getLogger(__name__)
 
 # Global variable to hold the loop instance
-ccal_loop = None
+sugar_loop = None
 
 def signal_handler(signum, frame):
     """Handle shutdown signals gracefully"""
     logger.info(f"Received signal {signum}, shutting down...")
-    if ccal_loop:
-        asyncio.create_task(ccal_loop.stop())
+    if sugar_loop:
+        asyncio.create_task(sugar_loop.stop())
 
 @click.group()
-@click.option('--config', default='.ccal/config.yaml', help='Configuration file path')
+@click.option('--config', default='.sugar/config.yaml', help='Configuration file path')
 @click.pass_context
 def cli(ctx, config):
-    """CCAL - Claude Code Autonomous Loop
+    """Sugar - AI-powered autonomous development system
     
     A lightweight autonomous development system that works with Claude Code CLI
     """
@@ -45,20 +45,20 @@ def cli(ctx, config):
     ctx.obj['config'] = config
 
 @cli.command()
-@click.option('--project-dir', default='.', help='Project directory to initialize CCAL in')
+@click.option('--project-dir', default='.', help='Project directory to initialize Sugar in')
 def init(project_dir):
-    """Initialize CCAL in a project directory"""
+    """Initialize Sugar in a project directory"""
     import shutil
     import json
     
     project_path = Path(project_dir).resolve()
-    ccal_dir = project_path / '.ccal'
+    sugar_dir = project_path / '.sugar'
     
-    click.echo(f"🚀 Initializing CCAL in {project_path}")
+    click.echo(f"🚀 Initializing Sugar in {project_path}")
     
     try:
-        # Create .ccal directory
-        ccal_dir.mkdir(exist_ok=True)
+        # Create .sugar directory
+        sugar_dir.mkdir(exist_ok=True)
         
         # Find Claude CLI
         claude_cmd = _find_claude_cli()
@@ -70,14 +70,14 @@ def init(project_dir):
         
         # Create default config
         config_content = _generate_default_config(claude_cmd, str(project_path))
-        config_path = ccal_dir / 'config.yaml'
+        config_path = sugar_dir / 'config.yaml'
         
         with open(config_path, 'w') as f:
             f.write(config_content)
         
         # Create directories
-        (ccal_dir / 'logs').mkdir(exist_ok=True)
-        (ccal_dir / 'backups').mkdir(exist_ok=True)
+        (sugar_dir / 'logs').mkdir(exist_ok=True)
+        (sugar_dir / 'backups').mkdir(exist_ok=True)
         
         # Create sample error log for testing
         logs_dir = project_path / 'logs' / 'errors'
@@ -85,26 +85,26 @@ def init(project_dir):
         
         sample_error = {
             "timestamp": datetime.utcnow().isoformat(),
-            "error": "CCAL initialization test",
-            "description": "Sample error log to test CCAL discovery",
-            "component": "ccal_init",
-            "message": "CCAL has been successfully initialized in this project"
+            "error": "Sugar initialization test",
+            "description": "Sample error log to test Sugar discovery",
+            "component": "sugar_init",
+            "message": "Sugar has been successfully initialized in this project"
         }
         
         with open(logs_dir / 'init_test.json', 'w') as f:
             json.dump(sample_error, f, indent=2)
         
-        click.echo(f"✅ CCAL initialized successfully!")
+        click.echo(f"✅ Sugar initialized successfully!")
         click.echo(f"📁 Config: {config_path}")
-        click.echo(f"📁 Database: {ccal_dir / 'ccal.db'}")
-        click.echo(f"📁 Logs: {ccal_dir / 'logs'}")
+        click.echo(f"📁 Database: {sugar_dir / 'sugar.db'}")
+        click.echo(f"📁 Logs: {sugar_dir / 'logs'}")
         click.echo("\n🎯 Next steps:")
-        click.echo("1. Review and customize the config: .ccal/config.yaml")
-        click.echo("2. Add tasks: ccal add 'Your first task'")
-        click.echo("3. Start autonomous mode: ccal run")
+        click.echo("1. Review and customize the config: .sugar/config.yaml")
+        click.echo("2. Add tasks: sugar add 'Your first task'")
+        click.echo("3. Start autonomous mode: sugar run")
         
     except Exception as e:
-        click.echo(f"❌ Failed to initialize CCAL: {e}", err=True)
+        click.echo(f"❌ Failed to initialize Sugar: {e}", err=True)
         sys.exit(1)
 
 @cli.command()
@@ -115,7 +115,7 @@ def init(project_dir):
 @click.option('--urgent', is_flag=True, help='Mark as urgent (priority 5)')
 @click.pass_context
 def add(ctx, title, task_type, priority, description, urgent):
-    """Add a new task to CCAL work queue"""
+    """Add a new task to Sugar work queue"""
     
     if urgent:
         priority = 5
@@ -135,7 +135,7 @@ def add(ctx, title, task_type, priority, description, urgent):
             config = yaml.safe_load(f)
         
         # Initialize work queue
-        work_queue = WorkQueue(config['ccal']['storage']['database'])
+        work_queue = WorkQueue(config['sugar']['storage']['database'])
         
         # Create task data
         task_data = {
@@ -147,7 +147,7 @@ def add(ctx, title, task_type, priority, description, urgent):
             'status': 'pending',
             'source': 'cli',
             'context': {
-                'added_via': 'ccal_cli',
+                'added_via': 'sugar_cli',
                 'timestamp': datetime.utcnow().isoformat()
             }
         }
@@ -168,7 +168,7 @@ def add(ctx, title, task_type, priority, description, urgent):
 @click.option('--type', 'task_type', type=click.Choice(['bug_fix', 'feature', 'test', 'refactor', 'documentation', 'all']), default='all', help='Filter by type')
 @click.pass_context
 def list(ctx, status, limit, task_type):
-    """List tasks in CCAL work queue"""
+    """List tasks in Sugar work queue"""
     
     from .storage.work_queue import WorkQueue
     import yaml
@@ -178,7 +178,7 @@ def list(ctx, status, limit, task_type):
         with open(config_file, 'r') as f:
             config = yaml.safe_load(f)
         
-        work_queue = WorkQueue(config['ccal']['storage']['database'])
+        work_queue = WorkQueue(config['sugar']['storage']['database'])
         
         # Get tasks
         tasks = asyncio.run(_list_tasks_async(work_queue, status, limit, task_type))
@@ -224,7 +224,7 @@ def view(ctx, task_id):
         with open(config_file, 'r') as f:
             config = yaml.safe_load(f)
         
-        work_queue = WorkQueue(config['ccal']['storage']['database'])
+        work_queue = WorkQueue(config['sugar']['storage']['database'])
         
         # Get specific task
         task = asyncio.run(_get_task_by_id_async(work_queue, task_id))
@@ -280,7 +280,7 @@ def remove(ctx, task_id):
         with open(config_file, 'r') as f:
             config = yaml.safe_load(f)
         
-        work_queue = WorkQueue(config['ccal']['storage']['database'])
+        work_queue = WorkQueue(config['sugar']['storage']['database'])
         
         # Remove the task
         success = asyncio.run(_remove_task_async(work_queue, task_id))
@@ -318,7 +318,7 @@ def update(ctx, task_id, title, description, priority, task_type, status):
         with open(config_file, 'r') as f:
             config = yaml.safe_load(f)
         
-        work_queue = WorkQueue(config['ccal']['storage']['database'])
+        work_queue = WorkQueue(config['sugar']['storage']['database'])
         
         # Build updates dictionary
         updates = {}
@@ -359,7 +359,7 @@ def update(ctx, task_id, title, description, priority, task_type, status):
 @cli.command()
 @click.pass_context  
 def status(ctx):
-    """Show CCAL system status and queue statistics"""
+    """Show Sugar system status and queue statistics"""
     
     from .storage.work_queue import WorkQueue
     import yaml
@@ -369,12 +369,12 @@ def status(ctx):
         with open(config_file, 'r') as f:
             config = yaml.safe_load(f)
         
-        work_queue = WorkQueue(config['ccal']['storage']['database'])
+        work_queue = WorkQueue(config['sugar']['storage']['database'])
         
         # Get statistics
         stats = asyncio.run(_get_status_async(work_queue))
         
-        click.echo("\n🤖 CCAL System Status")
+        click.echo("\n🤖 Sugar System Status")
         click.echo("=" * 40)
         click.echo(f"📊 Total Tasks: {stats['total']}")
         click.echo(f"⏳ Pending: {stats['pending']}")
@@ -405,53 +405,53 @@ def status(ctx):
 @click.pass_context
 def run(ctx, dry_run, once, validate):
     """
-    Start the Claude Code Autonomous Loop (CCAL)
+    Start Sugar - AI-powered autonomous development system
     
     A lightweight autonomous development system that:
     - Discovers work from error logs and feedback
     - Executes tasks using Claude Code CLI
     - Learns and adapts from results
     """
-    global ccal_loop
+    global sugar_loop
     
     try:
-        # Initialize CCAL
+        # Initialize Sugar
         config = ctx.obj['config']
-        ccal_loop = CCLALoop(config)
+        sugar_loop = SugarLoop(config)
         
         # Override dry_run if specified
         if dry_run:
-            ccal_loop.config['ccal']['dry_run'] = True
+            sugar_loop.config['sugar']['dry_run'] = True
             logger.info("🧪 Dry run mode enabled via command line")
         
         # Validation mode
         if validate:
-            asyncio.run(validate_config(ccal_loop))
+            asyncio.run(validate_config(sugar_loop))
             return
         
         # Set up signal handlers for graceful shutdown
         signal.signal(signal.SIGINT, signal_handler)
         signal.signal(signal.SIGTERM, signal_handler)
         
-        # Run CCAL
+        # Run Sugar
         if once:
-            asyncio.run(run_once(ccal_loop))
+            asyncio.run(run_once(sugar_loop))
         else:
-            asyncio.run(run_continuous(ccal_loop))
+            asyncio.run(run_continuous(sugar_loop))
             
     except KeyboardInterrupt:
         logger.info("🛑 Shutdown requested by user")
     except Exception as e:
-        logger.error(f"💥 CCAL crashed: {e}", exc_info=True)
+        logger.error(f"💥 Sugar crashed: {e}", exc_info=True)
         sys.exit(1)
 
-async def validate_config(ccal_loop):
+async def validate_config(sugar_loop):
     """Validate configuration and dependencies"""
-    logger.info("🔍 Validating CCAL configuration...")
+    logger.info("🔍 Validating Sugar configuration...")
     
     # Check config structure
-    config = ccal_loop.config
-    required_sections = ['ccal']
+    config = sugar_loop.config
+    required_sections = ['sugar']
     
     for section in required_sections:
         if section not in config:
@@ -460,7 +460,7 @@ async def validate_config(ccal_loop):
     
     # Validate Claude CLI
     from .executor.claude_wrapper import ClaudeWrapper
-    claude_wrapper = ClaudeWrapper(config['ccal']['claude'])
+    claude_wrapper = ClaudeWrapper(config['sugar']['claude'])
     
     if await claude_wrapper.validate_claude_cli():
         logger.info("✅ Claude CLI validation passed")
@@ -469,51 +469,51 @@ async def validate_config(ccal_loop):
     
     # Check discovery paths
     from .discovery.error_monitor import ErrorLogMonitor
-    if config['ccal']['discovery']['error_logs']['enabled']:
-        error_monitor = ErrorLogMonitor(config['ccal']['discovery']['error_logs'])
+    if config['sugar']['discovery']['error_logs']['enabled']:
+        error_monitor = ErrorLogMonitor(config['sugar']['discovery']['error_logs'])
         health = await error_monitor.health_check()
         logger.info(f"📁 Discovery paths: {health['paths_accessible']}/{health['paths_configured']} accessible")
     
     # Initialize storage
-    await ccal_loop.work_queue.initialize()
-    queue_health = await ccal_loop.work_queue.health_check()
+    await sugar_loop.work_queue.initialize()
+    queue_health = await sugar_loop.work_queue.health_check()
     logger.info(f"💾 Storage initialized: {queue_health['database_path']}")
     
     logger.info("✅ Configuration validation completed")
 
-async def run_once(ccal_loop):
-    """Run CCAL for one cycle and exit"""
-    logger.info("🔄 Running CCAL for one cycle...")
+async def run_once(sugar_loop):
+    """Run Sugar for one cycle and exit"""
+    logger.info("🔄 Running Sugar for one cycle...")
     
     # Initialize
-    await ccal_loop.work_queue.initialize()
+    await sugar_loop.work_queue.initialize()
     
     # Run discovery
-    await ccal_loop._discover_work()
+    await sugar_loop._discover_work()
     
     # Execute work
-    await ccal_loop._execute_work()
+    await sugar_loop._execute_work()
     
     # Process feedback
-    await ccal_loop._process_feedback()
+    await sugar_loop._process_feedback()
     
     # Show final stats
-    stats = await ccal_loop.work_queue.get_stats()
+    stats = await sugar_loop.work_queue.get_stats()
     logger.info(f"📊 Final stats: {stats}")
     
     logger.info("✅ Single cycle completed")
 
-async def run_continuous(ccal_loop):
-    """Run CCAL continuously"""
-    logger.info("🚀 Starting CCAL in continuous mode...")
+async def run_continuous(sugar_loop):
+    """Run Sugar continuously"""
+    logger.info("🚀 Starting Sugar in continuous mode...")
     
     try:
-        await ccal_loop.start()
+        await sugar_loop.start()
     except KeyboardInterrupt:
         logger.info("🛑 Shutdown signal received")
     finally:
-        await ccal_loop.stop()
-        logger.info("🏁 CCAL stopped")
+        await sugar_loop.stop()
+        logger.info("🏁 Sugar stopped")
 
 # Async helper functions for CLI commands
 async def _add_task_async(work_queue, task_data):
@@ -586,9 +586,9 @@ def _find_claude_cli():
     return None
 
 def _generate_default_config(claude_cmd: str, project_root: str) -> str:
-    """Generate default CCAL configuration"""
-    return f"""# CCAL Configuration for {Path(project_root).name}
-ccal:
+    """Generate default Sugar configuration"""
+    return f"""# Sugar Configuration for {Path(project_root).name}
+sugar:
   # Core Loop Settings
   loop_interval: 300  # 5 minutes between cycles
   max_concurrent_work: 3  # Execute multiple tasks per cycle
@@ -598,7 +598,7 @@ ccal:
   claude:
     command: "{claude_cmd}"  # Auto-detected Claude CLI path
     timeout: 1800       # 30 minutes max per task
-    context_file: ".ccal/context.json"
+    context_file: ".sugar/context.json"
     
   # Work Discovery
   discovery:
@@ -607,7 +607,7 @@ ccal:
       paths:
         - "logs/errors/"
         - "logs/feedback/"
-        - ".ccal/logs/"
+        - ".sugar/logs/"
       patterns:
         - "*.json"
         - "*.log"
@@ -622,7 +622,7 @@ ccal:
       enabled: true
       root_path: "."  # Analyze current project
       file_extensions: [".py", ".js", ".ts", ".jsx", ".tsx"]
-      excluded_dirs: ["node_modules", ".git", "__pycache__", "venv", ".venv", ".ccal"]
+      excluded_dirs: ["node_modules", ".git", "__pycache__", "venv", ".venv", ".sugar"]
       max_files_per_scan: 50
       
     test_coverage:
@@ -633,7 +633,7 @@ ccal:
       
   # Storage
   storage:
-    database: ".ccal/ccal.db"  # Project-specific database
+    database: ".sugar/sugar.db"  # Project-specific database
     backup_interval: 3600  # 1 hour
     
   # Safety
@@ -643,12 +643,12 @@ ccal:
       - "/System"
       - "/usr/bin"
       - "/etc"
-      - ".ccal"
+      - ".sugar"
     
   # Logging
   logging:
     level: "INFO"
-    file: ".ccal/ccal.log"  # Project-specific logs
+    file: ".sugar/sugar.log"  # Project-specific logs
 """
 
 if __name__ == "__main__":

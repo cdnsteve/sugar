@@ -144,8 +144,8 @@ dmypy.json
 Thumbs.db
 Desktop.ini
 
-# CCAL specific
-.ccal/
-ccal.log
+# Sugar specific
+.sugar/
+sugar.log
 *.db
 logs/

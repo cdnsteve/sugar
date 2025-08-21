@@ -1,5 +1,5 @@
-# CCAL Configuration
-ccal:
+# Sugar Configuration
+sugar:
   # Core Loop Settings
   loop_interval: 300  # 5 minutes between cycles
   max_concurrent_work: 3  # Execute multiple tasks per cycle
@@ -9,7 +9,7 @@ ccal:
   claude:
     command: "/Users/steve/.claude/local/claude"  # Full path to Claude CLI
     timeout: 1800  # 30 minutes max per task
-    context_file: "ccal_context.json"
+    context_file: "sugar_context.json"
     
     # NEW: Context Persistence Settings
     use_continuous: true              # Enable --continue flag support
@@ -44,12 +44,12 @@ ccal:
     test_coverage:
       enabled: true
       root_path: ".."  # Path to analyze
-      source_dirs: ["src", "lib", "app", "system", "ccal"]
+      source_dirs: ["src", "lib", "app", "system", "sugar"]
       test_dirs: ["tests", "test", "__tests__", "spec"]
       
   # Storage
   storage:
-    database: "ccal.db"
+    database: "sugar.db"
     backup_interval: 3600  # 1 hour
     
   # Safety
@@ -63,4 +63,4 @@ ccal:
   # Logging
   logging:
     level: "INFO"
-    file: "ccal.log"
+    file: "sugar.log"

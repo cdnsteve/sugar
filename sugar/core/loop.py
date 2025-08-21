@@ -1,5 +1,5 @@
 """
-CCAL Core Loop - The heart of autonomous development
+Sugar Core Loop - The heart of autonomous development
 """
 import asyncio
 import logging
@@ -19,16 +19,16 @@ from ..learning.adaptive_scheduler import AdaptiveScheduler
 
 logger = logging.getLogger(__name__)
 
-class CCLALoop:
-    """Claude Code Autonomous Loop - Main orchestrator"""
+class SugarLoop:
+    """Sugar - AI-powered autonomous development system - Main orchestrator"""
     
-    def __init__(self, config_path: str = ".ccal/config.yaml"):
+    def __init__(self, config_path: str = ".sugar/config.yaml"):
         self.config = self._load_config(config_path)
         self.running = False
-        self.work_queue = WorkQueue(self.config['ccal']['storage']['database'])
+        self.work_queue = WorkQueue(self.config['sugar']['storage']['database'])
         # Pass the full config so ClaudeWrapper can access dry_run setting
-        claude_config = self.config['ccal']['claude'].copy()
-        claude_config['dry_run'] = self.config['ccal']['dry_run']
+        claude_config = self.config['sugar']['claude'].copy()
+        claude_config['dry_run'] = self.config['sugar']['dry_run']
         self.claude_executor = ClaudeWrapper(claude_config)
         
         # Initialize learning components
@@ -39,35 +39,35 @@ class CCLALoop:
         self.discovery_modules = []
         
         # Error log monitoring
-        if self.config['ccal']['discovery']['error_logs']['enabled']:
-            error_monitor = ErrorLogMonitor(self.config['ccal']['discovery']['error_logs'])
+        if self.config['sugar']['discovery']['error_logs']['enabled']:
+            error_monitor = ErrorLogMonitor(self.config['sugar']['discovery']['error_logs'])
             error_monitor.work_queue = self.work_queue  # Pass work_queue reference
             self.discovery_modules.append(error_monitor)
         
         # GitHub integration
-        if self.config['ccal']['discovery'].get('github', {}).get('enabled', False):
+        if self.config['sugar']['discovery'].get('github', {}).get('enabled', False):
             self.discovery_modules.append(
-                GitHubWatcher(self.config['ccal']['discovery']['github'])
+                GitHubWatcher(self.config['sugar']['discovery']['github'])
             )
         
         # Code quality scanning
-        if self.config['ccal']['discovery'].get('code_quality', {}).get('enabled', True):
-            quality_config = self.config['ccal']['discovery'].get('code_quality', {})
+        if self.config['sugar']['discovery'].get('code_quality', {}).get('enabled', True):
+            quality_config = self.config['sugar']['discovery'].get('code_quality', {})
             quality_config.setdefault('root_path', '.')
             self.discovery_modules.append(
                 CodeQualityScanner(quality_config)
             )
         
         # Test coverage analysis
-        if self.config['ccal']['discovery'].get('test_coverage', {}).get('enabled', True):
-            coverage_config = self.config['ccal']['discovery'].get('test_coverage', {})
+        if self.config['sugar']['discovery'].get('test_coverage', {}).get('enabled', True):
+            coverage_config = self.config['sugar']['discovery'].get('test_coverage', {})
             coverage_config.setdefault('root_path', '.')
             self.discovery_modules.append(
                 TestCoverageAnalyzer(coverage_config)
             )
     
     def _load_config(self, config_path: str) -> dict:
-        """Load CCAL configuration"""
+        """Load Sugar configuration"""
         try:
             with open(config_path, 'r') as f:
                 return yaml.safe_load(f)
@@ -80,7 +80,7 @@ class CCLALoop:
     
     async def start(self):
         """Start the autonomous loop"""
-        logger.info("🤖 Starting CCAL - Claude Code Autonomous Loop")
+        logger.info("🤖 Starting Sugar - AI-powered autonomous development system")
         
         # Initialize storage
         await self.work_queue.initialize()
@@ -92,17 +92,17 @@ class CCLALoop:
     
     async def stop(self):
         """Stop the autonomous loop gracefully"""
-        logger.info("🛑 Stopping CCAL...")
+        logger.info("🛑 Stopping Sugar...")
         self.running = False
     
     async def _main_loop(self):
         """Main autonomous development loop"""
-        loop_interval = self.config['ccal']['loop_interval']
+        loop_interval = self.config['sugar']['loop_interval']
         
         while self.running:
             try:
                 cycle_start = datetime.utcnow()
-                logger.info(f"🔄 Starting CCAL cycle at {cycle_start}")
+                logger.info(f"🔄 Starting Sugar cycle at {cycle_start}")
                 
                 # Phase 1: Discover new work
                 await self._discover_work()
@@ -149,7 +149,7 @@ class CCLALoop:
     
     async def _execute_work(self):
         """Execute the highest priority work item"""
-        max_concurrent = self.config['ccal']['max_concurrent_work']
+        max_concurrent = self.config['sugar']['max_concurrent_work']
         
         for _ in range(max_concurrent):
             work_item = await self.work_queue.get_next_work()

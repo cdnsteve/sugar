@@ -1,4 +1,4 @@
-"""Setup script for claude-ccal package"""
+"""Setup script for sugar package"""
 from setuptools import setup, find_packages
 from pathlib import Path
 
@@ -9,9 +9,9 @@ README = (Path(__file__).parent / "README.md").read_text()
 requirements = (Path(__file__).parent / "requirements.txt").read_text().strip().split('\n')
 
 setup(
-    name="claude-ccal",
+    name="sugar",
     version="0.1.0",
-    description="Claude Code Autonomous Loop - 24/7 autonomous development system",
+    description="Sugar - AI-powered autonomous development system for Claude Code CLI",
     long_description=README,
     long_description_content_type="text/markdown",
     author="Steven Leggett",
@@ -33,7 +33,7 @@ setup(
     ],
     entry_points={
         "console_scripts": [
-            "ccal=claude_ccal.main:cli",
+            "sugar=sugar.main:cli",
         ],
     },
     keywords=["claude", "autonomous", "development", "ai", "automation"],

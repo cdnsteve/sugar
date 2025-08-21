@@ -3,9 +3,9 @@ requires = ["setuptools>=45", "wheel"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "claude-ccal"
+name = "sugar"
 version = "0.1.0"
-description = "Claude Code Autonomous Loop - 24/7 autonomous development system"
+description = "Sugar - AI-powered autonomous development system for Claude Code CLI"
 readme = "README.md"
 requires-python = ">=3.11"
 license = {text = "MIT"}
@@ -45,7 +45,7 @@ dev = [
 ]
 
 [project.scripts]
-ccal = "claude_ccal.main:cli"
+sugar = "sugar.main:cli"
 
 [project.urls]
 Homepage = "https://github.com/cdnsteve/sugar"
@@ -55,7 +55,7 @@ Repository = "https://github.com/cdnsteve/sugar"
 
 [tool.setuptools.packages.find]
 where = ["."]
-include = ["claude_ccal*"]
+include = ["sugar*"]
 exclude = ["tests*"]
 
 [tool.black]

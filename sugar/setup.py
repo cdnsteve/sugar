@@ -1,4 +1,4 @@
-"""Setup script for CCAL - Claude Code Autonomous Loop"""
+"""Setup script for Sugar - AI-powered autonomous development system"""
 
 from setuptools import setup, find_packages
 
@@ -9,11 +9,11 @@ with open("requirements.txt", "r", encoding="utf-8") as fh:
     requirements = [line.strip() for line in fh if line.strip() and not line.startswith("#")]
 
 setup(
-    name="ccal",
+    name="sugar",
     version="1.0.0",
     author="Steven Leggett",
     author_email="contact@roboticforce.io",
-    description="Claude Code Autonomous Loop - Proactive autonomous development system",
+    description="Sugar - AI-powered autonomous development system",
     long_description=long_description,
     long_description_content_type="text/markdown",
     url="https://github.com/cdnsteve/sugar",
@@ -30,11 +30,11 @@ setup(
     install_requires=requirements,
     entry_points={
         "console_scripts": [
-            "ccal=ccal.main:main",
+            "sugar=sugar.main:cli",
         ],
     },
     include_package_data=True,
     package_data={
-        "ccal": ["config/*.yaml"],
+        "sugar": ["config/*.yaml"],
     },
 )

@@ -1,4 +1,4 @@
-# Claude CCAL - Claude Code Autonomous Loop
+# Sugar - AI-Powered Autonomous Development System
 
 A lightweight autonomous development system specifically designed for Claude Code CLI integration that can be installed as a library in any project.
 
@@ -8,11 +8,11 @@ A lightweight autonomous development system specifically designed for Claude Cod
 
 ```bash
 # Install from source (recommended for now)
-pip install -e git+<repository-url>#egg=claude-ccal
+pip install -e git+<repository-url>#egg=sugar
 
 # Or clone and install locally
-git clone <repository-url> claude-ccal
-cd claude-ccal
+git clone <repository-url> sugar
+cd sugar
 pip install -e .
 ```
 
@@ -20,30 +20,30 @@ pip install -e .
 
 ```bash
 cd /path/to/your/project
-ccal init
+sugar init
 ```
 
 ### Add Some Work
 
 ```bash
-ccal add "Implement user authentication" --type feature --priority 4
-ccal add "Fix memory leak in auth module" --type bug_fix --urgent
-ccal add "Add unit tests for payments" --type test --priority 3
+sugar add "Implement user authentication" --type feature --priority 4
+sugar add "Fix memory leak in auth module" --type bug_fix --urgent
+sugar add "Add unit tests for payments" --type test --priority 3
 ```
 
 ### Start Autonomous Development
 
 ```bash
 # Test with dry run first
-ccal run --dry-run --once
+sugar run --dry-run --once
 
 # Start 24/7 autonomous operation
-ccal run
+sugar run
 ```
 
-## 🎯 What CCAL Does
+## 🎯 What Sugar Does
 
-CCAL continuously:
+Sugar continuously:
 - 🔍 **Discovers work** from error logs, feedback, and GitHub issues
 - ⚡ **Executes tasks** using Claude Code CLI
 - 🧠 **Learns and adapts** from results
@@ -51,25 +51,25 @@ CCAL continuously:
 
 ## 📁 Project Isolation
 
-Each project gets its own isolated CCAL instance:
+Each project gets its own isolated Sugar instance:
 
 ```
 your-project/
 ├── src/                    # Your project source
-├── .ccal/                  # CCAL-specific files (isolated)
+├── .sugar/                  # Sugar-specific files (isolated)
 │   ├── config.yaml         # Project-specific config
-│   ├── ccal.db            # Project-specific database
-│   ├── ccal.log           # Project-specific logs
+│   ├── sugar.db            # Project-specific database
+│   ├── sugar.log           # Project-specific logs
 │   └── context.json       # Claude context
 └── logs/errors/           # Your error logs (monitored)
 ```
 
 ## 🔧 Configuration
 
-Auto-generated `.ccal/config.yaml` with sensible defaults:
+Auto-generated `.sugar/config.yaml` with sensible defaults:
 
 ```yaml
-ccal:
+sugar:
   # Core Loop Settings
   loop_interval: 300  # 5 minutes between cycles
   max_concurrent_work: 3  # Execute multiple tasks per cycle
@@ -79,13 +79,13 @@ ccal:
   claude:
     command: "/path/to/claude"  # Auto-detected Claude CLI path
     timeout: 1800       # 30 minutes max per task
-    context_file: ".ccal/context.json"
+    context_file: ".sugar/context.json"
     
   # Work Discovery
   discovery:
     error_logs:
       enabled: true
-      paths: ["logs/errors/", "logs/feedback/", ".ccal/logs/"]
+      paths: ["logs/errors/", "logs/feedback/", ".sugar/logs/"]
       patterns: ["*.json", "*.log"]
       max_age_hours: 24
     
@@ -98,7 +98,7 @@ ccal:
       enabled: true
       root_path: "."
       file_extensions: [".py", ".js", ".ts", ".jsx", ".tsx"]
-      excluded_dirs: ["node_modules", ".git", "__pycache__", "venv", ".venv", ".ccal"]
+      excluded_dirs: ["node_modules", ".git", "__pycache__", "venv", ".venv", ".sugar"]
       max_files_per_scan: 50
       
     test_coverage:
@@ -109,7 +109,7 @@ ccal:
       
   # Storage
   storage:
-    database: ".ccal/ccal.db"  # Project-specific database
+    database: ".sugar/sugar.db"  # Project-specific database
     backup_interval: 3600  # 1 hour
     
   # Safety
@@ -119,12 +119,12 @@ ccal:
       - "/System"
       - "/usr/bin"
       - "/etc"
-      - ".ccal"
+      - ".sugar"
     
   # Logging
   logging:
     level: "INFO"
-    file: ".ccal/ccal.log"  # Project-specific logs
+    file: ".sugar/sugar.log"  # Project-specific logs
 ```
 
 ## 📋 Command Reference
@@ -132,55 +132,55 @@ ccal:
 ### Task Management
 ```bash
 # Add tasks with different types and priorities
-ccal add "Task title" [--type TYPE] [--priority 1-5] [--urgent] [--description DESC]
+sugar add "Task title" [--type TYPE] [--priority 1-5] [--urgent] [--description DESC]
 
 # Types: bug_fix, feature, test, refactor, documentation
 # Priority: 1 (low) to 5 (urgent)
 
 # List tasks
-ccal list [--status STATUS] [--type TYPE] [--limit N]
+sugar list [--status STATUS] [--type TYPE] [--limit N]
 
 # View specific task details
-ccal view TASK_ID
+sugar view TASK_ID
 
 # Update existing task
-ccal update TASK_ID [--title TITLE] [--description DESC] [--priority 1-5] [--type TYPE] [--status STATUS]
+sugar update TASK_ID [--title TITLE] [--description DESC] [--priority 1-5] [--type TYPE] [--status STATUS]
 
 # Remove task
-ccal remove TASK_ID
+sugar remove TASK_ID
 
 # Check system status
-ccal status
+sugar status
 ```
 
 ### System Operation
 ```bash
-# Initialize CCAL in current directory
-ccal init [--project-dir PATH]
+# Initialize Sugar in current directory
+sugar init [--project-dir PATH]
 
 # Run autonomous loop
-ccal run [--dry-run] [--once] [--validate]
+sugar run [--dry-run] [--once] [--validate]
 
 # Validate configuration
-ccal run --validate
+sugar run --validate
 ```
 
 ## 🔄 Multi-Project Usage
 
-Run CCAL across multiple projects simultaneously:
+Run Sugar across multiple projects simultaneously:
 
 ```bash
 # Project A
 cd /path/to/project-a
-ccal init && ccal run &
+sugar init && sugar run &
 
 # Project B  
 cd /path/to/project-b
-ccal init && ccal run &
+sugar init && sugar run &
 
 # Project C
 cd /path/to/project-c
-ccal init && ccal run &
+sugar init && sugar run &
 ```
 
 Each project operates independently with isolated:
@@ -192,25 +192,25 @@ Each project operates independently with isolated:
 
 - **Dry run mode** - Simulates execution without making changes (default)
 - **Path exclusions** - Prevents system file modifications  
-- **Project isolation** - Uses `.ccal/` directory to avoid conflicts
+- **Project isolation** - Uses `.sugar/` directory to avoid conflicts
 - **Timeout handling** - Prevents runaway processes
 - **Auto-detection** - Finds Claude CLI automatically
 - **Graceful shutdown** - Handles interrupts cleanly
 
 ## 💾 Storage & Context
 
-CCAL maintains project-specific data isolation:
+Sugar maintains project-specific data isolation:
 
-- **Project Database**: `.ccal/ccal.db` stores all task data, execution history, and learning
-- **Context Management**: `.ccal/context.json` preserves Claude Code session context
+- **Project Database**: `.sugar/sugar.db` stores all task data, execution history, and learning
+- **Context Management**: `.sugar/context.json` preserves Claude Code session context
 - **Automated Backups**: Regular database backups with configurable intervals
-- **Isolated Logs**: Project-specific logging in `.ccal/ccal.log`
+- **Isolated Logs**: Project-specific logging in `.sugar/sugar.log`
 
-Each CCAL instance is completely isolated - you can run multiple projects simultaneously without interference.
+Each Sugar instance is completely isolated - you can run multiple projects simultaneously without interference.
 
 ## 🔍 Work Discovery
 
-CCAL automatically finds work from:
+Sugar automatically finds work from:
 
 ### Error Logs
 Monitors specified directories for error files:
@@ -251,27 +251,27 @@ discovery:
 
 ## 📊 Monitoring
 
-Track CCAL across all your projects:
+Track Sugar across all your projects:
 
 ```bash
 # Check status
-ccal status
+sugar status
 
 # Monitor logs
-tail -f .ccal/ccal.log
+tail -f .sugar/sugar.log
 
 # List recent work
-ccal list --status completed --limit 10
+sugar list --status completed --limit 10
 
 # Background operation
-nohup ccal run > ccal-autonomous.log 2>&1 &
+nohup sugar run > sugar-autonomous.log 2>&1 &
 ```
 
 ## 🎛️ Advanced Usage
 
 ### Custom Error Integration
 
-Configure CCAL to monitor your application's error logs:
+Configure Sugar to monitor your application's error logs:
 
 ```yaml
 discovery:
@@ -284,7 +284,7 @@ discovery:
 
 ### Team Workflow
 
-1. Each developer runs CCAL locally
+1. Each developer runs Sugar locally
 2. Share configuration templates (without tokens)
 3. Different priorities for different team members
 4. GitHub integration prevents duplicate work
@@ -303,7 +303,7 @@ discovery:
 **Claude CLI not found:**
 ```bash
 claude --version  # Verify installation
-# Edit .ccal/config.yaml if needed
+# Edit .sugar/config.yaml if needed
 ```
 
 **No work discovered:**
@@ -312,7 +312,7 @@ claude --version  # Verify installation
 ls -la logs/errors/
 
 # Validate configuration  
-ccal run --validate
+sugar run --validate
 
 # Test with sample error
 echo '{"error": "test"}' > logs/errors/test.json
@@ -321,21 +321,21 @@ echo '{"error": "test"}' > logs/errors/test.json
 **Tasks not executing:**
 ```bash
 # Check dry_run setting
-cat .ccal/config.yaml | grep dry_run
+cat .sugar/config.yaml | grep dry_run
 
 # Monitor logs
-tail -f .ccal/ccal.log
+tail -f .sugar/sugar.log
 
 # Test single cycle
-ccal run --once
+sugar run --once
 ```
 
 ## 📚 Documentation
 
 - [**Library Usage Guide**](LIBRARY_USAGE.md) - Comprehensive installation and usage
-- [**CLI Documentation**](ccal-planning/CCAL_CLI_Documentation.md) - Complete command reference  
-- [**Architecture Plan**](ccal-planning/CCAL_Architecture_Plan.md) - System design and components
-- [**24/7 Strategy**](ccal-planning/24_7_Autonomous_Developer_Strategy.md) - Autonomous operation guide
+- [**CLI Documentation**](sugar-planning/Sugar_CLI_Documentation.md) - Complete command reference  
+- [**Architecture Plan**](sugar-planning/Sugar_Architecture_Plan.md) - System design and components
+- [**24/7 Strategy**](sugar-planning/24_7_Autonomous_Developer_Strategy.md) - Autonomous operation guide
 
 ## 🎯 Use Cases
 
@@ -370,7 +370,7 @@ ccal run --once
 
 1. Test changes with `--dry-run` and `--once`
 2. Validate configuration with `--validate`
-3. Check logs in `.ccal/ccal.log`
+3. Check logs in `.sugar/sugar.log`
 4. Follow existing code patterns
 5. Update documentation for new features
 
@@ -380,6 +380,6 @@ MIT License - see LICENSE file for details.
 
 ---
 
-**Claude CCAL v0.1.0** - Built for Claude Code CLI autonomous development across any project or codebase.
+**Claude Sugar v0.1.0** - Built for Claude Code CLI autonomous development across any project or codebase.
 
-*Transform any project into an autonomous development environment with just `ccal init`.*
+*Transform any project into an autonomous development environment with just `sugar init`.*
