@@ -12,6 +12,7 @@ setup(
     name="ccal",
     version="1.0.0",
     author="Steven Leggett",
+    author_email="contact@roboticforce.io",
     description="Claude Code Autonomous Loop - Proactive autonomous development system",
     long_description=long_description,
     long_description_content_type="text/markdown",

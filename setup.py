@@ -15,7 +15,7 @@ setup(
     long_description=README,
     long_description_content_type="text/markdown",
     author="Steven Leggett",
-    author_email="noreply@anthropic.com",
+    author_email="contact@roboticforce.io",
     url="https://github.com/anthropics/claude-ccal",
     packages=find_packages(),
     include_package_data=True,

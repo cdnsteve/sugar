@@ -10,7 +10,7 @@ readme = "README.md"
 requires-python = ">=3.11"
 license = {text = "MIT"}
 authors = [
-    {name = "Steven Leggett", email = "noreply@anthropic.com"}
+    {name = "Steven Leggett", email = "contact@roboticforce.io"}
 ]
 keywords = ["claude", "autonomous", "development", "ai", "automation"]
 classifiers = [
