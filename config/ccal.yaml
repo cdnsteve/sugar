@@ -1,0 +1,66 @@
+# CCAL Configuration
+ccal:
+  # Core Loop Settings
+  loop_interval: 300  # 5 minutes between cycles
+  max_concurrent_work: 3  # Execute multiple tasks per cycle
+  dry_run: false  # Use real Claude Code CLI
+  
+  # Claude Code Integration
+  claude:
+    command: "/Users/steve/.claude/local/claude"  # Full path to Claude CLI
+    timeout: 1800  # 30 minutes max per task
+    context_file: "ccal_context.json"
+    
+    # NEW: Context Persistence Settings
+    use_continuous: true              # Enable --continue flag support
+    context_strategy: "project"       # project|task_type|session
+    max_context_age_hours: 24         # Hours before starting fresh session
+    context_sharing: "same_type"      # same_type|all|none
+    
+  # Work Discovery
+  discovery:
+    error_logs:
+      enabled: true
+      paths:
+        - "../logs/errors/"
+        - "../logs/feedback/"
+      patterns:
+        - "*.json"
+        - "*.log"
+      max_age_hours: 24
+    
+    github:
+      enabled: false  # Set to true and configure to enable
+      repo: ""  # e.g., "user/repository"
+      token: ""  # GitHub token for API access
+      
+    code_quality:
+      enabled: true
+      root_path: ".."  # Path to analyze
+      file_extensions: [".py", ".js", ".ts", ".jsx", ".tsx"]
+      excluded_dirs: ["node_modules", ".git", "__pycache__", "venv", ".venv"]
+      max_files_per_scan: 50
+      
+    test_coverage:
+      enabled: true
+      root_path: ".."  # Path to analyze
+      source_dirs: ["src", "lib", "app", "system", "ccal"]
+      test_dirs: ["tests", "test", "__tests__", "spec"]
+      
+  # Storage
+  storage:
+    database: "ccal.db"
+    backup_interval: 3600  # 1 hour
+    
+  # Safety
+  safety:
+    max_retries: 3
+    excluded_paths:
+      - "/System"
+      - "/usr/bin"
+      - "/etc"
+    
+  # Logging
+  logging:
+    level: "INFO"
+    file: "ccal.log"

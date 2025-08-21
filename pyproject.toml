@@ -1,0 +1,74 @@
+[build-system]
+requires = ["setuptools>=45", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "claude-ccal"
+version = "0.1.0"
+description = "Claude Code Autonomous Loop - 24/7 autonomous development system"
+readme = "README.md"
+requires-python = ">=3.11"
+license = {text = "MIT"}
+authors = [
+    {name = "Claude CCAL", email = "noreply@anthropic.com"}
+]
+keywords = ["claude", "autonomous", "development", "ai", "automation"]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: Developers", 
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Topic :: Software Development :: Libraries :: Python Modules",
+    "Topic :: Software Development :: Quality Assurance"
+]
+
+dependencies = [
+    "click>=8.1.0",
+    "pyyaml>=6.0",
+    "aiosqlite>=0.19.0",
+    "sqlalchemy>=2.0.0",
+    "python-dotenv>=1.0.0",
+    "asyncio-throttle>=1.0.0",
+    "setuptools>=45"
+]
+
+[project.optional-dependencies]
+github = ["PyGithub>=1.59.0"]
+dev = [
+    "pytest>=7.0.0",
+    "pytest-asyncio>=0.21.0",
+    "black>=23.0.0",
+    "flake8>=6.0.0",
+    "mypy>=1.0.0"
+]
+
+[project.scripts]
+ccal = "claude_ccal.main:cli"
+
+[project.urls]
+Homepage = "https://github.com/anthropics/claude-ccal"
+Documentation = "https://docs.anthropic.com/claude-code"
+Repository = "https://github.com/anthropics/claude-ccal"
+"Bug Tracker" = "https://github.com/anthropics/claude-ccal/issues"
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["claude_ccal*"]
+exclude = ["tests*"]
+
+[tool.black]
+line-length = 88
+target-version = ['py311']
+
+[tool.mypy]
+python_version = "3.11"
+warn_return_any = true
+warn_unused_configs = true
+disallow_untyped_defs = true
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+testpaths = ["tests"]
+python_files = ["test_*.py", "*_test.py"]
