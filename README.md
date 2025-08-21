@@ -56,11 +56,23 @@ sugar run
 
 ## 🎯 What Sugar Does
 
+Sugar operates in **two modes**:
+
+### 🤖 Autonomous Discovery
 Sugar continuously:
 - 🔍 **Discovers work** from error logs, feedback, and GitHub issues
+- 📊 **Analyzes code quality** and identifies improvements
+- 🧪 **Detects missing tests** and coverage gaps
 - ⚡ **Executes tasks** using Claude Code CLI
 - 🧠 **Learns and adapts** from results
 - 🔄 **Repeats autonomously** without human intervention
+
+### 👤 Manual Task Management
+You can also directly add tasks:
+- 📝 **Add specific tasks** via `sugar add "task description"`
+- 🎯 **Set priorities** and task types (bug_fix, feature, test, etc.)
+- 📋 **Manage work queue** with full CLI control
+- 🔄 **Combined workflow** - manual tasks + autonomous discovery
 
 ## 📁 Project Isolation
 
@@ -221,8 +233,19 @@ Sugar maintains project-specific data isolation:
 
 Each Sugar instance is completely isolated - you can run multiple projects simultaneously without interference.
 
-## 🔍 Work Discovery
+## 🔍 Work Input Methods
 
+Sugar accepts work from **multiple sources**:
+
+### 📝 Manual CLI Input
+Direct task management via command line:
+```bash
+sugar add "Implement user registration" --type feature --priority 4
+sugar add "Fix authentication bug" --type bug_fix --urgent
+sugar add "Add API tests" --type test --priority 3
+```
+
+### 🤖 Autonomous Discovery
 Sugar automatically finds work from:
 
 ### Error Logs
@@ -370,10 +393,11 @@ sugar run --once
 
 ## 📚 Documentation
 
-- [**Library Usage Guide**](LIBRARY_USAGE.md) - Comprehensive installation and usage
-- [**CLI Documentation**](sugar-planning/Sugar_CLI_Documentation.md) - Complete command reference  
-- [**Architecture Plan**](sugar-planning/Sugar_Architecture_Plan.md) - System design and components
-- [**24/7 Strategy**](sugar-planning/24_7_Autonomous_Developer_Strategy.md) - Autonomous operation guide
+- **[Complete Documentation Hub](docs/README.md)** - All Sugar documentation
+- **[Quick Start Guide](docs/user/quick-start.md)** - Get up and running in 5 minutes
+- **[Installation Guide](docs/user/installation-guide.md)** - Comprehensive installation and usage
+- **[CLI Reference](docs/user/cli-reference.md)** - Complete command reference  
+- **[Contributing Guide](docs/dev/contributing.md)** - How to contribute to Sugar
 
 ## 🎯 Use Cases
 
