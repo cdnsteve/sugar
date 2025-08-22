@@ -39,7 +39,7 @@ def signal_handler(signum, frame):
     else:
         logger.warning("⚠️ Shutdown event not available")
 
-@click.group()
+@click.group(invoke_without_command=True)
 @click.option('--config', default='.sugar/config.yaml', help='Configuration file path')
 @click.option('--debug', is_flag=True, help='Enable debug logging')
 @click.option('--version', is_flag=True, help='Show version information')
@@ -53,6 +53,11 @@ def cli(ctx, config, debug, version):
     if version:
         click.echo(get_version_info())
         ctx.exit()
+    
+    # If no command was given, show help
+    if ctx.invoked_subcommand is None and not version:
+        click.echo(ctx.get_help())
+        return
     
     # Set logging level based on debug flag
     if debug:
