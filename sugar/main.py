@@ -133,23 +133,14 @@ def init(project_dir):
         (sugar_dir / 'logs').mkdir(exist_ok=True)
         (sugar_dir / 'backups').mkdir(exist_ok=True)
         
-        # Create sample error log for testing
-        logs_dir = project_path / 'logs' / 'errors'
+        # Create logs/errors directory structure (for user's actual error logs)
+        logs_dir = project_path / 'logs' / 'errors'  
         logs_dir.mkdir(parents=True, exist_ok=True)
         
-        # Create a sample success log instead of error to avoid confusion
-        sample_success = {
-            "timestamp": datetime.utcnow().isoformat(),
-            "level": "SUCCESS",
-            "message": "Sugar has been successfully initialized in this project",
-            "description": "Sugar initialization completed with all discovery modules enabled",
-            "component": "sugar_init",
-            "discovery_modules": ["error_monitor", "code_quality", "test_coverage"]
-        }
-        
-        # Write to success log instead of error log to avoid creating bogus work items
-        with open(logs_dir / 'sugar_init_success.json', 'w') as f:
-            json.dump(sample_success, f, indent=2)
+        # Create .gitkeep to preserve directory structure but don't create sample files
+        # that would be discovered as work items
+        with open(logs_dir / '.gitkeep', 'w') as f:
+            f.write('# This directory is monitored by Sugar for error logs\n')
         
         click.echo(f"✅ {get_version_info()} initialized successfully!")
         click.echo(f"📁 Config: {config_path}")
@@ -1381,6 +1372,7 @@ def cleanup(ctx, dry_run):
             bogus_patterns = [
                 "Sugar initialization test",
                 "Sugar has been successfully initialized",
+                "sugar_init_success.json",
                 "init_test.json",
                 "/venv/lib/",
                 "/venv/site-packages/",
