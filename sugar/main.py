@@ -1226,6 +1226,23 @@ sugar:
   logging:
     level: "INFO"
     file: ".sugar/sugar.log"  # Project-specific logs
+    
+  # Unified Workflow System
+  workflow:
+    # Workflow profiles: solo (fast), balanced (process), enterprise (governance)
+    profile: "solo"  # Recommended for individual developers
+    
+    # Profile overrides (uncomment to customize beyond profiles)
+    # custom:
+    #   git:
+    #     workflow_type: "direct_commit"  # direct_commit | pull_request
+    #     commit_style: "conventional"    # conventional | simple
+    #     auto_commit: true
+    #   github:
+    #     auto_create_issues: false       # Create GitHub issues for discovered work
+    #     update_existing_issues: true    # Update issues from GitHub discovery
+    #   discovery:
+    #     handle_internally: true         # Keep test/quality improvements internal
 """
 
 @cli.command()

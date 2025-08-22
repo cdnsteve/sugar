@@ -17,6 +17,7 @@ from ..storage.work_queue import WorkQueue
 from ..learning.feedback_processor import FeedbackProcessor
 from ..learning.adaptive_scheduler import AdaptiveScheduler
 from ..utils.git_operations import GitOperations
+from ..workflow.orchestrator import WorkflowOrchestrator
 from ..__version__ import get_version_info
 
 logger = logging.getLogger(__name__)
@@ -39,6 +40,9 @@ class SugarLoop:
         
         # Initialize git operations
         self.git_ops = GitOperations()
+        
+        # Initialize workflow orchestrator
+        self.workflow_orchestrator = WorkflowOrchestrator(self.config, self.git_ops)
         
         # Initialize work discovery modules
         self.discovery_modules = []
@@ -263,18 +267,27 @@ class SugarLoop:
             
             logger.info(f"⚡ Executing work [{work_item['id']}]: {work_item['title']}")
             
-            # Start GitHub workflow if this work came from GitHub
-            branch_info = await self._start_github_workflow(work_item)
+            # Prepare unified workflow (replaces GitHub-specific workflow)
+            workflow = await self.workflow_orchestrator.prepare_work_execution(work_item)
             
             try:
                 # Execute with Claude Code
                 result = await self.claude_executor.execute_work(work_item)
                 
+                # Complete unified workflow (commit, branch, PR, issues)
+                workflow_success = await self.workflow_orchestrator.complete_work_execution(
+                    work_item, workflow, result
+                )
+                
+                if not workflow_success:
+                    logger.warning(f"⚠️ Workflow completion had issues for [{work_item['id']}]")
+                
                 # Update work item with result
                 await self.work_queue.complete_work(work_item['id'], result)
                 
-                # Complete GitHub workflow (commit, PR, close issue)
-                await self._complete_github_workflow(work_item, result, branch_info)
+                # Handle GitHub issue updates if needed (for GitHub-sourced work)
+                if work_item.get('source_type') == 'github_watcher':
+                    await self._update_github_issue(work_item, result)
                 
                 logger.info(f"✅ Work completed [{work_item['id']}]: {work_item['title']}")
                 
@@ -283,7 +296,7 @@ class SugarLoop:
                 await self.work_queue.fail_work(work_item['id'], str(e))
                 
                 # Handle failed workflow cleanup
-                await self._handle_failed_workflow(work_item, branch_info, str(e))
+                await self._handle_failed_workflow(work_item, workflow, str(e))
     
     async def _process_feedback(self):
         """Process execution results and learn from them"""
@@ -900,16 +913,48 @@ class SugarLoop:
             logger.error(f"Error creating pull request: {e}")
             return None
     
-    async def _handle_failed_workflow(self, work_item: dict, branch_info: dict, error: str):
-        """Handle cleanup when workflow fails"""
+    async def _update_github_issue(self, work_item: dict, result: dict):
+        """Update GitHub issue for completed work (replaces full GitHub workflow)"""
         try:
-            # If we created a branch, switch back to original
-            if branch_info.get('created_branch') and branch_info.get('original_branch'):
-                await self.git_ops._run_git_command(['checkout', branch_info['original_branch']])
-                logger.info(f"🔄 Switched back to {branch_info['original_branch']} after failure")
+            if not work_item.get('context', {}).get('github_issue'):
+                return
+                
+            github_watcher = self._get_github_watcher()
+            if not github_watcher:
+                logger.warning("⚠️ No GitHub watcher available for issue update")
+                return
+                
+            # Use existing GitHub comment functionality
+            await self._comment_on_github_issue(work_item, result)
             
-            # Comment on issue about the failure
-            if (work_item.get('source') == 'github_watcher' and 
+            # Check if we should auto-close the issue
+            github_config = self.config['sugar']['discovery'].get('github', {})
+            if github_config.get('workflow', {}).get('auto_close_issues', True):
+                issue_number = work_item['context']['github_issue'].get('number')
+                if issue_number:
+                    try:
+                        await github_watcher.close_issue(issue_number)
+                        logger.info(f"🔒 Closed GitHub issue #{issue_number}")
+                    except Exception as e:
+                        logger.warning(f"⚠️ Could not close GitHub issue #{issue_number}: {e}")
+                        
+        except Exception as e:
+            logger.error(f"❌ Failed to update GitHub issue: {e}")
+
+    async def _handle_failed_workflow(self, work_item: dict, workflow: dict, error: str):
+        """Handle cleanup when unified workflow fails"""
+        try:
+            # If we created a branch, switch back to main/master
+            if workflow.get('branch_name'):
+                current_branch = await self.git_ops.get_current_branch()
+                if current_branch == workflow['branch_name']:
+                    # Switch back to main branch
+                    base_branch = self.config['sugar']['discovery'].get('github', {}).get('workflow', {}).get('base_branch', 'main')
+                    await self.git_ops._run_git_command(['checkout', base_branch])
+                    logger.info(f"🔄 Switched back to {base_branch} after failure")
+            
+            # Comment on GitHub issue if this was GitHub-sourced work
+            if (work_item.get('source_type') == 'github_watcher' and 
                 work_item.get('context', {}).get('github_issue')):
                 
                 github_watcher = self._get_github_watcher()
