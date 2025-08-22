@@ -305,16 +305,25 @@ class ErrorLogMonitor:
         maintenance_tasks = []
         
         try:
-            # Find Python files in the project that might need attention
+            # Find Python files in the CURRENT project directory only
             project_files = []
-            for root, dirs, files in os.walk('..'):
-                # Skip certain directories
-                dirs[:] = [d for d in dirs if d not in ['.git', '__pycache__', 'venv', '.venv', 'node_modules']]
+            current_dir = '.'  # Current project directory only
+            
+            for root, dirs, files in os.walk(current_dir):
+                # Skip certain directories (including Sugar's own directory)
+                dirs[:] = [d for d in dirs if d not in [
+                    '.git', '__pycache__', 'venv', '.venv', 'node_modules', 
+                    '.sugar', '.claude', 'env', '.env', 'ENV', 'build', 'dist'
+                ]]
                 
                 for file in files:
                     if file.endswith('.py') and not file.startswith('.'):
                         file_path = os.path.join(root, file)
-                        project_files.append(file_path)
+                        # Ensure we're staying within the project directory
+                        abs_file_path = os.path.abspath(file_path)
+                        abs_current_dir = os.path.abspath(current_dir)
+                        if abs_file_path.startswith(abs_current_dir):
+                            project_files.append(file_path)
             
             # Select a few files for maintenance tasks
             import random

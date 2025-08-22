@@ -17,7 +17,12 @@ class TestCoverageAnalyzer:
     
     def __init__(self, config: dict):
         self.config = config
-        self.root_path = config.get('root_path', '.')
+        # Ensure root_path stays within project directory
+        root_path = config.get('root_path', '.')
+        if root_path != '.' and ('..' in root_path or root_path.startswith('/')):
+            logger.warning(f"Suspicious root_path '{root_path}', defaulting to current directory '.'")
+            root_path = '.'
+        self.root_path = os.path.abspath(root_path)
         self.source_dirs = config.get('source_dirs', ['src', 'lib', 'app'])
         self.test_dirs = config.get('test_dirs', ['tests', 'test', '__tests__', 'spec'])
         self.excluded_dirs = config.get('excluded_dirs', [
@@ -35,6 +40,12 @@ class TestCoverageAnalyzer:
     def _should_exclude_path(self, path: str) -> bool:
         """Check if a path should be excluded based on excluded_dirs configuration"""
         path_obj = Path(path)
+        
+        # Security check: Ensure path stays within project boundaries
+        abs_path = os.path.abspath(path)
+        if not abs_path.startswith(self.root_path):
+            logger.warning(f"Path '{path}' is outside project directory, excluding")
+            return True
         
         # Check if any part of the path matches excluded directories
         for part in path_obj.parts:
@@ -307,10 +318,8 @@ class TestCoverageAnalyzer:
         """Find complex functions that need testing"""
         complex_functions = []
         
-        # Debug: Test the exclusion logic with a known problematic path
-        test_path = "./venv/lib/python3.13/site-packages/typing_extensions.py"
-        should_exclude = self._should_exclude_path(test_path)
-        logger.info(f"Testing exclusion for {test_path}: should_exclude = {should_exclude}")
+        # Ensure we stay within project directory boundaries
+        project_root = os.path.abspath(self.root_path)
         
         for root, dirs, files in os.walk(self.root_path):
             # Skip excluded directories

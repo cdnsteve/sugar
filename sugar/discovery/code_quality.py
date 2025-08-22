@@ -17,7 +17,12 @@ class CodeQualityScanner:
     
     def __init__(self, config: dict):
         self.config = config
-        self.root_path = config.get('root_path', '.')
+        # Ensure root_path stays within project directory
+        root_path = config.get('root_path', '.')
+        if root_path != '.' and ('..' in root_path or root_path.startswith('/')):
+            logger.warning(f"Suspicious root_path '{root_path}', defaulting to current directory '.'")
+            root_path = '.'
+        self.root_path = os.path.abspath(root_path)
         self.file_extensions = config.get('file_extensions', ['.py', '.js', '.ts', '.jsx', '.tsx'])
         self.excluded_dirs = set(config.get('excluded_dirs', [
             'node_modules', '.git', '__pycache__', '.pytest_cache', 
@@ -103,6 +108,12 @@ class CodeQualityScanner:
         """Check if a path contains any excluded directory"""
         if path == '.' or path == '':
             return False
+        
+        # Security check: Ensure path stays within project boundaries
+        abs_path = os.path.abspath(path)
+        if not abs_path.startswith(self.root_path):
+            logger.warning(f"Path '{path}' is outside project directory, excluding")
+            return True
             
         # Split path into components and check each
         path_parts = Path(path).parts
