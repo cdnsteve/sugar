@@ -53,13 +53,25 @@ EXPOSE 8000
 HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
     CMD sugar --version || exit 1
 
-# Default command
+# Default command - provides interactive shell for project setup
+# 
+# USAGE:
+# 1. Mount your project: docker run -v /path/to/project:/home/sugar/projects/my-project -it sugar
+# 2. Navigate to project: cd my-project  
+# 3. Initialize Sugar: sugar init
+# 4. Configure agents in .sugar/config.yaml (optional)
+# 5. Start autonomous development: sugar run
+#
+# For Claude agent integration, configure your available agents in .sugar/config.yaml:
+#   claude:
+#     enable_agents: true
+#     available_agents: ["tech-lead", "code-reviewer", "my-custom-agent"]
 CMD ["bash"]
 
 # Labels
 LABEL org.opencontainers.image.title="Sugar" \
-      org.opencontainers.image.description="AI-powered autonomous development system for Claude Code CLI" \
+      org.opencontainers.image.description="AI-powered autonomous development system with Claude agent integration" \
       org.opencontainers.image.url="https://github.com/cdnsteve/sugar" \
       org.opencontainers.image.source="https://github.com/cdnsteve/sugar" \
-      org.opencontainers.image.version="0.1.0" \
+      org.opencontainers.image.version="1.2.0" \
       org.opencontainers.image.authors="Steven Leggett <contact@roboticforce.io>"
