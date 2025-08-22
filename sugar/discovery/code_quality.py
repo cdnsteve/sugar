@@ -21,7 +21,9 @@ class CodeQualityScanner:
         self.file_extensions = config.get('file_extensions', ['.py', '.js', '.ts', '.jsx', '.tsx'])
         self.excluded_dirs = set(config.get('excluded_dirs', [
             'node_modules', '.git', '__pycache__', '.pytest_cache', 
-            'venv', 'env', '.venv', 'dist', 'build', '.next'
+            'venv', 'env', '.venv', '.env', 'ENV', 'env.bak', 'venv.bak', 
+            'virtualenv', 'dist', 'build', '.next', '.tox', '.nox',
+            'coverage', 'htmlcov', '.sugar', '.claude'
         ]))
         self.max_files_per_scan = config.get('max_files_per_scan', 50)
         
@@ -33,9 +35,17 @@ class CodeQualityScanner:
             # Find files to analyze
             files_to_scan = await self._get_files_to_scan()
             
+            logger.debug(f"🔍 CodeQualityScanner scanning {len(files_to_scan)} files (max: {self.max_files_per_scan})")
+            
             # Analyze each file for quality issues
             for file_path in files_to_scan[:self.max_files_per_scan]:
                 try:
+                    # Extra safety check - don't analyze excluded paths
+                    rel_path = os.path.relpath(file_path, self.root_path)
+                    if self._path_contains_excluded_dir(rel_path):
+                        logger.debug(f"🚫 Skipping excluded path: {rel_path}")
+                        continue
+                        
                     issues = await self._analyze_file(file_path)
                     for issue in issues:
                         work_item = self._create_work_item_from_issue(issue, file_path)
@@ -58,12 +68,25 @@ class CodeQualityScanner:
         files = []
         
         for root, dirs, filenames in os.walk(self.root_path):
-            # Skip excluded directories
+            # Convert relative path for checking
+            rel_root = os.path.relpath(root, self.root_path)
+            
+            # Skip if current path contains any excluded directories
+            if self._path_contains_excluded_dir(rel_root):
+                dirs.clear()  # Don't recurse into this directory
+                continue
+                
+            # Filter out excluded directories from further traversal
             dirs[:] = [d for d in dirs if d not in self.excluded_dirs]
             
             for filename in filenames:
                 if any(filename.endswith(ext) for ext in self.file_extensions):
                     file_path = os.path.join(root, filename)
+                    
+                    # Double-check: Skip if file path contains excluded directories
+                    rel_file_path = os.path.relpath(file_path, self.root_path)
+                    if self._path_contains_excluded_dir(rel_file_path):
+                        continue
                     
                     # Skip very large files
                     try:
@@ -75,6 +98,18 @@ class CodeQualityScanner:
                     files.append(file_path)
         
         return files
+    
+    def _path_contains_excluded_dir(self, path: str) -> bool:
+        """Check if a path contains any excluded directory"""
+        if path == '.' or path == '':
+            return False
+            
+        # Split path into components and check each
+        path_parts = Path(path).parts
+        for part in path_parts:
+            if part in self.excluded_dirs:
+                return True
+        return False
     
     async def _analyze_file(self, file_path: str) -> List[Dict[str, Any]]:
         """Analyze a single file for quality issues"""
