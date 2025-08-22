@@ -369,6 +369,158 @@ def update(ctx, task_id, title, description, priority, task_type, status):
         sys.exit(1)
 
 @cli.command()
+@click.option('--lines', '-n', default=50, help='Number of log lines to show')
+@click.option('--follow', '-f', is_flag=True, help='Follow log output (like tail -f)')
+@click.option('--level', type=click.Choice(['DEBUG', 'INFO', 'WARNING', 'ERROR']), help='Filter by log level')
+@click.pass_context
+def logs(ctx, lines, follow, level):
+    """Show Sugar logs with debugging information"""
+    import yaml
+    
+    try:
+        config_file = ctx.obj['config']
+        with open(config_file, 'r') as f:
+            config = yaml.safe_load(f)
+        
+        log_file = config.get('sugar', {}).get('logging', {}).get('file', '.sugar/sugar.log')
+        log_path = Path(log_file)
+        
+        if not log_path.exists():
+            click.echo(f"❌ Log file not found: {log_path}")
+            return
+        
+        if follow:
+            click.echo(f"📋 Following Sugar logs (Ctrl+C to stop): {log_path}")
+            click.echo("=" * 60)
+            
+            # Use tail -f equivalent
+            import subprocess
+            import sys
+            
+            cmd = ['tail', '-f']
+            if lines != 50:
+                cmd.extend(['-n', str(lines)])
+            cmd.append(str(log_path))
+            
+            try:
+                process = subprocess.Popen(cmd, stdout=sys.stdout, stderr=sys.stderr)
+                process.wait()
+            except KeyboardInterrupt:
+                process.terminate()
+                click.echo("\n👋 Stopped following logs")
+        else:
+            click.echo(f"📋 Last {lines} lines from Sugar logs: {log_path}")
+            click.echo("=" * 60)
+            
+            # Read last N lines
+            with open(log_path, 'r') as f:
+                log_lines = f.readlines()
+            
+            # Filter by level if specified
+            if level:
+                log_lines = [line for line in log_lines if f" - {level} - " in line]
+            
+            # Show last N lines
+            for line in log_lines[-lines:]:
+                click.echo(line.rstrip())
+    
+    except Exception as e:
+        click.echo(f"❌ Error reading logs: {e}", err=True)
+        sys.exit(1)
+
+@cli.command()
+@click.pass_context
+def debug(ctx):
+    """Show debugging information about last Claude execution"""
+    import yaml
+    import os
+    
+    try:
+        config_file = ctx.obj['config']
+        with open(config_file, 'r') as f:
+            config = yaml.safe_load(f)
+        
+        # Check if session state exists
+        context_file = config.get('sugar', {}).get('claude', {}).get('context_file', '.sugar/context.json')
+        session_file = context_file.replace('.json', '_session.json')
+        
+        click.echo("🔍 Sugar Debug Information")
+        click.echo("=" * 50)
+        
+        # Show session state
+        if Path(session_file).exists():
+            with open(session_file, 'r') as f:
+                session_state = json.load(f)
+            
+            click.echo("📋 Last Session State:")
+            click.echo(f"   Last execution: {session_state.get('last_execution_time', 'unknown')}")
+            click.echo(f"   Task type: {session_state.get('last_task_type', 'unknown')}")
+            click.echo(f"   Context strategy: {session_state.get('context_strategy', 'unknown')}")
+            click.echo(f"   Execution count: {session_state.get('execution_count', 0)}")
+            click.echo(f"   Simulated: {session_state.get('simulated', False)}")
+            click.echo()
+        else:
+            click.echo("📋 No session state found (fresh start)")
+            click.echo()
+        
+        # Show current context file
+        if Path(context_file).exists():
+            with open(context_file, 'r') as f:
+                context = json.load(f)
+            
+            click.echo("📄 Current Context:")
+            click.echo(f"   Continue session: {context.get('continue_session', False)}")
+            click.echo(f"   Execution count: {context.get('execution_count', 0)}")
+            click.echo(f"   Safety mode: {context.get('safety_mode', True)}")
+            click.echo()
+        else:
+            click.echo("📄 No context file found")
+            click.echo()
+        
+        # Show Claude CLI configuration
+        claude_config = config.get('sugar', {}).get('claude', {})
+        click.echo("🤖 Claude Configuration:")
+        click.echo(f"   Command: {claude_config.get('command', 'unknown')}")
+        click.echo(f"   Timeout: {claude_config.get('timeout', 'unknown')}s")
+        click.echo(f"   Use continuous: {claude_config.get('use_continuous', True)}")
+        click.echo(f"   Context strategy: {claude_config.get('context_strategy', 'project')}")
+        click.echo()
+        
+        # Show working directory and key files
+        click.echo("📁 Environment:")
+        click.echo(f"   Working directory: {os.getcwd()}")
+        click.echo(f"   Config file: {config_file}")
+        click.echo(f"   Context file: {context_file}")
+        click.echo(f"   Session file: {session_file}")
+        click.echo()
+        
+        # Test Claude CLI availability
+        claude_cmd = claude_config.get('command', 'claude')
+        click.echo("🧪 Claude CLI Test:")
+        try:
+            import subprocess
+            result = subprocess.run([claude_cmd, '--version'], capture_output=True, text=True, timeout=10)
+            if result.returncode == 0:
+                click.echo(f"   ✅ Claude CLI working: {result.stdout.strip()}")
+            else:
+                click.echo(f"   ❌ Claude CLI error: {result.stderr.strip()}")
+        except Exception as e:
+            click.echo(f"   ❌ Claude CLI not found: {e}")
+        click.echo()
+        
+        # Suggest next steps
+        click.echo("💡 Debugging Tips:")
+        click.echo("   • Use 'sugar logs -f' to follow live logs")
+        click.echo("   • Use 'sugar logs --level DEBUG' to see detailed execution")
+        click.echo("   • Check if Claude CLI works: claude --version")
+        click.echo("   • Try dry run mode first: set dry_run: true in config")
+        click.echo("   • Use 'sugar run --once --dry-run' to test execution")
+        
+    except Exception as e:
+        click.echo(f"❌ Error getting debug info: {e}", err=True)
+        sys.exit(1)
+
+@cli.command()
 @click.pass_context  
 def status(ctx):
     """Show Sugar system status and queue statistics"""

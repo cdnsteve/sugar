@@ -286,9 +286,12 @@ Please provide:
         
         if continue_session:
             # Use --continue flag to maintain conversation context
+            # For continuation, we need to create a file with the task and use --continue with that file
             logger.info(f"🔄 Executing Claude CLI with --continue")
-            cmd = [self.command, '--continue', '--print', prompt]
-            prompt_file = None
+            with tempfile.NamedTemporaryFile(mode='w', suffix='.md', delete=False) as f:
+                f.write(prompt)
+                prompt_file = f.name
+            cmd = [self.command, '--continue', prompt_file]
         else:
             # Fresh session - use temporary file for the prompt
             logger.info(f"🆕 Executing Claude CLI with fresh session")
@@ -296,17 +299,27 @@ Please provide:
             with tempfile.NamedTemporaryFile(mode='w', suffix='.md', delete=False) as f:
                 f.write(prompt)
                 prompt_file = f.name
-            cmd = [self.command, '--print', prompt_file]
+            cmd = [self.command, prompt_file]
+        
+        # Log more details about execution
+        logger.info(f"🤖 Executing Claude CLI: {' '.join(cmd[:4])}...")
+        logger.info(f"📁 Working directory: {os.getcwd()}")
+        logger.info(f"⏱️ Timeout set to: {self.timeout}s")
+        if continue_session:
+            logger.info(f"🔄 Using continuation mode")
+        else:
+            logger.info(f"📝 Prompt saved to: {prompt_file}")
+            logger.info(f"📄 Prompt length: {len(prompt)} characters")
         
         try:
-            logger.info(f"🤖 Executing Claude CLI: {' '.join(cmd[:3])}...")  # Don't log full prompt
-            
             process = await asyncio.create_subprocess_exec(
                 *cmd,
                 stdout=asyncio.subprocess.PIPE,
                 stderr=asyncio.subprocess.PIPE,
                 cwd=os.getcwd()
             )
+            
+            logger.info(f"🚀 Claude process started (PID: {process.pid})")
             
             # Wait for completion with timeout
             try:
@@ -315,30 +328,60 @@ Please provide:
                     timeout=self.timeout
                 )
             except asyncio.TimeoutError:
+                logger.error(f"⏰ Claude CLI execution timed out after {self.timeout}s")
                 process.kill()
                 raise Exception(f"Claude CLI execution timed out after {self.timeout}s")
             
             execution_time = (datetime.utcnow() - start_time).total_seconds()
             
+            # Detailed logging of results
+            logger.info(f"✅ Claude process completed in {execution_time:.2f}s")
+            logger.info(f"📤 Return code: {process.returncode}")
+            
+            stdout_text = stdout.decode('utf-8')
+            stderr_text = stderr.decode('utf-8')
+            
+            logger.info(f"📤 Stdout length: {len(stdout_text)} characters")
+            logger.info(f"📤 Stderr length: {len(stderr_text)} characters")
+            
+            # Log first few lines of output for debugging
+            if stdout_text:
+                stdout_preview = '\n'.join(stdout_text.split('\n')[:5])
+                logger.info(f"📤 Stdout preview:\n{stdout_preview}")
+                if len(stdout_text.split('\n')) > 5:
+                    logger.info(f"📤 ... (truncated, {len(stdout_text.split('\n'))} total lines)")
+            
+            if stderr_text:
+                stderr_preview = '\n'.join(stderr_text.split('\n')[:3])
+                logger.info(f"⚠️ Stderr preview:\n{stderr_preview}")
+                if len(stderr_text.split('\n')) > 3:
+                    logger.info(f"⚠️ ... (truncated, {len(stderr_text.split('\n'))} total lines)")
+            
             # Process results
             if process.returncode == 0:
+                logger.info(f"✅ Claude execution successful")
                 return {
-                    "stdout": stdout.decode('utf-8'),
-                    "stderr": stderr.decode('utf-8'),
+                    "stdout": stdout_text,
+                    "stderr": stderr_text,
                     "returncode": process.returncode,
                     "execution_time": execution_time,
                     "success": True,
                     "continued_session": continue_session,
-                    "command": ' '.join(cmd[:3]) + ('...' if len(cmd) > 3 else '')
+                    "command": ' '.join(cmd[:3]) + ('...' if len(cmd) > 3 else ''),
+                    "prompt_length": len(prompt),
+                    "working_directory": os.getcwd()
                 }
             else:
-                raise Exception(f"Claude CLI failed with return code {process.returncode}: {stderr.decode('utf-8')}")
+                logger.error(f"❌ Claude CLI failed with return code {process.returncode}")
+                logger.error(f"❌ Error output: {stderr_text}")
+                raise Exception(f"Claude CLI failed with return code {process.returncode}: {stderr_text}")
                 
         finally:
             # Clean up temporary file if used
             if prompt_file:
                 try:
                     os.unlink(prompt_file)
+                    logger.debug(f"🗑️ Cleaned up temporary file: {prompt_file}")
                 except Exception as e:
                     logger.warning(f"Could not delete temporary file: {e}")
     
