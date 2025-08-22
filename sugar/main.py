@@ -723,7 +723,21 @@ sugar:
     github:
       enabled: false  # Set to true and configure to enable
       repo: ""  # e.g., "user/repository"
-      token: ""  # GitHub token for API access
+      
+      # Authentication method: "token", "gh_cli", or "auto"
+      auth_method: "auto"  # Try gh CLI first, fallback to token
+      
+      # GitHub Personal Access Token (if using "token" method)
+      token: ""  # Or set GITHUB_TOKEN environment variable
+      
+      # GitHub CLI integration (if using "gh_cli" method)  
+      gh_cli:
+        command: "gh"  # Path to gh command
+        use_default_auth: true  # Use gh CLI's existing authentication
+        
+      # Discovery settings
+      issue_labels: ["bug", "enhancement", "good-first-issue"]
+      check_interval_minutes: 30
       
     code_quality:
       enabled: true

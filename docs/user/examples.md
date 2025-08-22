@@ -166,6 +166,7 @@ sugar:
     github:
       enabled: true
       repo: "myorg/myproject"
+      auth_method: "auto"  # Try gh CLI first, fallback to token
       token: "${GITHUB_TOKEN}"
       issue_labels: ["bug", "enhancement", "good-first-issue"]
     

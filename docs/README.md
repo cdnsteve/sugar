@@ -11,6 +11,7 @@ Documentation for developers who want to **use** Sugar in their projects:
 - **[Quick Start Guide](user/quick-start.md)** - Get up and running in 5 minutes
 - **[Execution Context](user/execution-context.md)** - Where and how to run Sugar correctly
 - **[CLI Reference](user/cli-reference.md)** - All Sugar commands and options
+- **[GitHub Integration](user/github-integration.md)** - Connect Sugar to GitHub issues and PRs
 - **[Examples](user/examples.md)** - Real-world usage examples
 - **[Configuration Reference](user/configuration.md)** - Complete configuration options
 - **[Troubleshooting](user/troubleshooting.md)** - Common issues and solutions

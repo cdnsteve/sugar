@@ -413,6 +413,7 @@ sugar run --once
 - **[Complete Documentation Hub](docs/README.md)** - All Sugar documentation
 - **[Quick Start Guide](docs/user/quick-start.md)** - Get up and running in 5 minutes
 - **[Local Development Setup](docs/dev/local-development.md)** - Install and test Sugar locally (before PyPI)
+- **[GitHub Integration](docs/user/github-integration.md)** - Connect Sugar to GitHub issues and PRs
 - **[Installation Guide](docs/user/installation-guide.md)** - Comprehensive installation and usage
 - **[CLI Reference](docs/user/cli-reference.md)** - Complete command reference  
 - **[Contributing Guide](docs/dev/contributing.md)** - How to contribute to Sugar
