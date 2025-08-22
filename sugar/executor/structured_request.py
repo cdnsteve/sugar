@@ -144,6 +144,10 @@ class StructuredResponse:
     error_message: Optional[str] = None
     error_type: Optional[str] = None
     
+    # Quality metrics
+    response_quality_score: Optional[float] = None  # 0.0 to 1.0 quality rating
+    confidence_level: Optional[str] = None  # high, medium, low
+    
     # Metadata
     timestamp: Optional[str] = None
     claude_version: Optional[str] = None
@@ -166,7 +170,7 @@ class StructuredResponse:
     @classmethod
     def from_claude_output(cls, stdout: str, stderr: str, return_code: int, 
                           execution_time: float, agent_used: Optional[str] = None) -> 'StructuredResponse':
-        """Create structured response from raw Claude output"""
+        """Create structured response from raw Claude output with enhanced parsing"""
         success = return_code == 0 and not stderr.strip()
         
         # Try to parse structured JSON response from Claude
@@ -192,7 +196,11 @@ class StructuredResponse:
         except (json.JSONDecodeError, KeyError):
             pass
             
-        # Fallback to basic response parsing
+        # Enhanced response parsing with agent-specific extraction
+        quality_score, confidence_level = cls._assess_response_quality(
+            stdout, stderr, return_code, agent_used, execution_time
+        )
+        
         return cls(
             success=success,
             execution_time=execution_time,
@@ -200,8 +208,11 @@ class StructuredResponse:
             stdout=stdout,
             stderr=stderr,
             return_code=return_code,
-            summary=cls._extract_summary_from_output(stdout),
-            actions_taken=cls._extract_actions_from_output(stdout)
+            summary=cls._extract_enhanced_summary(stdout, agent_used),
+            actions_taken=cls._extract_enhanced_actions(stdout, agent_used),
+            files_modified=cls._extract_files_from_output(stdout),
+            response_quality_score=quality_score,
+            confidence_level=confidence_level
         )
     
     @staticmethod
@@ -237,6 +248,261 @@ class StructuredResponse:
                 actions.append(line)
         
         return actions[:10]  # Limit to first 10 actions
+    
+    @staticmethod
+    def _extract_enhanced_summary(stdout: str, agent_used: Optional[str] = None) -> str:
+        """Extract enhanced summary with agent-specific parsing"""
+        if not stdout:
+            return ""
+        
+        lines = stdout.strip().split('\n')
+        
+        # Agent-specific summary extraction patterns
+        if agent_used == 'tech-lead':
+            # Look for strategic analysis and architectural insights
+            for line in lines:
+                if any(phrase in line.lower() for phrase in [
+                    'analysis:', 'architectural', 'strategic approach', 'implementation strategy',
+                    'design decision', 'technical solution', 'approach taken', 'solution architecture'
+                ]):
+                    return line.strip()
+        
+        elif agent_used == 'code-reviewer':
+            # Look for code quality insights and improvement recommendations
+            for line in lines:
+                if any(phrase in line.lower() for phrase in [
+                    'code review', 'refactored', 'improved', 'optimized', 'cleaned up',
+                    'better practices', 'code quality', 'maintainability', 'performance improvement'
+                ]):
+                    return line.strip()
+        
+        elif agent_used == 'social-media-growth-strategist':
+            # Look for engagement and growth insights
+            for line in lines:
+                if any(phrase in line.lower() for phrase in [
+                    'engagement strategy', 'growth tactics', 'content strategy', 'audience',
+                    'social media', 'followers', 'reach', 'viral potential', 'community building'
+                ]):
+                    return line.strip()
+        
+        # Fallback to general summary extraction
+        return StructuredResponse._extract_summary_from_output(stdout)
+    
+    @staticmethod
+    def _extract_enhanced_actions(stdout: str, agent_used: Optional[str] = None) -> List[str]:
+        """Extract enhanced actions with agent-specific patterns"""
+        if not stdout:
+            return []
+        
+        # Start with general action extraction
+        actions = StructuredResponse._extract_actions_from_output(stdout)
+        
+        # Add agent-specific action patterns
+        lines = stdout.strip().split('\n')
+        
+        if agent_used == 'tech-lead':
+            # Look for strategic and architectural actions
+            for line in lines:
+                if any(phrase in line.lower() for phrase in [
+                    'designed', 'architected', 'planned', 'strategized', 'analyzed system',
+                    'evaluated approach', 'considered alternatives', 'recommended solution',
+                    'assessed impact', 'reviewed design', 'validated architecture'
+                ]):
+                    actions.append(line.strip())
+        
+        elif agent_used == 'code-reviewer':
+            # Look for code quality and review actions
+            for line in lines:
+                if any(phrase in line.lower() for phrase in [
+                    'reviewed code', 'identified issues', 'suggested improvements', 'refactored',
+                    'optimized performance', 'enhanced readability', 'improved structure',
+                    'applied best practices', 'eliminated code smell', 'increased maintainability'
+                ]):
+                    actions.append(line.strip())
+        
+        elif agent_used == 'social-media-growth-strategist':
+            # Look for social media and growth actions
+            for line in lines:
+                if any(phrase in line.lower() for phrase in [
+                    'created content', 'developed strategy', 'optimized for engagement',
+                    'targeted audience', 'increased reach', 'built community', 'grew followers',
+                    'analyzed metrics', 'improved conversion', 'enhanced visibility'
+                ]):
+                    actions.append(line.strip())
+        
+        # Remove duplicates and limit
+        return list(dict.fromkeys(actions))[:12]  # Keep top 12 unique actions
+    
+    @staticmethod
+    def _extract_files_from_output(stdout: str) -> List[str]:
+        """Extract modified files from Claude output with enhanced detection"""
+        if not stdout:
+            return []
+        
+        files = []
+        lines = stdout.strip().split('\n')
+        
+        for line in lines:
+            line_lower = line.lower()
+            
+            # Look for explicit file operation mentions
+            if any(phrase in line_lower for phrase in [
+                'modified', 'updated', 'created', 'wrote to', 'saved to',
+                'edited', 'changed', 'added to', 'deleted from'
+            ]) or ':' in line and any(ext in line for ext in ['.py', '.js', '.md', '.json', '.yaml']):
+                # Extract file paths from the line
+                import re
+                # Match common file extensions and paths
+                file_patterns = [
+                    r'(\S+\.py\b)',          # Python files
+                    r'(\S+\.js\b)',          # JavaScript files  
+                    r'(\S+\.ts\b)',          # TypeScript files
+                    r'(\S+\.tsx\b)',         # TypeScript React files
+                    r'(\S+\.jsx\b)',         # JavaScript React files
+                    r'(\S+\.md\b)',          # Markdown files
+                    r'(\S+\.txt\b)',         # Text files
+                    r'(\S+\.json\b)',        # JSON files
+                    r'(\S+\.yaml\b)',        # YAML files
+                    r'(\S+\.yml\b)',         # YAML files
+                    r'(\S+\.html\b)',        # HTML files
+                    r'(\S+\.css\b)',         # CSS files
+                    r'(\S+\.scss\b)',        # SCSS files
+                    r'(\S+\.go\b)',          # Go files
+                    r'(\S+\.rs\b)',          # Rust files
+                    r'(\S+\.java\b)',        # Java files
+                    r'(\S+\.cpp\b)',         # C++ files
+                    r'(\S+\.c\b)',           # C files
+                    r'(\S+\.h\b)',           # Header files
+                ]
+                
+                for pattern in file_patterns:
+                    matches = re.findall(pattern, line, re.IGNORECASE)
+                    for match in matches:
+                        clean_file = match.strip('.,;:()[]{}')
+                        if clean_file and clean_file not in files:
+                            files.append(clean_file)
+        
+        # Also look for tool usage patterns (Claude Code tools) and file lists
+        for line in lines:
+            if any(phrase in line for phrase in [
+                'Edit tool', 'Write tool', 'MultiEdit tool', 'NotebookEdit tool'
+            ]):
+                # Look for file paths in the next few lines or in the same line
+                import re
+                path_match = re.search(r'["\']([^"\']+\.[a-zA-Z0-9]+)["\']', line)
+                if path_match:
+                    file_path = path_match.group(1)
+                    if file_path not in files:
+                        files.append(file_path)
+            
+            # Look for file listings (e.g., "- filename.py (description)")
+            import re
+            if line.strip().startswith('-') or line.strip().startswith('*'):
+                # Extract files from bullet points
+                for pattern in [
+                    r'([a-zA-Z0-9_/]+\.py)\b',
+                    r'([a-zA-Z0-9_/]+\.js)\b',
+                    r'([a-zA-Z0-9_/]+\.md)\b',
+                    r'([a-zA-Z0-9_/]+\.json)\b',
+                    r'([a-zA-Z0-9_/]+\.yaml)\b'
+                ]:
+                    matches = re.findall(pattern, line)
+                    for match in matches:
+                        if match not in files:
+                            files.append(match)
+        
+        return files[:15]  # Limit to first 15 files to prevent overflow
+    
+    @staticmethod
+    def _assess_response_quality(stdout: str, stderr: str, return_code: int, 
+                               agent_used: Optional[str] = None, execution_time: float = 0) -> tuple[float, str]:
+        """Assess the quality of Claude's response and assign confidence level"""
+        if not stdout:
+            return 0.1, "low"
+        
+        quality_score = 0.0
+        confidence_factors = []
+        
+        # Base score for successful execution
+        if return_code == 0:
+            quality_score += 0.3
+            confidence_factors.append("successful_execution")
+        
+        # Check for meaningful content length
+        meaningful_lines = [line.strip() for line in stdout.split('\n') if line.strip() and not line.startswith('#')]
+        if len(meaningful_lines) > 10:
+            quality_score += 0.2
+            confidence_factors.append("substantial_content")
+        elif len(meaningful_lines) > 5:
+            quality_score += 0.1
+        
+        # Check for code completion indicators
+        completion_indicators = [
+            'successfully', 'completed', 'implemented', 'created', 'updated',
+            'fixed', 'resolved', 'added', 'enhanced', 'improved'
+        ]
+        stdout_lower = stdout.lower()
+        completion_matches = sum(1 for indicator in completion_indicators if indicator in stdout_lower)
+        quality_score += min(completion_matches * 0.05, 0.2)
+        if completion_matches > 3:
+            confidence_factors.append("strong_completion_signals")
+        
+        # Check for structured output (lists, explanations, code blocks)
+        if any(pattern in stdout for pattern in ['```', '- ', '* ', '1. ', '2. ']):
+            quality_score += 0.1
+            confidence_factors.append("structured_output")
+        
+        # Agent-specific quality checks
+        if agent_used:
+            if agent_used == 'tech-lead':
+                # Look for strategic thinking indicators
+                if any(phrase in stdout_lower for phrase in [
+                    'analysis', 'approach', 'strategy', 'architecture', 'design', 'consider'
+                ]):
+                    quality_score += 0.1
+                    confidence_factors.append("strategic_thinking")
+            
+            elif agent_used == 'code-reviewer':
+                # Look for review quality indicators
+                if any(phrase in stdout_lower for phrase in [
+                    'review', 'refactor', 'improve', 'optimize', 'best practice', 'maintainability'
+                ]):
+                    quality_score += 0.1
+                    confidence_factors.append("thorough_review")
+            
+            elif agent_used == 'social-media-growth-strategist':
+                # Look for engagement and growth indicators
+                if any(phrase in stdout_lower for phrase in [
+                    'engagement', 'audience', 'growth', 'strategy', 'content', 'reach'
+                ]):
+                    quality_score += 0.1
+                    confidence_factors.append("growth_focused")
+        
+        # Penalty for errors or warnings
+        if stderr:
+            quality_score -= 0.2
+        
+        # Check for execution time reasonableness
+        if execution_time > 0:
+            if 5 <= execution_time <= 120:  # Sweet spot: 5 seconds to 2 minutes
+                quality_score += 0.05
+            elif execution_time < 2:  # Too fast might indicate insufficient work
+                quality_score -= 0.05
+            elif execution_time > 300:  # Too slow might indicate problems
+                quality_score -= 0.1
+        
+        # Normalize score to 0.0-1.0 range
+        quality_score = max(0.0, min(1.0, quality_score))
+        
+        # Determine confidence level
+        if quality_score >= 0.8:
+            confidence = "high"
+        elif quality_score >= 0.5:
+            confidence = "medium"
+        else:
+            confidence = "low"
+        
+        return quality_score, confidence
 
 
 class RequestBuilder:
