@@ -19,15 +19,19 @@ A lightweight autonomous development system specifically designed for Claude Cod
 
 ### Installation
 
-```bash
-# Install from source (recommended for now)
-pip install -e git+https://github.com/cdnsteve/sugar.git#egg=sugar
+**Currently in development - install from source:**
 
-# Or clone and install locally
+```bash
+# Method 1: Clone and install (recommended)
 git clone https://github.com/cdnsteve/sugar.git
 cd sugar
 pip install -e .
+
+# Method 2: Direct from Git
+pip install -e git+https://github.com/cdnsteve/sugar.git#egg=sugar
 ```
+
+📖 **Detailed setup instructions:** [Local Development Setup](docs/dev/local-development.md)
 
 ### Initialize in Your Project
 
@@ -408,6 +412,7 @@ sugar run --once
 
 - **[Complete Documentation Hub](docs/README.md)** - All Sugar documentation
 - **[Quick Start Guide](docs/user/quick-start.md)** - Get up and running in 5 minutes
+- **[Local Development Setup](docs/dev/local-development.md)** - Install and test Sugar locally (before PyPI)
 - **[Installation Guide](docs/user/installation-guide.md)** - Comprehensive installation and usage
 - **[CLI Reference](docs/user/cli-reference.md)** - Complete command reference  
 - **[Contributing Guide](docs/dev/contributing.md)** - How to contribute to Sugar

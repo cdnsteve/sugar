@@ -19,9 +19,10 @@ Documentation for developers who want to **use** Sugar in their projects:
 ### 🛠️ Developer Documentation (`docs/dev/`)
 Documentation for developers who want to **contribute** to Sugar:
 
+- **[Local Development Setup](dev/local-development.md)** - Install and test Sugar locally (before PyPI)
 - **[Technical Implementation Plan](dev/technical-implementation-plan.md)** - Architecture and design decisions
-- **[Development Setup](dev/development-setup.md)** - How to set up a development environment
 - **[Contributing Guide](dev/contributing.md)** - How to contribute to Sugar
+- **[Development Setup](dev/development-setup.md)** - Development environment setup
 - **[Testing Guide](dev/testing.md)** - Running and writing tests
 - **[Release Process](dev/release-process.md)** - How releases are created
 - **[API Reference](dev/api-reference.md)** - Internal API documentation
