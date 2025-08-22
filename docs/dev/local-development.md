@@ -27,7 +27,14 @@ source venv/bin/activate  # On Windows: venv\Scripts\activate
 # 3. Install Sugar in development mode
 pip install -e .
 
-# 4. Verify installation
+# 4. For GitHub integration, you have two options:
+#    Option A: Use GitHub CLI (recommended)
+gh auth login  # If you want to use GitHub CLI authentication
+
+#    Option B: Use PyGithub with tokens (optional)
+pip install --upgrade PyGithub>=1.59.0  # Only needed if using token auth
+
+# 5. Verify installation
 sugar --help
 sugar help
 

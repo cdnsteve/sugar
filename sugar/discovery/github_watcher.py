@@ -1,19 +1,21 @@
 """
 GitHub Issue Watcher - Discover work from GitHub issues and PRs
+Supports both GitHub CLI (gh) and PyGithub authentication
 """
 import asyncio
 import logging
+import subprocess
+import json
+import os
 from datetime import datetime, timedelta
 from typing import List, Dict, Any, Optional
-import os
-import json
 
+# Optional PyGithub import
 try:
-    import git
     from github import Github, GithubException
-    GITHUB_AVAILABLE = True
+    PYGITHUB_AVAILABLE = True
 except ImportError:
-    GITHUB_AVAILABLE = False
+    PYGITHUB_AVAILABLE = False
 
 logger = logging.getLogger(__name__)
 
@@ -22,28 +24,91 @@ class GitHubWatcher:
     
     def __init__(self, config: dict):
         self.config = config
-        self.enabled = config.get('enabled', False) and GITHUB_AVAILABLE
-        
-        if not GITHUB_AVAILABLE:
-            logger.warning("PyGithub not available - GitHub watching disabled")
-            self.enabled = False
-            return
-        
+        self.enabled = config.get('enabled', False)
         self.repo_name = config.get('repo', '')
-        self.token = config.get('token', '') or os.getenv('GITHUB_TOKEN', '')
+        self.auth_method = config.get('auth_method', 'auto')
         
-        if not self.repo_name or not self.token:
-            logger.warning("GitHub repo or token not configured - GitHub watching disabled")
+        if not self.enabled:
+            return
+            
+        if not self.repo_name:
+            logger.warning("GitHub repo not configured - GitHub watching disabled")
             self.enabled = False
             return
+        
+        # Check authentication methods
+        self.gh_cli_available = False
+        self.pygithub_available = False
+        
+        # Try GitHub CLI first if specified
+        if self.auth_method in ['gh_cli', 'auto']:
+            self.gh_cli_available = self._check_gh_cli()
+            
+        # Try PyGithub if CLI not available or method is token/auto
+        if self.auth_method in ['token', 'auto'] and not self.gh_cli_available:
+            self.pygithub_available = self._init_pygithub()
+            
+        # Determine if we can proceed
+        if self.auth_method == 'gh_cli' and not self.gh_cli_available:
+            logger.warning("GitHub CLI specified but not available - GitHub watching disabled")
+            self.enabled = False
+        elif self.auth_method == 'token' and not self.pygithub_available:
+            logger.warning("Token auth specified but PyGithub not available - GitHub watching disabled")
+            self.enabled = False
+        elif self.auth_method == 'auto' and not (self.gh_cli_available or self.pygithub_available):
+            logger.warning("Neither GitHub CLI nor PyGithub available - GitHub watching disabled")
+            self.enabled = False
+            
+        if self.enabled:
+            method = "GitHub CLI" if self.gh_cli_available else "PyGithub"
+            logger.info(f"✅ GitHub watcher initialized for {self.repo_name} using {method}")
+    
+    def _check_gh_cli(self) -> bool:
+        """Check if GitHub CLI is available and authenticated"""
+        try:
+            gh_command = self.config.get('gh_cli', {}).get('command', 'gh')
+            
+            # Check if gh CLI is available
+            result = subprocess.run([gh_command, '--version'], 
+                                  capture_output=True, text=True, timeout=10)
+            if result.returncode != 0:
+                logger.debug("GitHub CLI not found")
+                return False
+            
+            # Check if authenticated
+            result = subprocess.run([gh_command, 'auth', 'status'], 
+                                  capture_output=True, text=True, timeout=10)
+            if result.returncode != 0:
+                logger.debug("GitHub CLI not authenticated")
+                return False
+                
+            logger.info("🔑 GitHub CLI available and authenticated")
+            return True
+            
+        except (subprocess.TimeoutExpired, FileNotFoundError, Exception) as e:
+            logger.debug(f"GitHub CLI check failed: {e}")
+            return False
+    
+    def _init_pygithub(self) -> bool:
+        """Initialize PyGithub if available"""
+        if not PYGITHUB_AVAILABLE:
+            logger.debug("PyGithub not available")
+            return False
+            
+        token = self.config.get('token', '') or os.getenv('GITHUB_TOKEN', '')
+        if not token:
+            logger.debug("No GitHub token configured")
+            return False
         
         try:
-            self.github = Github(self.token)
-            self.repo = self.github.get_repo(self.repo_name)
-            logger.info(f"✅ GitHub watcher initialized for {self.repo_name}")
+            self.github = Github(token)
+            # Test the connection
+            repo = self.github.get_repo(self.repo_name)
+            logger.info("🔑 PyGithub initialized successfully")
+            return True
         except Exception as e:
-            logger.error(f"Failed to initialize GitHub client: {e}")
-            self.enabled = False
+            logger.error(f"Failed to initialize PyGithub: {e}")
+            return False
     
     async def discover(self) -> List[Dict[str, Any]]:
         """Discover work items from GitHub issues and PRs"""
@@ -53,13 +118,14 @@ class GitHubWatcher:
         work_items = []
         
         try:
-            # Get recent issues
-            issues_work = await self._discover_from_issues()
-            work_items.extend(issues_work)
-            
-            # Get pull requests that need review/work
-            pr_work = await self._discover_from_prs()
-            work_items.extend(pr_work)
+            if self.gh_cli_available:
+                # Use GitHub CLI
+                issues_work = await self._discover_issues_gh_cli()
+                work_items.extend(issues_work)
+            elif self.pygithub_available:
+                # Use PyGithub
+                issues_work = await self._discover_issues_pygithub()
+                work_items.extend(issues_work)
             
         except Exception as e:
             logger.error(f"Error discovering GitHub work: {e}")
@@ -67,60 +133,91 @@ class GitHubWatcher:
         logger.info(f"🔍 GitHubWatcher discovered {len(work_items)} work items")
         return work_items
     
-    async def _discover_from_issues(self) -> List[Dict[str, Any]]:
-        """Discover work from GitHub issues"""
+    async def _discover_issues_gh_cli(self) -> List[Dict[str, Any]]:
+        """Discover work from GitHub issues using GitHub CLI"""
         work_items = []
         
         try:
-            # Get open issues from last 7 days
+            gh_command = self.config.get('gh_cli', {}).get('command', 'gh')
+            issue_labels = self.config.get('issue_labels', ['bug', 'enhancement'])
+            
+            # Build label filter
+            label_filter = ','.join(issue_labels) if issue_labels else None
+            
+            # Get open issues
+            cmd = [
+                gh_command, 'issue', 'list',
+                '--repo', self.repo_name,
+                '--state', 'open',
+                '--limit', '10',
+                '--json', 'number,title,body,labels,assignee,comments,createdAt,updatedAt,url'
+            ]
+            
+            if label_filter:
+                cmd.extend(['--label', label_filter])
+            
+            result = subprocess.run(cmd, capture_output=True, text=True, timeout=30)
+            if result.returncode != 0:
+                logger.error(f"GitHub CLI issue command failed: {result.stderr}")
+                return []
+            
+            issues = json.loads(result.stdout)
+            
+            for issue in issues:
+                work_item = self._create_work_item_from_issue_data(issue)
+                if work_item:
+                    work_items.append(work_item)
+                    
+        except Exception as e:
+            logger.error(f"Error getting issues via GitHub CLI: {e}")
+        
+        return work_items
+    
+    async def _discover_issues_pygithub(self) -> List[Dict[str, Any]]:
+        """Discover work from GitHub issues using PyGithub"""
+        work_items = []
+        
+        try:
+            # Get recent issues
             since = datetime.utcnow() - timedelta(days=7)
-            issues = self.repo.get_issues(state='open', since=since, sort='created')
+            repo = self.github.get_repo(self.repo_name)
+            issues = repo.get_issues(state='open', since=since, sort='created')
             
             for issue in issues[:10]:  # Limit to 10 most recent
                 # Skip pull requests (they show up in issues)
                 if issue.pull_request:
                     continue
                 
-                work_item = await self._create_work_item_from_issue(issue)
+                # Convert PyGithub issue to dict format
+                issue_data = {
+                    'number': issue.number,
+                    'title': issue.title,
+                    'body': issue.body,
+                    'labels': [{'name': label.name} for label in issue.labels],
+                    'assignee': {'login': issue.assignee.login} if issue.assignee else None,
+                    'comments': issue.comments,
+                    'createdAt': issue.created_at.isoformat(),
+                    'updatedAt': issue.updated_at.isoformat(),
+                    'url': issue.html_url
+                }
+                
+                work_item = self._create_work_item_from_issue_data(issue_data)
                 if work_item:
                     work_items.append(work_item)
                     
-        except GithubException as e:
+        except Exception as e:
             logger.error(f"GitHub API error getting issues: {e}")
-        except Exception as e:
-            logger.error(f"Error processing issues: {e}")
         
         return work_items
     
-    async def _discover_from_prs(self) -> List[Dict[str, Any]]:
-        """Discover work from pull requests"""
-        work_items = []
-        
-        try:
-            # Get open PRs that might need work
-            prs = self.repo.get_pulls(state='open', sort='created')
-            
-            for pr in prs[:5]:  # Limit to 5 most recent
-                # Check if PR has failing checks or needs review
-                work_item = await self._create_work_item_from_pr(pr)
-                if work_item:
-                    work_items.append(work_item)
-                    
-        except GithubException as e:
-            logger.error(f"GitHub API error getting PRs: {e}")
-        except Exception as e:
-            logger.error(f"Error processing PRs: {e}")
-        
-        return work_items
-    
-    async def _create_work_item_from_issue(self, issue) -> Optional[Dict[str, Any]]:
-        """Create work item from GitHub issue"""
+    def _create_work_item_from_issue_data(self, issue: dict) -> Optional[Dict[str, Any]]:
+        """Create work item from GitHub issue data (works with both CLI and PyGithub)"""
         
         # Determine work type from labels
         work_type = 'feature'  # default
         priority = 3  # default
         
-        labels = [label.name.lower() for label in issue.labels]
+        labels = [label['name'].lower() for label in issue.get('labels', [])]
         
         if any(label in labels for label in ['bug', 'error', 'critical']):
             work_type = 'bug_fix'
@@ -135,32 +232,30 @@ class GitHubWatcher:
             work_type = 'test'
             priority = 3
         
-        # Increase priority for high-priority labels
+        # Increase priority for urgent labels
         if any(label in labels for label in ['urgent', 'high priority', 'critical']):
             priority = min(5, priority + 1)
         
-        # Skip if too old or low engagement
-        age_days = (datetime.utcnow() - issue.created_at.replace(tzinfo=None)).days
-        if age_days > 30 and issue.comments < 2:
+        # Skip if assigned to someone else (optional)
+        if self.config.get('only_unassigned', False) and issue.get('assignee'):
             return None
         
         work_item = {
             'type': work_type,
-            'title': f"Address GitHub issue: {issue.title}",
+            'title': f"Address GitHub issue: {issue['title']}",
             'description': self._format_issue_description(issue),
             'priority': priority,
             'source': 'github_watcher',
-            'source_file': f"github://issues/{issue.number}",
+            'source_file': f"github://issues/{issue['number']}",
             'context': {
                 'github_issue': {
-                    'number': issue.number,
-                    'url': issue.html_url,
-                    'state': issue.state,
+                    'number': issue['number'],
+                    'url': issue['url'],
                     'labels': labels,
-                    'assignee': issue.assignee.login if issue.assignee else None,
-                    'comments': issue.comments,
-                    'created_at': issue.created_at.isoformat(),
-                    'updated_at': issue.updated_at.isoformat()
+                    'assignee': issue.get('assignee', {}).get('login') if issue.get('assignee') else None,
+                    'comments': issue.get('comments', 0),
+                    'created_at': issue['createdAt'],
+                    'updated_at': issue['updatedAt']
                 },
                 'discovered_at': datetime.utcnow().isoformat(),
                 'source_type': 'github_issue'
@@ -169,103 +264,27 @@ class GitHubWatcher:
         
         return work_item
     
-    async def _create_work_item_from_pr(self, pr) -> Optional[Dict[str, Any]]:
-        """Create work item from pull request if it needs work"""
-        
-        # Check if PR has failing status checks
-        try:
-            commits = list(pr.get_commits())
-            if not commits:
-                return None
-            
-            latest_commit = commits[-1]
-            statuses = list(latest_commit.get_statuses())
-            
-            failing_checks = [s for s in statuses if s.state in ['failure', 'error']]
-            
-            if not failing_checks:
-                return None  # PR is healthy, no work needed
-            
-        except Exception as e:
-            logger.debug(f"Could not check PR status: {e}")
-            return None
-        
-        work_item = {
-            'type': 'bug_fix',
-            'title': f"Fix failing checks in PR: {pr.title}",
-            'description': self._format_pr_description(pr, failing_checks),
-            'priority': 4,  # High priority for broken PRs
-            'source': 'github_watcher',
-            'source_file': f"github://pulls/{pr.number}",
-            'context': {
-                'github_pr': {
-                    'number': pr.number,
-                    'url': pr.html_url,
-                    'state': pr.state,
-                    'failing_checks': [
-                        {
-                            'context': check.context,
-                            'state': check.state,
-                            'description': check.description,
-                            'target_url': check.target_url
-                        } for check in failing_checks
-                    ],
-                    'created_at': pr.created_at.isoformat(),
-                    'updated_at': pr.updated_at.isoformat()
-                },
-                'discovered_at': datetime.utcnow().isoformat(),
-                'source_type': 'github_pr'
-            }
-        }
-        
-        return work_item
-    
-    def _format_issue_description(self, issue) -> str:
+    def _format_issue_description(self, issue: dict) -> str:
         """Format GitHub issue into work description"""
         description_parts = [
-            f"**GitHub Issue #{issue.number}**",
-            f"URL: {issue.html_url}",
-            f"State: {issue.state}",
-            f"Created: {issue.created_at}",
-            f"Comments: {issue.comments}",
+            f"**GitHub Issue #{issue['number']}**",
+            f"URL: {issue['url']}",
+            f"Created: {issue['createdAt']}",
+            f"Comments: {issue.get('comments', 0)}",
             ""
         ]
         
-        if issue.labels:
-            labels = [label.name for label in issue.labels]
-            description_parts.append(f"Labels: {', '.join(labels)}")
+        if issue.get('labels'):
+            label_names = [label['name'] for label in issue['labels']]
+            description_parts.append(f"Labels: {', '.join(label_names)}")
             description_parts.append("")
         
-        if issue.assignee:
-            description_parts.append(f"Assigned to: {issue.assignee.login}")
+        if issue.get('assignee'):
+            description_parts.append(f"Assigned to: {issue['assignee']['login']}")
             description_parts.append("")
         
         description_parts.append("**Issue Description:**")
-        description_parts.append(issue.body or "No description provided.")
-        
-        return "\n".join(description_parts)
-    
-    def _format_pr_description(self, pr, failing_checks) -> str:
-        """Format PR with failing checks into work description"""
-        description_parts = [
-            f"**Pull Request #{pr.number} - Failing Checks**",
-            f"URL: {pr.html_url}",
-            f"State: {pr.state}",
-            f"Created: {pr.created_at}",
-            "",
-            "**Failing Status Checks:**"
-        ]
-        
-        for check in failing_checks:
-            description_parts.append(f"- ❌ **{check.context}**: {check.description}")
-            if check.target_url:
-                description_parts.append(f"  Details: {check.target_url}")
-        
-        description_parts.extend([
-            "",
-            "**PR Description:**",
-            pr.body or "No description provided."
-        ])
+        description_parts.append(issue.get('body') or "No description provided.")
         
         return "\n".join(description_parts)
     
@@ -277,24 +296,43 @@ class GitHubWatcher:
                 "reason": "GitHub integration disabled or not configured"
             }
         
+        method = "GitHub CLI" if self.gh_cli_available else "PyGithub"
+        
         try:
-            # Test API access
-            rate_limit = self.github.get_rate_limit()
-            
-            return {
-                "enabled": True,
-                "repository": self.repo_name,
-                "api_rate_limit": {
-                    "remaining": rate_limit.core.remaining,
-                    "limit": rate_limit.core.limit,
-                    "reset": rate_limit.core.reset.isoformat()
-                },
-                "last_check": datetime.utcnow().isoformat()
-            }
+            if self.gh_cli_available:
+                # Test GitHub CLI
+                gh_command = self.config.get('gh_cli', {}).get('command', 'gh')
+                result = subprocess.run([gh_command, 'auth', 'status'], 
+                                      capture_output=True, text=True, timeout=10)
+                auth_ok = result.returncode == 0
+                
+                return {
+                    "enabled": True,
+                    "method": method,
+                    "repository": self.repo_name,
+                    "authenticated": auth_ok,
+                    "last_check": datetime.utcnow().isoformat()
+                }
+            elif self.pygithub_available:
+                # Test PyGithub API access
+                rate_limit = self.github.get_rate_limit()
+                
+                return {
+                    "enabled": True,
+                    "method": method,
+                    "repository": self.repo_name,
+                    "api_rate_limit": {
+                        "remaining": rate_limit.core.remaining,
+                        "limit": rate_limit.core.limit,
+                        "reset": rate_limit.core.reset.isoformat()
+                    },
+                    "last_check": datetime.utcnow().isoformat()
+                }
             
         except Exception as e:
             return {
                 "enabled": True,
+                "method": method,
                 "error": str(e),
                 "last_check": datetime.utcnow().isoformat()
             }
