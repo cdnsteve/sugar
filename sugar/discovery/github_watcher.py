@@ -150,7 +150,7 @@ class GitHubWatcher:
                 '--repo', self.repo_name,
                 '--state', 'open',
                 '--limit', '10',
-                '--json', 'number,title,body,labels,assignee,comments,createdAt,updatedAt,url'
+                '--json', 'number,title,body,labels,assignees,comments,createdAt,updatedAt,url'
             ]
             
             if label_filter:
@@ -194,7 +194,7 @@ class GitHubWatcher:
                     'title': issue.title,
                     'body': issue.body,
                     'labels': [{'name': label.name} for label in issue.labels],
-                    'assignee': {'login': issue.assignee.login} if issue.assignee else None,
+                    'assignees': [{'login': issue.assignee.login}] if issue.assignee else [],
                     'comments': issue.comments,
                     'createdAt': issue.created_at.isoformat(),
                     'updatedAt': issue.updated_at.isoformat(),
@@ -237,7 +237,8 @@ class GitHubWatcher:
             priority = min(5, priority + 1)
         
         # Skip if assigned to someone else (optional)
-        if self.config.get('only_unassigned', False) and issue.get('assignee'):
+        assignees = issue.get('assignees', [])
+        if self.config.get('only_unassigned', False) and assignees:
             return None
         
         work_item = {
@@ -252,7 +253,7 @@ class GitHubWatcher:
                     'number': issue['number'],
                     'url': issue['url'],
                     'labels': labels,
-                    'assignee': issue.get('assignee', {}).get('login') if issue.get('assignee') else None,
+                    'assignees': [a.get('login') for a in issue.get('assignees', [])],
                     'comments': issue.get('comments', 0),
                     'created_at': issue['createdAt'],
                     'updated_at': issue['updatedAt']
@@ -279,8 +280,10 @@ class GitHubWatcher:
             description_parts.append(f"Labels: {', '.join(label_names)}")
             description_parts.append("")
         
-        if issue.get('assignee'):
-            description_parts.append(f"Assigned to: {issue['assignee']['login']}")
+        assignees = issue.get('assignees', [])
+        if assignees:
+            assignee_names = [a.get('login', 'unknown') for a in assignees]
+            description_parts.append(f"Assigned to: {', '.join(assignee_names)}")
             description_parts.append("")
         
         description_parts.append("**Issue Description:**")
