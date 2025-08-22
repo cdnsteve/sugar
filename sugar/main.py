@@ -220,7 +220,7 @@ def list(ctx, status, limit, task_type):
             click.echo(f"{status_emoji} {priority_str} [{task['type']}] {task['title']}")
             if task.get('description') and len(task['description']) < 100:
                 click.echo(f"   📝 {task['description']}")
-            click.echo(f"   🆔 {task['id'][:8]}... | 📅 {task['created_at']} | 🔄 {task['attempts']} attempts")
+            click.echo(f"   🆔 {task['id']} | 📅 {task['created_at']} | 🔄 {task['attempts']} attempts")
             click.echo()
         
     except Exception as e:
