@@ -139,4 +139,4 @@ sugar:
   # Logging
   logging:
     level: "INFO"
-    file: "sugar.log"
+    file: ".sugar/sugar.log"

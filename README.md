@@ -104,9 +104,9 @@ You can also directly add tasks:
 - 📋 **Manage work queue** with full CLI control
 - 🔄 **Combined workflow** - manual tasks + autonomous discovery
 
-## 📁 Project Isolation
+## 📁 Clean Project Structure 
 
-Each project gets its own isolated Sugar instance:
+Sugar keeps everything contained in `.sugar/` directory - no clutter in your project root!
 
 ```
 your-project/
@@ -116,8 +116,12 @@ your-project/
 │   ├── sugar.db            # Project-specific database
 │   ├── sugar.log           # Project-specific logs
 │   └── context.json       # Claude context
+├── .gitignore             # Just add: .sugar/
 └── logs/errors/           # Your error logs (monitored)
 ```
+
+**Simple .gitignore:** Just add `.sugar/` to your `.gitignore` - that's it! 
+📖 [Complete .gitignore template](docs/user/gitignore-template.md)
 
 ## 🔧 Configuration
 
