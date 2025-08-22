@@ -413,15 +413,22 @@ class SugarLoop:
                     ""
                 ])
         
-        # Add actions if we have meaningful ones
+        # Add actions if we have meaningful ones (prioritize detailed explanations)
         actions_added = False
         if meaningful_actions:
-            lines.extend([
-                "**What was done:**",
-                *[f"- {action}" for action in meaningful_actions],
-                ""
-            ])
-            actions_added = True
+            # Filter out generic "Task Completed" type messages
+            detailed_actions = [action for action in meaningful_actions 
+                             if not any(generic in action.lower() for generic in [
+                                 'task completed', 'successfully completed', 'task done'
+                             ])]
+            
+            if detailed_actions:
+                lines.extend([
+                    "**What was done:**",
+                    *[f"- {action}" for action in detailed_actions],
+                    ""
+                ])
+                actions_added = True
         
         # Add files changed if available (most important info)
         if result.get('files_changed'):
@@ -461,9 +468,18 @@ class SugarLoop:
                 if any(phrase in line.lower() for phrase in [
                     'already', 'found', 'confirmed', 'verified', 'checked',
                     'analysis', 'shows', 'indicates', 'discovered', 'exists',
-                    'no changes needed', 'requirement satisfied', 'properly'
+                    'no changes needed', 'requirement satisfied', 'properly',
+                    'includes a comprehensive', 'author section', 'lines'
                 ]):
                     if 20 < len(line) < 300:  # Good summary length
+                        summary_candidates.append(line.rstrip('.'))
+                
+                # Look for detailed explanations
+                elif any(phrase in line.lower() for phrase in [
+                    'the readme.md file includes', 'comprehensive author section',
+                    'requesting to', 'ensure you add', 'steven leggett'
+                ]):
+                    if 20 < len(line) < 300:
                         summary_candidates.append(line.rstrip('.'))
                 
                 # Also look for action statements

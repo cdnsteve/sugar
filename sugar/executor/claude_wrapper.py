@@ -483,7 +483,15 @@ Please implement this task by:
             if any(phrase in line.lower() for phrase in [
                 'already exists', 'already includes', 'found that', 'verified that',
                 'analysis shows', 'readme contains', 'file contains', 'properly listed',
-                'no changes needed', 'requirement satisfied', 'confirmed that'
+                'no changes needed', 'requirement satisfied', 'confirmed that',
+                'includes a comprehensive', 'with:', 'lines', 'section', 'steven leggett'
+            ]):
+                actions_taken.append(line)
+                
+            # Capture detailed explanations and multi-line descriptions
+            if any(phrase in line.lower() for phrase in [
+                'here\'s what', 'accomplished:', 'the readme.md file', 'author section',
+                'comprehensive', 'resolved', 'requesting to', 'ensure you add'
             ]):
                 actions_taken.append(line)
                 
