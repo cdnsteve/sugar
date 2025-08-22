@@ -171,7 +171,7 @@ class SugarLoop:
                 logger.info("📭 No work items ready for execution")
                 break
             
-            logger.debug(f"⚡ Executing work: {work_item['title']}")
+            logger.info(f"⚡ Executing work [{work_item['id'][:8]}...]: {work_item['title']}")
             
             try:
                 # Execute with Claude Code
@@ -183,10 +183,10 @@ class SugarLoop:
                 # Comment on GitHub issue if this work came from GitHub
                 await self._comment_on_github_issue(work_item, result)
                 
-                logger.info(f"✅ Work completed: {work_item['title']}")
+                logger.info(f"✅ Work completed [{work_item['id'][:8]}...]: {work_item['title']}")
                 
             except Exception as e:
-                logger.error(f"❌ Work execution failed: {e}")
+                logger.error(f"❌ Work execution failed [{work_item['id'][:8]}...]: {e}")
                 await self.work_queue.fail_work(work_item['id'], str(e))
     
     async def _process_feedback(self):
@@ -248,7 +248,7 @@ class SugarLoop:
             success = await github_watcher.comment_on_issue(issue_number, comment_body)
             
             if success:
-                logger.info(f"💬 Posted completion comment to GitHub issue #{issue_number}")
+                logger.info(f"💬 Posted completion comment to GitHub issue #{issue_number} for task [{work_item['id'][:8]}...]")
             else:
                 logger.warning(f"Failed to comment on GitHub issue #{issue_number}")
                 
