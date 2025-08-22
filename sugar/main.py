@@ -3,6 +3,7 @@
 Sugar Main Entry Point - Start the AI-powered autonomous development system
 """
 import asyncio
+import json
 import logging
 import signal
 import sys

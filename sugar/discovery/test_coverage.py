@@ -20,9 +20,34 @@ class TestCoverageAnalyzer:
         self.root_path = config.get('root_path', '.')
         self.source_dirs = config.get('source_dirs', ['src', 'lib', 'app'])
         self.test_dirs = config.get('test_dirs', ['tests', 'test', '__tests__', 'spec'])
+        self.excluded_dirs = config.get('excluded_dirs', [
+            "node_modules", ".git", "__pycache__", 
+            "venv", ".venv", "env", ".env", "ENV", 
+            "env.bak", "venv.bak", "virtualenv",
+            "build", "dist", ".tox", ".nox",
+            "coverage", "htmlcov", ".pytest_cache",
+            ".sugar", ".claude"
+        ])
         self.test_file_patterns = config.get('test_file_patterns', [
             r'test_.*\.py$', r'.*_test\.py$', r'.*\.test\.(js|ts)$', r'.*\.spec\.(js|ts)$'
         ])
+    
+    def _should_exclude_path(self, path: str) -> bool:
+        """Check if a path should be excluded based on excluded_dirs configuration"""
+        path_obj = Path(path)
+        
+        # Check if any part of the path matches excluded directories
+        for part in path_obj.parts:
+            if part in self.excluded_dirs:
+                return True
+        
+        # Check if the path contains any excluded patterns
+        path_str = str(path_obj)
+        for excluded in self.excluded_dirs:
+            if excluded in path_str:
+                return True
+                
+        return False
         
     async def discover(self) -> List[Dict[str, Any]]:
         """Discover testing gaps and opportunities"""
@@ -74,18 +99,46 @@ class TestCoverageAnalyzer:
         
         # Collect all source files
         for root, dirs, files in os.walk(self.root_path):
+            # Skip excluded directories
+            if self._should_exclude_path(root):
+                dirs[:] = []  # Don't recurse into this directory
+                continue
+                
+            # Filter out excluded subdirectories before walking into them
+            dirs[:] = [d for d in dirs if not self._should_exclude_path(os.path.join(root, d))]
+            
             # Skip non-source directories early
             path_parts = Path(root).parts
             if not any(src_dir in path_parts for src_dir in self.source_dirs):
                 continue
             
             for file in files:
+                file_path = os.path.join(root, file)
+                
+                # Skip excluded files
+                if self._should_exclude_path(file_path):
+                    continue
+                    
                 if file.endswith(('.py', '.js', '.ts', '.jsx', '.tsx')):
-                    source_files.append(os.path.join(root, file))
+                    source_files.append(file_path)
         
         # Collect all test files and extract what they might be testing
         for root, dirs, files in os.walk(self.root_path):
+            # Skip excluded directories
+            if self._should_exclude_path(root):
+                dirs[:] = []  # Don't recurse into this directory
+                continue
+                
+            # Filter out excluded subdirectories before walking into them
+            dirs[:] = [d for d in dirs if not self._should_exclude_path(os.path.join(root, d))]
+            
             for file in files:
+                file_path = os.path.join(root, file)
+                
+                # Skip excluded files
+                if self._should_exclude_path(file_path):
+                    continue
+                    
                 if self._is_test_file(file):
                     test_files.add(self._extract_tested_module_name(file))
         
