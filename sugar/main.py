@@ -1182,6 +1182,10 @@ sugar:
     timeout: 1800       # 30 minutes max per task
     context_file: ".sugar/context.json"
     
+    # Structured Request System (Phase 1 of Agent Integration)
+    use_structured_requests: true  # Enable structured JSON communication
+    structured_input_file: ".sugar/claude_input.json"  # Temp file for complex inputs
+    
   # Work Discovery
   discovery:
     # Global exclusions for all discovery modules

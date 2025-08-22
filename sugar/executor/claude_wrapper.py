@@ -10,6 +10,11 @@ from typing import Dict, Any, Optional
 import tempfile
 import os
 
+from .structured_request import (
+    StructuredRequest, StructuredResponse, RequestBuilder, 
+    ExecutionMode, AgentType
+)
+
 logger = logging.getLogger(__name__)
 
 class ClaudeWrapper:
@@ -27,6 +32,10 @@ class ClaudeWrapper:
         self.max_context_age_hours = config.get('max_context_age_hours', 24)
         self.context_sharing = config.get('context_sharing', 'same_type')  # same_type, all, none
         
+        # Structured request settings
+        self.use_structured_requests = config.get('use_structured_requests', True)
+        self.structured_input_file = config.get('structured_input_file', '.sugar/claude_input.json')
+        
         # Track session state
         self.session_state_file = self.context_file.replace('.json', '_session.json')
         self.dry_run = config.get('dry_run', True)
@@ -35,6 +44,7 @@ class ClaudeWrapper:
         logger.debug(f"🧪 Dry run mode: {self.dry_run}")
         logger.debug(f"🔄 Context persistence: {self.use_continuous}")
         logger.debug(f"📋 Context strategy: {self.context_strategy}")
+        logger.debug(f"🏗️ Structured requests: {self.use_structured_requests}")
     
     async def execute_work(self, work_item: Dict[str, Any]) -> Dict[str, Any]:
         """Execute a work item using Claude Code CLI with context persistence"""
