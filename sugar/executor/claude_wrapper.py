@@ -272,11 +272,11 @@ After reviewing the task details:
         if continue_session:
             # Use --continue flag to maintain conversation context
             logger.info(f"🔄 Executing Claude CLI with --continue")
-            cmd = [self.command, '--continue', '--permission-mode', 'bypassPermissions']
+            cmd = [self.command, '--continue']
         else:
             # Fresh session
             logger.info(f"🆕 Executing Claude CLI with fresh session")
-            cmd = [self.command, '--permission-mode', 'bypassPermissions']
+            cmd = [self.command]
         
         # Log more details about execution
         logger.info(f"🤖 Executing Claude CLI: {' '.join(cmd)}")
