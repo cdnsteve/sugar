@@ -27,12 +27,13 @@ logger = logging.getLogger(__name__)
 
 # Global variable to hold the loop instance
 sugar_loop = None
+shutdown_event = None
 
 def signal_handler(signum, frame):
     """Handle shutdown signals gracefully"""
-    logger.info(f"Received signal {signum}, shutting down...")
-    if sugar_loop:
-        asyncio.create_task(sugar_loop.stop())
+    logger.info(f"🛑 Shutdown signal received, stopping Sugar...")
+    if shutdown_event:
+        shutdown_event.set()
 
 @click.group()
 @click.option('--config', default='.sugar/config.yaml', help='Configuration file path')
@@ -781,14 +782,35 @@ async def run_once(sugar_loop):
 
 async def run_continuous(sugar_loop):
     """Run Sugar continuously"""
-    logger.info("🚀 Starting Sugar in continuous mode...")
+    global shutdown_event
+    shutdown_event = asyncio.Event()
+    
+    # Create PID file for stop command
+    import pathlib
+    import os
+    config_dir = pathlib.Path(sugar_loop.config.get('sugar', {}).get('storage', {}).get('database', '.sugar/sugar.db')).parent
+    config_dir.mkdir(exist_ok=True)
+    pidfile = config_dir / "sugar.pid"
     
     try:
-        await sugar_loop.start()
+        with open(pidfile, 'w') as f:
+            f.write(str(os.getpid()))
+        
+        logger.info("🚀 Starting Sugar in continuous mode...")
+        logger.info("💡 Press Ctrl+C to stop Sugar gracefully")
+        logger.info(f"💡 Or run 'sugar stop' from another terminal")
+        
+        await sugar_loop.start_with_shutdown(shutdown_event)
     except KeyboardInterrupt:
         logger.info("🛑 Shutdown signal received")
     finally:
+        logger.info("⏳ Stopping Sugar gracefully...")
         await sugar_loop.stop()
+        
+        # Clean up PID file
+        if pidfile.exists():
+            pidfile.unlink()
+            
         logger.info("🏁 Sugar stopped")
 
 # Async helper functions for CLI commands
@@ -1120,6 +1142,50 @@ sugar:
     level: "INFO"
     file: ".sugar/sugar.log"  # Project-specific logs
 """
+
+@cli.command()
+@click.pass_context  
+def stop(ctx):
+    """Stop running Sugar instance gracefully"""
+    import os
+    import pathlib
+    
+    config_file = ctx.obj['config']
+    config_dir = pathlib.Path(config_file).parent
+    pidfile = config_dir / "sugar.pid"
+    
+    if not pidfile.exists():
+        click.echo("❌ No running Sugar instance found")
+        return
+    
+    try:
+        with open(pidfile, 'r') as f:
+            pid = int(f.read().strip())
+        
+        # Send SIGTERM for graceful shutdown
+        os.kill(pid, signal.SIGTERM)
+        click.echo(f"✅ Sent shutdown signal to Sugar process (PID: {pid})")
+        
+        # Wait a moment and check if process stopped
+        import time
+        time.sleep(2)
+        
+        try:
+            # Check if process is still running
+            os.kill(pid, 0)  # This will raise exception if process doesn't exist
+            click.echo("⏳ Sugar is shutting down...")
+        except ProcessLookupError:
+            pidfile.unlink()  # Clean up pid file
+            click.echo("🏁 Sugar stopped successfully")
+            
+    except (ValueError, ProcessLookupError):
+        pidfile.unlink()  # Clean up stale pid file
+        click.echo("❌ Stale PID file found and removed")
+    except PermissionError:
+        click.echo("❌ Permission denied - cannot stop Sugar process")
+    except Exception as e:
+        click.echo(f"❌ Error stopping Sugar: {e}")
+
 
 @cli.command()
 @click.option('--dry-run', is_flag=True, help='Show what would be removed without actually removing')

@@ -90,6 +90,18 @@ class SugarLoop:
         # Start main loop
         await self._main_loop()
     
+    async def start_with_shutdown(self, shutdown_event):
+        """Start the autonomous loop with shutdown event monitoring"""
+        logger.info("🤖 Starting Sugar - AI-powered autonomous development system")
+        
+        # Initialize storage
+        await self.work_queue.initialize()
+        
+        self.running = True
+        
+        # Start main loop with shutdown monitoring
+        await self._main_loop_with_shutdown(shutdown_event)
+    
     async def stop(self):
         """Stop the autonomous loop gracefully"""
         logger.info("🛑 Stopping Sugar...")
@@ -123,6 +135,60 @@ class SugarLoop:
             except Exception as e:
                 logger.error(f"Error in main loop: {e}")
                 await asyncio.sleep(60)  # Wait 1 minute on error
+    
+    async def _main_loop_with_shutdown(self, shutdown_event):
+        """Main autonomous development loop with shutdown event monitoring"""
+        loop_interval = self.config['sugar']['loop_interval']
+        
+        while self.running and not shutdown_event.is_set():
+            try:
+                cycle_start = datetime.utcnow()
+                logger.info(f"🔄 Starting Sugar cycle at {cycle_start}")
+                
+                # Phase 1: Discover new work
+                await self._discover_work()
+                
+                # Check for shutdown before execution
+                if shutdown_event.is_set():
+                    logger.info("🛑 Shutdown requested, finishing current cycle...")
+                    break
+                
+                # Phase 2: Execute highest priority work
+                await self._execute_work()
+                
+                # Check for shutdown after execution
+                if shutdown_event.is_set():
+                    logger.info("🛑 Shutdown requested, finishing current cycle...")
+                    break
+                
+                # Phase 3: Process results and learn
+                await self._process_feedback()
+                
+                # Wait for next cycle or shutdown
+                cycle_duration = (datetime.utcnow() - cycle_start).total_seconds()
+                sleep_time = max(0, loop_interval - cycle_duration)
+                
+                logger.info(f"✅ Cycle completed in {cycle_duration:.1f}s, sleeping {sleep_time:.1f}s")
+                
+                # Sleep with periodic shutdown checks
+                try:
+                    await asyncio.wait_for(shutdown_event.wait(), timeout=sleep_time)
+                    # If we get here, shutdown was requested
+                    logger.info("🛑 Shutdown requested during sleep")
+                    break
+                except asyncio.TimeoutError:
+                    # Normal timeout, continue to next cycle
+                    pass
+                
+            except Exception as e:
+                logger.error(f"Error in main loop: {e}")
+                # Even during error recovery, check for shutdown
+                try:
+                    await asyncio.wait_for(shutdown_event.wait(), timeout=60)
+                    logger.info("🛑 Shutdown requested during error recovery")
+                    break
+                except asyncio.TimeoutError:
+                    pass
     
     async def _discover_work(self):
         """Discover new work from all enabled sources"""
