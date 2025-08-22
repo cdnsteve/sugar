@@ -333,21 +333,35 @@ class SugarLoop:
     
     def _format_completion_comment(self, work_item: dict, result: dict) -> str:
         """Format concise completion comment for GitHub issue"""
-        task_id = work_item.get('id', 'unknown')[:8]
+        task_id = work_item.get('id', 'unknown')
+        task_title = work_item.get('title', 'Unknown task')
         
         # Extract the most important information concisely
         lines = [
-            f"## ✅ Issue Resolved (`{task_id}...`)",
+            f"## ✅ Issue Resolved (`{task_id}`)",
             ""
         ]
         
         # Add concise summary from Claude's response or actions
         summary = self._extract_concise_summary(result)
-        if summary:
+        if summary and summary != "Task completed successfully":
             lines.extend([
                 summary,
                 ""
             ])
+        
+        # Add key actions or what was actually done
+        actions_added = False
+        if result.get('actions_taken'):
+            key_actions = [action.lstrip('✅✓ ').strip() for action in result['actions_taken'][:3]]
+            meaningful_actions = [action for action in key_actions if action and action != "Task completed successfully"]
+            if meaningful_actions:
+                lines.extend([
+                    "**What was done:**",
+                    *[f"- {action}" for action in meaningful_actions],
+                    ""
+                ])
+                actions_added = True
         
         # Add files changed if available (most important info)
         if result.get('files_changed'):
@@ -356,15 +370,12 @@ class SugarLoop:
                 ""
             ])
         
-        # Add key actions in bullet format
-        if result.get('actions_taken'):
-            key_actions = [action.lstrip('✅✓ ').strip() for action in result['actions_taken'][:3]]
-            if key_actions:
-                lines.extend([
-                    "**Changes made:**",
-                    *[f"- {action}" for action in key_actions if action],
-                    ""
-                ])
+        # If no meaningful actions were found, show the task context
+        if not actions_added and not result.get('files_changed'):
+            lines.extend([
+                f"**Task:** {task_title.replace('Address GitHub issue: ', '')}",
+                ""
+            ])
         
         # Execution details in compact format
         exec_time = result.get('execution_time', 0)
