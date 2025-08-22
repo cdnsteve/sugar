@@ -117,6 +117,37 @@ workflow:
 
 ---
 
+## [1.1.0] - 2025-08-22
+
+### Added
+
+#### Comprehensive Timing Tracking System
+- **Database Schema**: Added timing columns to work_items table
+  - `total_execution_time`: Cumulative Claude processing time across retries
+  - `started_at`: Timestamp when work first began
+  - `total_elapsed_time`: Wall clock time from start to completion
+- **Automatic Migration**: Existing Sugar databases get timing columns automatically
+- **CLI Display Enhancements**: 
+  - `sugar list`: Shows timing for completed/failed tasks (⏱️ 5.2s | 🕐 2m 15s)
+  - `sugar view`: Detailed timing information with human-readable durations
+- **Core Integration**: Timing tracked automatically during work execution
+- **Cumulative Tracking**: Execution time accumulates across failed retries
+- **Duration Formatting**: Smart formatting (5.2s, 2m 15s, 1h 30m)
+
+#### Performance Insights
+- **Work Complexity Analysis**: See which tasks take longest to complete
+- **Retry Impact Tracking**: Understand cumulative cost of failed attempts  
+- **Productivity Metrics**: Track actual vs. wall clock time for work items
+- **Bottleneck Identification**: Identify slow work types and patterns
+
+### Technical Details
+- **Database Migration**: Automatic column addition with backwards compatibility
+- **Timing Calculation**: Uses SQLite julianday functions for precise elapsed time
+- **Error Handling**: Graceful fallbacks for missing timing data
+- **Test Coverage**: Comprehensive test suite for all timing scenarios
+
+---
+
 ## [Unreleased]
 
 ### Planned Features
