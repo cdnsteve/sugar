@@ -200,9 +200,27 @@ class TestCoverageAnalyzer:
         test_issues = []
         
         for root, dirs, files in os.walk(self.root_path):
+            # Skip excluded directories
+            if self._should_exclude_path(root):
+                logger.debug(f"Skipping excluded directory in test quality analysis: {root}")
+                dirs[:] = []  # Don't recurse into this directory
+                continue
+                
+            # Filter out excluded subdirectories before walking into them
+            original_dirs = dirs[:]
+            dirs[:] = [d for d in dirs if not self._should_exclude_path(os.path.join(root, d))]
+            if len(dirs) != len(original_dirs):
+                excluded_dirs = [d for d in original_dirs if d not in dirs]
+                logger.debug(f"Filtered out excluded subdirectories from {root}: {excluded_dirs}")
+            
             for file in files:
                 if self._is_test_file(file):
                     file_path = os.path.join(root, file)
+                    
+                    # Skip excluded files (double-check at file level)
+                    if self._should_exclude_path(file_path):
+                        logger.debug(f"Skipping excluded test file: {file_path}")
+                        continue
                     
                     try:
                         issues = await self._analyze_test_file(file_path)

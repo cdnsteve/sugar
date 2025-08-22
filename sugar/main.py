@@ -104,16 +104,19 @@ def init(project_dir):
         logs_dir = project_path / 'logs' / 'errors'
         logs_dir.mkdir(parents=True, exist_ok=True)
         
-        sample_error = {
+        # Create a sample success log instead of error to avoid confusion
+        sample_success = {
             "timestamp": datetime.utcnow().isoformat(),
-            "error": "Sugar initialization test",
-            "description": "Sample error log to test Sugar discovery",
+            "level": "SUCCESS",
+            "message": "Sugar has been successfully initialized in this project",
+            "description": "Sugar initialization completed with all discovery modules enabled",
             "component": "sugar_init",
-            "message": "Sugar has been successfully initialized in this project"
+            "discovery_modules": ["error_monitor", "code_quality", "test_coverage"]
         }
         
-        with open(logs_dir / 'init_test.json', 'w') as f:
-            json.dump(sample_error, f, indent=2)
+        # Write to success log instead of error log to avoid creating bogus work items
+        with open(logs_dir / 'sugar_init_success.json', 'w') as f:
+            json.dump(sample_success, f, indent=2)
         
         click.echo(f"✅ Sugar initialized successfully!")
         click.echo(f"📁 Config: {config_path}")
