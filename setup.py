@@ -1,12 +1,16 @@
 """Setup script for sugar package"""
 from setuptools import setup, find_packages
 from pathlib import Path
-import sys
-import os
+import tomllib
 
-# Add the package directory to the path to import version info
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), 'sugar'))
-from __version__ import __version__
+# Read version from pyproject.toml (single source of truth)
+def get_version():
+    try:
+        with open("pyproject.toml", "rb") as f:
+            pyproject = tomllib.load(f)
+        return pyproject["project"]["version"]
+    except (FileNotFoundError, KeyError):
+        return "0.1.0"  # Fallback
 
 # Read the README file
 README = (Path(__file__).parent / "README.md").read_text()
@@ -16,7 +20,7 @@ requirements = (Path(__file__).parent / "requirements.txt").read_text().strip().
 
 setup(
     name="sugar",
-    version=__version__,
+    version=get_version(),
     description="Sugar - AI-powered autonomous development system for Claude Code CLI",
     long_description=README,
     long_description_content_type="text/markdown",

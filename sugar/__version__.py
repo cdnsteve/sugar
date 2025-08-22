@@ -1,6 +1,19 @@
 """Version information for Sugar"""
+import tomllib
+from pathlib import Path
 
-__version__ = "0.1.0"
+def _get_version_from_pyproject():
+    """Read version from pyproject.toml"""
+    try:
+        pyproject_path = Path(__file__).parent.parent / "pyproject.toml"
+        with open(pyproject_path, "rb") as f:
+            pyproject = tomllib.load(f)
+        return pyproject["project"]["version"]
+    except (FileNotFoundError, KeyError, Exception):
+        # Fallback version if pyproject.toml can't be read
+        return "0.1.0"
+
+__version__ = _get_version_from_pyproject()
 __title__ = "Sugar - AI-powered autonomous development system"
 __description__ = "Autonomous development assistant for Claude Code CLI"
 __author__ = "Steven Leggett"

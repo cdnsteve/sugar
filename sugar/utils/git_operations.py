@@ -52,7 +52,7 @@ class GitOperations:
                 return True
             
             # Add Sugar version info to commit message
-            full_commit_message = f"{commit_message}\n\n🤖 Generated with {get_version_info()}\n\nCo-Authored-By: Claude <noreply@anthropic.com>"
+            full_commit_message = f"{commit_message}\n\n🤖 Generated with {get_version_info()}"
             
             # Commit changes
             result = await self._run_git_command(['commit', '-m', full_commit_message])
