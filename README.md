@@ -38,8 +38,8 @@ git clone https://github.com/cdnsteve/sugar.git
 cd sugar
 pip install -e .
 
-# Method 2: Direct from Git
-pip install -e git+https://github.com/cdnsteve/sugar.git#egg=sugar
+# Method 2: Direct from Git (SSH)
+pip install -e git+ssh://git@github.com/cdnsteve/sugar.git#egg=sugar
 ```
 
 📖 **Detailed setup instructions:** [Local Development Setup](docs/dev/local-development.md)
