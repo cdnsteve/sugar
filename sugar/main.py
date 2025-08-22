@@ -14,15 +14,24 @@ from datetime import datetime
 from .core.loop import SugarLoop
 from .__version__ import get_version_info, __version__
 
-# Configure logging
-logging.basicConfig(
-    level=logging.INFO,
-    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
-    handlers=[
-        logging.StreamHandler(),
-        logging.FileHandler('sugar.log')
-    ]
-)
+def setup_logging(log_file_path='.sugar/sugar.log', debug=False):
+    """Setup logging with proper file path from configuration"""
+    # Ensure log directory exists
+    Path(log_file_path).parent.mkdir(parents=True, exist_ok=True)
+    
+    level = logging.DEBUG if debug else logging.INFO
+    
+    # Clear any existing handlers
+    logging.getLogger().handlers.clear()
+    
+    logging.basicConfig(
+        level=level,
+        format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
+        handlers=[
+            logging.StreamHandler(),
+            logging.FileHandler(log_file_path)
+        ]
+    )
 
 logger = logging.getLogger(__name__)
 
@@ -59,10 +68,22 @@ def cli(ctx, config, debug, version):
         click.echo(ctx.get_help())
         return
     
-    # Set logging level based on debug flag
+    # Setup logging with proper configuration
+    log_file_path = '.sugar/sugar.log'  # Default
+    if Path(config).exists():
+        try:
+            import yaml
+            with open(config, 'r') as f:
+                config_data = yaml.safe_load(f)
+            log_file_path = config_data.get('sugar', {}).get('logging', {}).get('file', '.sugar/sugar.log')
+        except Exception:
+            pass  # Use default if config can't be read
+    
+    setup_logging(log_file_path, debug)
+    
     if debug:
-        logging.getLogger().setLevel(logging.DEBUG)
         logger.debug("🐛 Debug logging enabled")
+    
     ctx.ensure_object(dict)
     ctx.obj['config'] = config
 
