@@ -104,6 +104,19 @@ workflow:
 
 ---
 
+## [1.0.1] - 2025-08-22
+
+### Fixed
+- **Initialization Experience**: Removed unnecessary "Sugar has been successfully initialized" work item
+- **Clean First Run**: Sugar no longer creates bogus work items during project initialization
+- **Directory Structure**: Use `.gitkeep` instead of sample files to preserve log directory structure
+- **Cleanup Enhancement**: Added pattern to remove existing initialization work items
+
+### Changed
+- **Cleaner Setup**: First-time Sugar users see only real work, no confusing initialization tasks
+
+---
+
 ## [Unreleased]
 
 ### Planned Features
