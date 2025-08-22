@@ -709,6 +709,16 @@ sugar:
     
   # Work Discovery
   discovery:
+    # Global exclusions for all discovery modules
+    global_excluded_dirs: [
+      "node_modules", ".git", "__pycache__", 
+      "venv", ".venv", "env", ".env", "ENV", 
+      "env.bak", "venv.bak", "virtualenv",
+      "build", "dist", ".tox", ".nox",
+      "coverage", "htmlcov", ".pytest_cache",
+      ".sugar", ".claude"
+    ]
+    
     error_logs:
       enabled: true
       paths:
@@ -758,6 +768,14 @@ sugar:
       root_path: "."  # Analyze current project
       source_dirs: ["src", "lib", "app", "api", "server"]
       test_dirs: ["tests", "test", "__tests__", "spec"]
+      excluded_dirs: [
+        "node_modules", ".git", "__pycache__", 
+        "venv", ".venv", "env", ".env", "ENV", 
+        "env.bak", "venv.bak", "virtualenv",
+        "build", "dist", ".tox", ".nox",
+        "coverage", "htmlcov", ".pytest_cache",
+        ".sugar", ".claude"
+      ]
       
   # Storage
   storage:

@@ -13,6 +13,7 @@ Documentation for developers who want to **use** Sugar in their projects:
 - **[CLI Reference](user/cli-reference.md)** - All Sugar commands and options
 - **[GitHub Integration](user/github-integration.md)** - Connect Sugar to GitHub issues and PRs
 - **[Examples](user/examples.md)** - Real-world usage examples
+- **[Configuration Best Practices](user/configuration-best-practices.md)** - Essential config patterns and exclusions
 - **[Configuration Reference](user/configuration.md)** - Complete configuration options
 - **[Troubleshooting](user/troubleshooting.md)** - Common issues and solutions
 - **[FAQ](user/faq.md)** - Frequently asked questions
