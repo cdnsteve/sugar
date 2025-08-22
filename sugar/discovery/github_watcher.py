@@ -141,20 +141,17 @@ class GitHubWatcher:
             gh_command = self.config.get('gh_cli', {}).get('command', 'gh')
             issue_labels = self.config.get('issue_labels', ['bug', 'enhancement'])
             
-            # Build label filter
-            label_filter = ','.join(issue_labels) if issue_labels else None
-            
-            # Get open issues
+            # Get all open issues first (we'll filter by labels after)
             cmd = [
                 gh_command, 'issue', 'list',
                 '--repo', self.repo_name,
                 '--state', 'open',
-                '--limit', '10',
+                '--limit', '50',  # Get more issues to filter from
                 '--json', 'number,title,body,labels,assignees,comments,createdAt,updatedAt,url'
             ]
             
-            if label_filter:
-                cmd.extend(['--label', label_filter])
+            # Note: We don't use --label flag here because it uses AND logic
+            # Instead we'll filter by labels after getting the results
             
             result = subprocess.run(cmd, capture_output=True, text=True, timeout=30)
             if result.returncode != 0:
@@ -163,7 +160,24 @@ class GitHubWatcher:
             
             issues = json.loads(result.stdout)
             
+            # Filter issues by labels (OR logic - issue needs at least one matching label)
+            filtered_issues = []
             for issue in issues:
+                issue_label_names = [label['name'].lower() for label in issue.get('labels', [])]
+                config_labels = [label.lower() for label in issue_labels]
+                
+                # Check if issue has any of the configured labels
+                if any(label in issue_label_names for label in config_labels):
+                    filtered_issues.append(issue)
+                elif not issue_labels:  # If no label filter configured, include all issues
+                    filtered_issues.append(issue)
+            
+            # Limit to 10 issues after filtering
+            filtered_issues = filtered_issues[:10]
+            
+            logger.info(f"Found {len(issues)} total issues, {len(filtered_issues)} match label filter: {issue_labels}")
+            
+            for issue in filtered_issues:
                 work_item = self._create_work_item_from_issue_data(issue)
                 if work_item:
                     work_items.append(work_item)
