@@ -343,16 +343,20 @@ Please implement this task by:
             
             # Log first few lines of output for debugging
             if stdout_text:
-                stdout_preview = '\n'.join(stdout_text.split('\n')[:5])
+                stdout_lines = stdout_text.split('\n')
+                stdout_preview = '\n'.join(stdout_lines[:5])
                 logger.debug(f"📤 Stdout preview:\n{stdout_preview}")
-                if len(stdout_text.split('\n')) > 5:
-                    logger.debug(f"📤 ... (truncated, {len(stdout_text.split('\n'))} total lines)")
+                if len(stdout_lines) > 5:
+                    total_lines = len(stdout_lines)
+                    logger.debug(f"📤 ... (truncated, {total_lines} total lines)")
             
             if stderr_text:
-                stderr_preview = '\n'.join(stderr_text.split('\n')[:3])
+                stderr_lines = stderr_text.split('\n')
+                stderr_preview = '\n'.join(stderr_lines[:3])
                 logger.debug(f"⚠️ Stderr preview:\n{stderr_preview}")
-                if len(stderr_text.split('\n')) > 3:
-                    logger.debug(f"⚠️ ... (truncated, {len(stderr_text.split('\n'))} total lines)")
+                if len(stderr_lines) > 3:
+                    total_lines = len(stderr_lines)
+                    logger.debug(f"⚠️ ... (truncated, {total_lines} total lines)")
             
             # Process results
             if process.returncode == 0:
