@@ -58,6 +58,9 @@ class ClaudeWrapper:
             # Update session state for next execution
             self._update_session_state(work_item)
 
+            # Parse Claude's output for better GitHub comments
+            parsed_output = self._parse_claude_output(result.get('stdout', ''))
+            
             return {
                 "success": True,
                 "result": result,
@@ -65,7 +68,12 @@ class ClaudeWrapper:
                 "work_item_id": work_item['id'],
                 "execution_time": result.get('execution_time', 0),
                 "used_continue": should_continue,
-                "context_strategy": self.context_strategy
+                "context_strategy": self.context_strategy,
+                "output": result.get('stdout', ''),
+                "claude_response": parsed_output.get('response', ''),
+                "files_changed": parsed_output.get('files_changed', []),
+                "summary": parsed_output.get('summary', ''),
+                "actions_taken": parsed_output.get('actions_taken', [])
             }
             
         except Exception as e:
@@ -425,6 +433,71 @@ Please implement this task by:
         
         return file_patterns.get(task_type, ['src/generic_file.py'])
     
+    def _parse_claude_output(self, output: str) -> dict:
+        """Parse Claude's output to extract meaningful information for GitHub comments"""
+        if not output:
+            return {"response": "", "files_changed": [], "summary": "", "actions_taken": []}
+        
+        lines = output.split('\n')
+        
+        # Extract Claude's actual response (usually after prompts)
+        claude_response_lines = []
+        files_changed = []
+        actions_taken = []
+        in_claude_response = False
+        
+        for line in lines:
+            line = line.strip()
+            
+            # Skip empty lines
+            if not line:
+                continue
+                
+            # Skip prompt echoes and system messages
+            if (line.startswith('I\'ll') or line.startswith('Let me') or 
+                line.startswith('I\'m') or line.startswith('I need to') or
+                line.startswith('Looking at') or line.startswith('I can see')):
+                in_claude_response = True
+                claude_response_lines.append(line)
+                continue
+            
+            # Capture file operations
+            if ('wrote to' in line.lower() or 'created' in line.lower() or 
+                'updated' in line.lower() or 'modified' in line.lower()):
+                if '.py' in line or '.js' in line or '.md' in line or '.txt' in line:
+                    # Extract filename
+                    words = line.split()
+                    for word in words:
+                        if '.' in word and any(ext in word for ext in ['.py', '.js', '.md', '.txt', '.json', '.yaml']):
+                            files_changed.append(word.strip('.,'))
+                            break
+                actions_taken.append(line)
+                
+            # Capture success indicators and actions
+            if (line.startswith('✅') or line.startswith('✓') or 
+                'successfully' in line.lower() or 'completed' in line.lower() or
+                'added' in line.lower() or 'fixed' in line.lower()):
+                actions_taken.append(line)
+                
+            # Include in Claude response if we're in that section
+            if in_claude_response:
+                claude_response_lines.append(line)
+        
+        # Generate summary from actions
+        summary = ""
+        if actions_taken:
+            # Take the most descriptive action
+            summary = actions_taken[0] if actions_taken else ""
+            # Clean up summary
+            summary = summary.lstrip('✅✓ ').strip()
+        
+        return {
+            "response": '\n'.join(claude_response_lines[-20:]),  # Last 20 lines of Claude's response
+            "files_changed": list(set(files_changed)),  # Remove duplicates
+            "summary": summary,
+            "actions_taken": actions_taken[:5]  # Top 5 actions
+        }
+
     async def validate_claude_cli(self) -> bool:
         """Validate that Claude CLI is available and working"""
         try:

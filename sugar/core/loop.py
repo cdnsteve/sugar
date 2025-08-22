@@ -277,7 +277,7 @@ class SugarLoop:
                 ""
             ])
         
-        # Add result summary if available
+        # Add summary from Claude's actions
         if result.get('summary'):
             lines.extend([
                 "**Summary**:",
@@ -285,45 +285,47 @@ class SugarLoop:
                 ""
             ])
         
+        # Add actions taken by Claude
+        if result.get('actions_taken'):
+            lines.extend([
+                "**Actions Taken**:",
+                *[f"- {action.lstrip('✅✓ ')}" for action in result['actions_taken']],
+                ""
+            ])
+        
         # Add files changed if available
         if result.get('files_changed'):
             lines.extend([
                 "**Files Modified**:",
-                *[f"- {file}" for file in result['files_changed']],
+                *[f"- `{file}`" for file in result['files_changed']],
                 ""
             ])
         
-        # Add Claude response if available
+        # Show Claude's actual response (what user would see interactively)
+        if result.get('claude_response'):
+            claude_response = result['claude_response']
+            if claude_response.strip():
+                lines.extend([
+                    "**Claude's Response**:",
+                    "```",
+                    claude_response,
+                    "```",
+                    ""
+                ])
+        
+        # Add full execution details in collapsible section
         if result.get('output'):
             output = result['output']
             
-            # Try to extract key information from Claude's output
-            if "✅" in output or "completed" in output.lower():
-                # Extract summary lines that start with common patterns
-                summary_lines = []
-                for line in output.split('\n'):
-                    line = line.strip()
-                    if (line.startswith('✅') or line.startswith('-') or 
-                        'updated' in line.lower() or 'added' in line.lower() or 
-                        'created' in line.lower() or 'fixed' in line.lower()):
-                        summary_lines.append(line)
-                
-                if summary_lines:
-                    lines.extend([
-                        "**What was done**:",
-                        *[f"- {line.lstrip('✅- ')}" for line in summary_lines[:5]],
-                        ""
-                    ])
-            
             # Show truncated output for reference
-            if len(output) > 500:
-                output_preview = output[:500] + "..."
+            if len(output) > 1500:
+                output_preview = output[:1500] + "\n... (truncated)"
             else:
                 output_preview = output
             
             lines.extend([
                 "<details>",
-                "<summary>🔍 View execution details</summary>",
+                "<summary>🔍 View full execution log</summary>",
                 "",
                 "```",
                 output_preview,
