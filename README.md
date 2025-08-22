@@ -7,10 +7,12 @@ Sugar is a lightweight autonomous development system specifically designed for C
 ## ✨ What Makes Sugar Special
 
 - 🤖 **Truly Autonomous**: Runs 24/7 discovering and fixing issues without human intervention
-- 🧠 **Claude AI Integration**: Leverages Claude's advanced reasoning for high-quality code changes  
+- 🧠 **Advanced Agent Integration**: Intelligently selects optimal Claude agents for each task type
+- 🚀 **Dynamic Agent Discovery**: Works with **any** Claude agents you have configured locally
 - 🔍 **Smart Discovery**: Automatically finds work from GitHub issues, error logs, and code analysis
 - 🎯 **Project-Focused**: Each project gets isolated Sugar instance with custom configuration
 - 🔧 **Battle-Tested**: Handles real development workflows with git, GitHub, testing, and deployment
+- 📊 **Quality Tracking**: Monitors agent performance with detailed analytics and confidence scoring
 - 📈 **Learning System**: Adapts and improves based on success/failure patterns
 
 ## 🚀 Quick Start
@@ -143,6 +145,19 @@ sugar:
     timeout: 1800       # 30 minutes max per task
     context_file: ".sugar/context.json"
     
+    # Agent Integration (v1.2.0+)
+    use_structured_requests: true  # Enable structured JSON communication
+    enable_agents: true        # Enable Claude agent mode selection
+    agent_fallback: true       # Fall back to basic Claude if agent fails
+    agent_selection:           # Map work types to specific agents
+      bug_fix: "tech-lead"           # Strategic analysis for bug fixes
+      feature: "general-purpose"     # General development for features
+      refactor: "code-reviewer"      # Code review expertise for refactoring
+      test: "general-purpose"        # General development for tests
+      documentation: "general-purpose"  # General development for docs
+    # available_agents: []       # Optional: specify which agents are available
+                                # If empty, Sugar accepts any agent name
+    
   # Work Discovery
   discovery:
     error_logs:
@@ -191,6 +206,130 @@ sugar:
     level: "INFO"
     file: ".sugar/sugar.log"  # Project-specific logs
 ```
+
+## 🤖 Claude Agent Integration
+
+**Sugar v1.2.0+ includes advanced Claude agent integration with dynamic agent discovery!**
+
+Sugar intelligently selects the best Claude agent for each task based on work characteristics, and supports **any agents you have configured locally** - not just built-in ones.
+
+### 🎯 Intelligent Agent Selection
+
+Sugar automatically analyzes your work items and selects the optimal agent:
+
+```bash
+# High-priority security bug → tech-lead agent
+sugar add --type bug_fix --priority 5 --title "Critical auth vulnerability"
+
+# Code refactoring → code-reviewer agent  
+sugar add --type refactor --title "Clean up legacy payment code"
+
+# Social media content → social-media-growth-strategist agent
+sugar add --type documentation --title "Create LinkedIn content for developer audience"
+
+# Standard feature → general-purpose agent
+sugar add --type feature --title "Add user profile settings"
+```
+
+### 🔧 Agent Configuration
+
+Configure agents in `.sugar/config.yaml`:
+
+```yaml
+claude:
+  # Structured Request System
+  use_structured_requests: true
+  
+  # Agent Selection System
+  enable_agents: true        # Enable agent mode selection
+  agent_fallback: true       # Fall back to basic Claude if agent fails
+  
+  # Map work types to specific agents (built-in or custom)
+  agent_selection:
+    bug_fix: "tech-lead"                    # Built-in agent
+    feature: "my-frontend-specialist"       # Your custom agent
+    refactor: "code-reviewer"               # Built-in agent  
+    test: "general-purpose"                 # Built-in agent
+    documentation: "technical-writer"       # Your custom agent
+  
+  # Dynamic Agent Discovery - specify your available agents
+  available_agents: [
+    "tech-lead",                 # Built-in agents
+    "code-reviewer", 
+    "general-purpose",
+    "my-frontend-specialist",    # Your custom agents
+    "technical-writer",
+    "database-expert",
+    "security-specialist"
+  ]
+  
+  # If available_agents is empty/unspecified, Sugar accepts any agent name
+```
+
+### 🌟 Built-in Agent Types
+
+Sugar includes intelligent selection for these built-in agents:
+
+| Agent | Best For | Keywords |
+|-------|----------|----------|
+| **tech-lead** | Strategic analysis, architecture, complex bugs, high-priority work | architecture, design, strategy, security, critical |
+| **code-reviewer** | Code quality, refactoring, optimization, best practices | review, refactor, cleanup, optimize, code quality |
+| **social-media-growth-strategist** | Content strategy, engagement, audience growth | social media, content, engagement, followers |
+| **general-purpose** | Standard development work (features, tests, docs) | Default for most tasks |
+| **statusline-setup** | Claude Code status line configuration | statusline, status line |
+| **output-style-setup** | Claude Code output styling and themes | output style, styling, theme |
+
+### 🚀 Custom Agent Support
+
+**Sugar supports ANY agents you have configured locally!** Examples:
+
+```yaml
+claude:
+  agent_selection:
+    bug_fix: "my-security-expert"      # Your custom security agent
+    feature: "frontend-guru"           # Your custom frontend agent
+    refactor: "performance-wizard"     # Your custom performance agent
+    database: "sql-specialist"        # Your custom database agent
+```
+
+### 🧠 How Agent Selection Works
+
+1. **User Configuration First**: Checks your `agent_selection` mapping
+2. **Keyword Analysis**: Uses intelligent keyword matching as fallback
+3. **Availability Validation**: Ensures selected agent is in your `available_agents` list  
+4. **Graceful Fallback**: Falls back to available alternatives if needed
+5. **Quality Assessment**: Tracks agent performance with 0.0-1.0 quality scores
+
+### 📊 Agent Performance Tracking
+
+Sugar provides detailed analytics for agent performance:
+
+```bash
+# View work with timing and agent information
+sugar list
+# ⏱️ 45.2s | 🕐 2m 15s | 🤖 tech-lead | Critical auth fix
+
+sugar view TASK_ID
+# Shows: agent used, quality score, confidence level, execution time
+```
+
+### 🔄 Fallback Strategy
+
+Sugar uses a robust multi-layer fallback system:
+
+1. **Selected Agent** (from configuration or keyword analysis)
+2. **Basic Claude** (if agent fails)  
+3. **Legacy Mode** (if structured requests fail)
+
+This ensures your work **never fails** due to agent issues.
+
+### ⚙️ Migration from v1.1.x
+
+Existing Sugar installations automatically get agent support with **zero breaking changes**:
+
+- All existing configurations continue working unchanged
+- Agents are **opt-in** - set `enable_agents: false` to disable
+- Without agent configuration, Sugar uses intelligent defaults
 
 ## 📋 Command Reference
 
