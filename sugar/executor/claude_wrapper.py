@@ -663,7 +663,14 @@ Please implement this task by:
         title = work_item.get('title', '').lower()
         description = work_item.get('description', '').lower()
         
-        # Priority-based agent selection
+        # Priority-based agent selection (order matters - most specific first)
+        
+        # Social media content - use social-media-growth-strategist (check first for specificity)
+        if any(keyword in title or keyword in description for keyword in [
+            'social media', 'post', 'content strategy', 'engagement', 'followers',
+            'twitter', 'linkedin', 'instagram', 'marketing', 'growth', 'social'
+        ]):
+            return AgentType.SOCIAL_MEDIA_STRATEGIST
         
         # Code review indicators - use code-reviewer
         if any(keyword in title or keyword in description for keyword in [
@@ -679,13 +686,6 @@ Please implement this task by:
             'scalability', 'security', 'critical bug'
         ]) or task_type in ['bug_fix'] or work_item.get('priority', 3) >= 4:
             return AgentType.TECH_LEAD
-        
-        # Social media content - use social-media-growth-strategist
-        if any(keyword in title or keyword in description for keyword in [
-            'social media', 'post', 'content', 'engagement', 'followers',
-            'twitter', 'linkedin', 'instagram', 'marketing', 'growth'
-        ]):
-            return AgentType.SOCIAL_MEDIA_STRATEGIST
         
         # Configuration/setup tasks - use specific setup agents
         if any(keyword in title or keyword in description for keyword in [
