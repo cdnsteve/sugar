@@ -69,8 +69,19 @@ def init(project_dir):
         else:
             click.echo(f"✅ Found Claude CLI: {claude_cmd}")
         
+        # Detect GitHub CLI and repository
+        github_config = _detect_github_config(project_path)
+        if github_config['gh_available']:
+            click.echo(f"✅ Found GitHub CLI: {github_config['gh_command']}")
+            if github_config['repo']:
+                click.echo(f"✅ Detected GitHub repository: {github_config['repo']}")
+            if not github_config['authenticated']:
+                click.echo("⚠️ GitHub CLI found but not authenticated. Run 'gh auth login' to enable GitHub integration.")
+        else:
+            click.echo("ℹ️ GitHub CLI not found. You can install it later for GitHub integration.")
+        
         # Create default config
-        config_content = _generate_default_config(claude_cmd, str(project_path))
+        config_content = _generate_default_config(claude_cmd, str(project_path), github_config)
         config_path = sugar_dir / 'config.yaml'
         
         with open(config_path, 'w') as f:
@@ -670,6 +681,93 @@ async def _update_task_async(work_queue, task_id, updates):
     await work_queue.initialize()
     return await work_queue.update_work(task_id, updates)
 
+def _detect_github_config(project_path: Path) -> dict:
+    """Detect GitHub CLI availability and current repository configuration"""
+    import subprocess
+    import os
+    
+    github_config = {
+        'gh_available': False,
+        'gh_command': 'gh',
+        'authenticated': False,
+        'repo': '',
+        'auth_method': 'auto'
+    }
+    
+    try:
+        # Check if GitHub CLI is available
+        result = subprocess.run(['gh', '--version'], capture_output=True, text=True, timeout=10)
+        if result.returncode == 0:
+            github_config['gh_available'] = True
+            
+            # Check if authenticated
+            auth_result = subprocess.run(['gh', 'auth', 'status'], capture_output=True, text=True, timeout=10)
+            github_config['authenticated'] = auth_result.returncode == 0
+            
+            # Try to detect current repository
+            try:
+                # Change to project directory for repo detection
+                original_cwd = os.getcwd()
+                os.chdir(project_path)
+                
+                repo_result = subprocess.run(['gh', 'repo', 'view', '--json', 'nameWithOwner'], 
+                                           capture_output=True, text=True, timeout=10)
+                if repo_result.returncode == 0:
+                    import json
+                    repo_data = json.loads(repo_result.stdout)
+                    github_config['repo'] = repo_data.get('nameWithOwner', '')
+                
+                # Restore original directory
+                os.chdir(original_cwd)
+                
+            except Exception:
+                # If repo detection fails, try git remote
+                try:
+                    os.chdir(project_path)
+                    git_result = subprocess.run(['git', 'remote', 'get-url', 'origin'], 
+                                              capture_output=True, text=True, timeout=5)
+                    if git_result.returncode == 0:
+                        remote_url = git_result.stdout.strip()
+                        # Parse GitHub repository from remote URL
+                        repo = _parse_github_repo_from_url(remote_url)
+                        if repo:
+                            github_config['repo'] = repo
+                    os.chdir(original_cwd)
+                except Exception:
+                    os.chdir(original_cwd)
+                    pass
+                    
+            # Set auth method based on availability
+            if github_config['authenticated']:
+                github_config['auth_method'] = 'gh_cli'
+            else:
+                github_config['auth_method'] = 'auto'
+                
+    except (subprocess.TimeoutExpired, FileNotFoundError, Exception):
+        pass
+    
+    return github_config
+
+def _parse_github_repo_from_url(url: str) -> str:
+    """Parse GitHub repository name from remote URL"""
+    import re
+    
+    # Handle both HTTPS and SSH URLs
+    # HTTPS: https://github.com/owner/repo.git
+    # SSH: git@github.com:owner/repo.git
+    
+    patterns = [
+        r'github\.com[:/]([^/]+/[^/]+?)(?:\.git)?/?$',
+        r'github\.com/([^/]+/[^/]+?)(?:\.git)?/?$'
+    ]
+    
+    for pattern in patterns:
+        match = re.search(pattern, url)
+        if match:
+            return match.group(1)
+    
+    return ''
+
 def _find_claude_cli():
     """Find Claude CLI in standard locations"""
     # Try common paths
@@ -693,7 +791,89 @@ def _find_claude_cli():
     
     return None
 
-def _generate_default_config(claude_cmd: str, project_root: str) -> str:
+def _get_github_config_section(github_config: dict = None) -> str:
+    """Generate GitHub configuration section based on detection results"""
+    if not github_config or not github_config.get('detected'):
+        # Default GitHub section when no detection attempted
+        return """
+      enabled: false  # Set to true and configure to enable
+      repo: ""  # e.g., "user/repository"
+      
+      # Authentication method: "token", "gh_cli", or "auto"
+      auth_method: "auto"  # Try gh CLI first, fallback to token
+      
+      # GitHub Personal Access Token (if using "token" method)
+      token: ""  # Or set GITHUB_TOKEN environment variable
+      
+      # GitHub CLI integration (if using "gh_cli" method)  
+      gh_cli:
+        command: "gh"  # Path to gh command
+        use_default_auth: true  # Use gh CLI's existing authentication
+        
+      # Discovery settings
+      issue_labels: ["bug", "enhancement", "good-first-issue"]
+      check_interval_minutes: 30"""
+    
+    if github_config.get('authenticated') and github_config.get('repo'):
+        # GitHub CLI detected, authenticated, and repo found
+        return f"""
+      enabled: true  # GitHub CLI detected and authenticated
+      repo: "{github_config['repo']}"  # Auto-detected from git remote
+      
+      # Authentication method: using GitHub CLI
+      auth_method: "gh_cli"  # GitHub CLI is authenticated
+      
+      # GitHub CLI integration  
+      gh_cli:
+        command: "gh"  # GitHub CLI detected
+        use_default_auth: true  # Using existing gh authentication
+        
+      # Discovery settings
+      issue_labels: ["bug", "enhancement", "good-first-issue"]
+      check_interval_minutes: 30"""
+    
+    elif github_config.get('cli_available'):
+        repo_comment = f'# Auto-detected: "{github_config["repo"]}"' if github_config.get('repo') else '# Set to "owner/repository" format'
+        auth_status = "# GitHub CLI detected but not authenticated - run 'gh auth login'"
+        
+        return f"""
+      enabled: false  {auth_status}
+      repo: "{github_config.get('repo', '')}"  {repo_comment}
+      
+      # Authentication method: GitHub CLI available but not authenticated
+      auth_method: "gh_cli"  # GitHub CLI detected
+      
+      # GitHub CLI integration (run 'gh auth login' to authenticate)
+      gh_cli:
+        command: "gh"  # GitHub CLI detected
+        use_default_auth: true  # Authenticate with 'gh auth login'
+        
+      # Discovery settings
+      issue_labels: ["bug", "enhancement", "good-first-issue"]
+      check_interval_minutes: 30"""
+    
+    else:
+        # GitHub CLI not detected
+        return """
+      enabled: false  # GitHub CLI not detected - install or use token auth
+      repo: ""  # e.g., "user/repository"
+      
+      # Authentication method: GitHub CLI not found
+      auth_method: "auto"  # Install gh CLI or use token
+      
+      # GitHub Personal Access Token (alternative if gh CLI not available)
+      token: ""  # Get from: https://github.com/settings/tokens
+      
+      # GitHub CLI integration (install GitHub CLI for best experience)
+      gh_cli:
+        command: "gh"  # Install with: brew install gh (macOS) or see github.com/cli/cli
+        use_default_auth: true
+        
+      # Discovery settings
+      issue_labels: ["bug", "enhancement", "good-first-issue"]
+      check_interval_minutes: 30"""
+
+def _generate_default_config(claude_cmd: str, project_root: str, github_config: dict = None) -> str:
     """Generate default Sugar configuration"""
     return f"""# Sugar Configuration for {Path(project_root).name}
 sugar:
@@ -731,24 +911,7 @@ sugar:
         - "*.log"
       max_age_hours: 24
     
-    github:
-      enabled: false  # Set to true and configure to enable
-      repo: ""  # e.g., "user/repository"
-      
-      # Authentication method: "token", "gh_cli", or "auto"
-      auth_method: "auto"  # Try gh CLI first, fallback to token
-      
-      # GitHub Personal Access Token (if using "token" method)
-      token: ""  # Or set GITHUB_TOKEN environment variable
-      
-      # GitHub CLI integration (if using "gh_cli" method)  
-      gh_cli:
-        command: "gh"  # Path to gh command
-        use_default_auth: true  # Use gh CLI's existing authentication
-        
-      # Discovery settings
-      issue_labels: ["bug", "enhancement", "good-first-issue"]
-      check_interval_minutes: 30
+    github:{_get_github_config_section(github_config)}
       
     code_quality:
       enabled: true
