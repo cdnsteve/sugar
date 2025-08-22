@@ -51,11 +51,8 @@ class GitOperations:
                 logger.info("No changes to commit")
                 return True
             
-            # Add Sugar version info to commit message
-            full_commit_message = f"{commit_message}\n\n🤖 Generated with {get_version_info()}"
-            
-            # Commit changes
-            result = await self._run_git_command(['commit', '-m', full_commit_message])
+            # Commit changes (message already formatted by WorkflowOrchestrator)
+            result = await self._run_git_command(['commit', '-m', commit_message])
             
             if result['returncode'] == 0:
                 logger.info(f"📝 Committed changes: {commit_message}")
