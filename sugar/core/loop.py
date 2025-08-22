@@ -257,14 +257,25 @@ class SugarLoop:
     
     def _format_completion_comment(self, work_item: dict, result: dict) -> str:
         """Format completion comment for GitHub issue"""
+        task_id = work_item.get('id', 'unknown')[:8]
+        
         lines = [
             "## 🤖 Sugar Autonomous Update",
             "",
+            f"**Task ID**: `{task_id}...`",
             f"**Task**: {work_item.get('title', 'Unknown task')}",
+            f"**Type**: {work_item.get('type', 'unknown')}",
             f"**Status**: ✅ Completed",
             f"**Completed**: {datetime.utcnow().strftime('%Y-%m-%d %H:%M:%S UTC')}",
             ""
         ]
+        
+        # Add execution time if available
+        if result.get('execution_time'):
+            lines.extend([
+                f"**Execution Time**: {result['execution_time']:.1f} seconds",
+                ""
+            ])
         
         # Add result summary if available
         if result.get('summary'):
@@ -284,16 +295,40 @@ class SugarLoop:
         
         # Add Claude response if available
         if result.get('output'):
-            # Truncate very long outputs
             output = result['output']
-            if len(output) > 1000:
-                output = output[:1000] + "... (truncated)"
+            
+            # Try to extract key information from Claude's output
+            if "✅" in output or "completed" in output.lower():
+                # Extract summary lines that start with common patterns
+                summary_lines = []
+                for line in output.split('\n'):
+                    line = line.strip()
+                    if (line.startswith('✅') or line.startswith('-') or 
+                        'updated' in line.lower() or 'added' in line.lower() or 
+                        'created' in line.lower() or 'fixed' in line.lower()):
+                        summary_lines.append(line)
+                
+                if summary_lines:
+                    lines.extend([
+                        "**What was done**:",
+                        *[f"- {line.lstrip('✅- ')}" for line in summary_lines[:5]],
+                        ""
+                    ])
+            
+            # Show truncated output for reference
+            if len(output) > 500:
+                output_preview = output[:500] + "..."
+            else:
+                output_preview = output
             
             lines.extend([
-                "**Details**:",
-                f"```",
-                output,
-                f"```",
+                "<details>",
+                "<summary>🔍 View execution details</summary>",
+                "",
+                "```",
+                output_preview,
+                "```",
+                "</details>",
                 ""
             ])
         
