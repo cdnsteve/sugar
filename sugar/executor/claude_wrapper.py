@@ -284,32 +284,43 @@ Please provide:
         """Execute the Claude CLI command with the given prompt and optional continuation"""
         start_time = datetime.utcnow()
         
+        # Create prompt file in .sugar directory where Claude has access
+        sugar_dir = Path('.sugar')
+        sugar_dir.mkdir(exist_ok=True)
+        
         if continue_session:
             # Use --continue flag to maintain conversation context
-            # For continuation, we need to create a file with the task and use --continue with that file
             logger.info(f"🔄 Executing Claude CLI with --continue")
-            with tempfile.NamedTemporaryFile(mode='w', suffix='.md', delete=False) as f:
+            prompt_file = sugar_dir / 'current_task.md'
+            with open(prompt_file, 'w') as f:
                 f.write(prompt)
-                prompt_file = f.name
-            cmd = [self.command, '--continue', prompt_file]
+            cmd = [self.command, '--continue', str(prompt_file)]
         else:
-            # Fresh session - use temporary file for the prompt
+            # Fresh session - create prompt file in .sugar directory
             logger.info(f"🆕 Executing Claude CLI with fresh session")
-            # Create temporary file for the prompt
-            with tempfile.NamedTemporaryFile(mode='w', suffix='.md', delete=False) as f:
+            prompt_file = sugar_dir / 'current_task.md'
+            with open(prompt_file, 'w') as f:
                 f.write(prompt)
-                prompt_file = f.name
-            cmd = [self.command, prompt_file]
+            cmd = [self.command, str(prompt_file)]
         
         # Log more details about execution
         logger.info(f"🤖 Executing Claude CLI: {' '.join(cmd[:4])}...")
         logger.info(f"📁 Working directory: {os.getcwd()}")
+        logger.info(f"📝 Prompt file: {prompt_file}")
+        logger.info(f"📄 Prompt length: {len(prompt)} characters")
         logger.info(f"⏱️ Timeout set to: {self.timeout}s")
         if continue_session:
             logger.info(f"🔄 Using continuation mode")
-        else:
-            logger.info(f"📝 Prompt saved to: {prompt_file}")
-            logger.info(f"📄 Prompt length: {len(prompt)} characters")
+        
+        # Verify file permissions
+        try:
+            if os.path.exists(prompt_file):
+                stat_info = os.stat(prompt_file)
+                logger.info(f"📋 File permissions: {oct(stat_info.st_mode)[-3:]} (owner: {stat_info.st_uid})")
+            else:
+                logger.warning(f"⚠️ Prompt file does not exist: {prompt_file}")
+        except Exception as e:
+            logger.warning(f"⚠️ Could not check file permissions: {e}")
         
         try:
             process = await asyncio.create_subprocess_exec(
@@ -377,13 +388,9 @@ Please provide:
                 raise Exception(f"Claude CLI failed with return code {process.returncode}: {stderr_text}")
                 
         finally:
-            # Clean up temporary file if used
-            if prompt_file:
-                try:
-                    os.unlink(prompt_file)
-                    logger.debug(f"🗑️ Cleaned up temporary file: {prompt_file}")
-                except Exception as e:
-                    logger.warning(f"Could not delete temporary file: {e}")
+            # Note: We keep the prompt file for debugging purposes
+            # It will be overwritten on the next task execution
+            logger.debug(f"📝 Task prompt preserved at: {prompt_file}")
     
     async def _simulate_execution(self, work_item: Dict[str, Any]) -> Dict[str, Any]:
         """Simulate Claude execution for testing (dry run mode) with continuation support"""
