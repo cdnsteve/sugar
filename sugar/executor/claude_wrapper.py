@@ -270,13 +270,13 @@ After reviewing the task details:
         start_time = datetime.utcnow()
         
         if continue_session:
-            # Use --continue flag to maintain conversation context
+            # Use --continue flag to maintain conversation context with --print for non-interactive mode
             logger.info(f"🔄 Executing Claude CLI with --continue")
-            cmd = [self.command, '--continue']
+            cmd = [self.command, '--continue', '--print']
         else:
-            # Fresh session
+            # Fresh session with --print for non-interactive mode
             logger.info(f"🆕 Executing Claude CLI with fresh session")
-            cmd = [self.command]
+            cmd = [self.command, '--print']
         
         # Log more details about execution
         logger.info(f"🤖 Executing Claude CLI: {' '.join(cmd)}")
