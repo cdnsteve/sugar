@@ -284,47 +284,29 @@ Please provide:
         """Execute the Claude CLI command with the given prompt and optional continuation"""
         start_time = datetime.utcnow()
         
-        # Create prompt file in .sugar directory where Claude has access
-        sugar_dir = Path('.sugar')
-        sugar_dir.mkdir(exist_ok=True)
-        
         if continue_session:
             # Use --continue flag to maintain conversation context
             logger.info(f"🔄 Executing Claude CLI with --continue")
-            prompt_file = sugar_dir / 'current_task.md'
-            with open(prompt_file, 'w') as f:
-                f.write(prompt)
-            cmd = [self.command, '--continue', str(prompt_file)]
+            cmd = [self.command, '--continue']
         else:
-            # Fresh session - create prompt file in .sugar directory
+            # Fresh session
             logger.info(f"🆕 Executing Claude CLI with fresh session")
-            prompt_file = sugar_dir / 'current_task.md'
-            with open(prompt_file, 'w') as f:
-                f.write(prompt)
-            cmd = [self.command, str(prompt_file)]
+            cmd = [self.command]
         
         # Log more details about execution
-        logger.info(f"🤖 Executing Claude CLI: {' '.join(cmd[:4])}...")
+        logger.info(f"🤖 Executing Claude CLI: {' '.join(cmd)}")
         logger.info(f"📁 Working directory: {os.getcwd()}")
-        logger.info(f"📝 Prompt file: {prompt_file}")
         logger.info(f"📄 Prompt length: {len(prompt)} characters")
         logger.info(f"⏱️ Timeout set to: {self.timeout}s")
         if continue_session:
-            logger.info(f"🔄 Using continuation mode")
-        
-        # Verify file permissions
-        try:
-            if os.path.exists(prompt_file):
-                stat_info = os.stat(prompt_file)
-                logger.info(f"📋 File permissions: {oct(stat_info.st_mode)[-3:]} (owner: {stat_info.st_uid})")
-            else:
-                logger.warning(f"⚠️ Prompt file does not exist: {prompt_file}")
-        except Exception as e:
-            logger.warning(f"⚠️ Could not check file permissions: {e}")
+            logger.info(f"🔄 Using continuation mode - prompt will be sent via stdin")
+        else:
+            logger.info(f"🆕 Fresh session - prompt will be sent via stdin")
         
         try:
             process = await asyncio.create_subprocess_exec(
                 *cmd,
+                stdin=asyncio.subprocess.PIPE,
                 stdout=asyncio.subprocess.PIPE,
                 stderr=asyncio.subprocess.PIPE,
                 cwd=os.getcwd()
@@ -332,10 +314,10 @@ Please provide:
             
             logger.info(f"🚀 Claude process started (PID: {process.pid})")
             
-            # Wait for completion with timeout
+            # Send prompt via stdin and wait for completion with timeout
             try:
                 stdout, stderr = await asyncio.wait_for(
-                    process.communicate(),
+                    process.communicate(input=prompt.encode('utf-8')),
                     timeout=self.timeout
                 )
             except asyncio.TimeoutError:
@@ -378,7 +360,7 @@ Please provide:
                     "execution_time": execution_time,
                     "success": True,
                     "continued_session": continue_session,
-                    "command": ' '.join(cmd[:3]) + ('...' if len(cmd) > 3 else ''),
+                    "command": ' '.join(cmd),
                     "prompt_length": len(prompt),
                     "working_directory": os.getcwd()
                 }
@@ -387,10 +369,9 @@ Please provide:
                 logger.error(f"❌ Error output: {stderr_text}")
                 raise Exception(f"Claude CLI failed with return code {process.returncode}: {stderr_text}")
                 
-        finally:
-            # Note: We keep the prompt file for debugging purposes
-            # It will be overwritten on the next task execution
-            logger.debug(f"📝 Task prompt preserved at: {prompt_file}")
+        except Exception as e:
+            logger.error(f"❌ Claude CLI execution error: {e}")
+            raise
     
     async def _simulate_execution(self, work_item: Dict[str, Any]) -> Dict[str, Any]:
         """Simulate Claude execution for testing (dry run mode) with continuation support"""
