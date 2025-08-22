@@ -209,43 +209,54 @@ class ClaudeWrapper:
         return context
     
     def _create_task_prompt(self, work_item: Dict[str, Any], context: Dict[str, Any], continue_session: bool = False) -> str:
-        """Create a structured prompt for Claude that uses sugar view to get task details"""
-        
-        task_id = work_item['id']
+        """Create a structured prompt for Claude with embedded task details"""
         
         if continue_session:
-            # Continuation prompt - Claude can get details via sugar view
+            # Continuation prompt with embedded task details
             prompt = f"""Continuing our development work on this project.
 
-I have a new task to work on. Please use the command `sugar view {task_id}` to get the full task details, then implement the solution.
+## Next Task: {work_item['title']}
+- **Type**: {work_item['type']} 
+- **Priority**: {work_item['priority']}/5
+- **Source**: {work_item.get('source', 'manual')}
+
+## Task Description
+{work_item['description']}
+
+## Task Context
+{json.dumps(work_item.get('context', {}), indent=2)}
 
 This is task #{context['execution_count']} in our current development session. Building on our previous work in this project, please:
 
-1. **Get task details**: Run `sugar view {task_id}` to see the full task information
-2. **Analyze the task** in the context of what we've already accomplished  
-3. **Implement the solution** following the patterns and practices we've established
-4. **Test and verify** the implementation
-5. **Document changes** with clear commit messages
+1. **Analyze the task** in the context of what we've already accomplished  
+2. **Implement the solution** following the patterns and practices we've established
+3. **Test and verify** the implementation
+4. **Document changes** with clear commit messages
 
 ---
 *Continuing autonomous development session with Sugar*
 """
         else:
-            # Fresh session prompt - introduce Sugar and the task workflow
+            # Fresh session prompt with embedded task details
             prompt = f"""# Sugar Autonomous Development Task
 
-Hello! I'm working with Sugar, an autonomous development system. I have a task to work on.
+Hello! I'm working with Sugar, an autonomous development system. I have a specific task to implement.
 
-## Getting Task Details
-Please run this command to get the full task information:
-```bash
-sugar view {task_id}
-```
+## Task Information
+- **Type**: {work_item['type']}
+- **Priority**: {work_item['priority']}/5
+- **Title**: {work_item['title']}
+- **ID**: {work_item['id']}
+- **Source**: {work_item.get('source', 'manual')}
 
-This will show you the complete task details including type, priority, description, and context.
+## Task Description
+{work_item['description']}
+
+## Task Context
+{json.dumps(work_item.get('context', {}), indent=2)}
 
 ## Instructions
-After reviewing the task details:
+Please implement this task by:
 
 1. **Analyze the task** and understand the requirements
 2. **Implement the solution** following best practices
@@ -255,9 +266,9 @@ After reviewing the task details:
 
 ## Important Notes
 - This is an autonomous development session powered by Sugar
-- Use the Sugar CLI to get task information rather than guessing
-- Focus on the specific task requirements shown by `sugar view`
+- Focus on the specific task requirements provided above
 - Follow existing code patterns and conventions in this project
+- Make actual file changes to complete the task
 
 ---
 *This task is being executed by Sugar - an autonomous development system.*
