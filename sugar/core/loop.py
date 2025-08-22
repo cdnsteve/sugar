@@ -344,24 +344,34 @@ class SugarLoop:
         
         # Add concise summary from Claude's response or actions
         summary = self._extract_concise_summary(result)
-        if summary and summary != "Task completed successfully":
-            lines.extend([
-                summary,
-                ""
-            ])
         
-        # Add key actions or what was actually done
-        actions_added = False
+        # Get meaningful actions
+        meaningful_actions = []
         if result.get('actions_taken'):
             key_actions = [action.lstrip('✅✓ ').strip() for action in result['actions_taken'][:3]]
-            meaningful_actions = [action for action in key_actions if action and action != "Task completed successfully"]
-            if meaningful_actions:
+            meaningful_actions = [action for action in key_actions 
+                                if action and action != "Task completed successfully" 
+                                and action != summary]  # Avoid duplication with summary
+        
+        # Show summary if it's different from actions
+        if summary and summary != "Task completed successfully":
+            # Check if summary is substantially different from first action
+            first_action = meaningful_actions[0] if meaningful_actions else ""
+            if not first_action or not self._are_similar_strings(summary, first_action):
                 lines.extend([
-                    "**What was done:**",
-                    *[f"- {action}" for action in meaningful_actions],
+                    summary,
                     ""
                 ])
-                actions_added = True
+        
+        # Add actions if we have meaningful ones
+        actions_added = False
+        if meaningful_actions:
+            lines.extend([
+                "**What was done:**",
+                *[f"- {action}" for action in meaningful_actions],
+                ""
+            ])
+            actions_added = True
         
         # Add files changed if available (most important info)
         if result.get('files_changed'):
@@ -444,6 +454,33 @@ class SugarLoop:
                 return first_action.rstrip('.')
         
         return ""
+    
+    def _are_similar_strings(self, str1: str, str2: str) -> bool:
+        """Check if two strings are substantially similar (to avoid duplication)"""
+        if not str1 or not str2:
+            return False
+        
+        # Normalize strings for comparison
+        s1 = str1.lower().strip()
+        s2 = str2.lower().strip()
+        
+        # If one contains the other or they're very similar, consider them duplicates
+        if s1 in s2 or s2 in s1:
+            return True
+        
+        # Check for substantial overlap in words
+        words1 = set(s1.split())
+        words2 = set(s2.split())
+        
+        if len(words1) == 0 or len(words2) == 0:
+            return False
+        
+        overlap = len(words1.intersection(words2))
+        total_unique = len(words1.union(words2))
+        
+        # If more than 70% overlap, consider similar
+        similarity = overlap / total_unique if total_unique > 0 else 0
+        return similarity > 0.7
 
     async def health_check(self) -> dict:
         """Return system health status"""
