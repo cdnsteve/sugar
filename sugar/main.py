@@ -36,12 +36,17 @@ def signal_handler(signum, frame):
 
 @click.group()
 @click.option('--config', default='.sugar/config.yaml', help='Configuration file path')
+@click.option('--debug', is_flag=True, help='Enable debug logging')
 @click.pass_context
-def cli(ctx, config):
+def cli(ctx, config, debug):
     """Sugar - AI-powered autonomous development system
     
     A lightweight autonomous development system that works with Claude Code CLI
     """
+    # Set logging level based on debug flag
+    if debug:
+        logging.getLogger().setLevel(logging.DEBUG)
+        logger.debug("🐛 Debug logging enabled")
     ctx.ensure_object(dict)
     ctx.obj['config'] = config
 

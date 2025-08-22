@@ -89,7 +89,7 @@ class TestCoverageAnalyzer:
         # Prioritize and limit results
         work_items = self._prioritize_test_work(work_items)
         
-        logger.info(f"🔍 TestCoverageAnalyzer discovered {len(work_items)} work items")
+        logger.debug(f"🔍 TestCoverageAnalyzer discovered {len(work_items)} work items")
         return work_items
     
     async def _find_untested_files(self) -> List[str]:

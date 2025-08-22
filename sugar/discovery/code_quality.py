@@ -50,7 +50,7 @@ class CodeQualityScanner:
         # Remove duplicates and prioritize
         work_items = self._deduplicate_and_prioritize(work_items)
         
-        logger.info(f"🔍 CodeQualityScanner discovered {len(work_items)} work items")
+        logger.debug(f"🔍 CodeQualityScanner discovered {len(work_items)} work items")
         return work_items
     
     async def _get_files_to_scan(self) -> List[str]:

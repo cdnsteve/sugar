@@ -57,7 +57,7 @@ class ErrorLogMonitor:
         if not work_items:
             work_items = await self._generate_maintenance_tasks()
         
-        logger.info(f"🔍 ErrorLogMonitor discovered {len(work_items)} work items")
+        logger.debug(f"🔍 ErrorLogMonitor discovered {len(work_items)} work items")
         return work_items
     
     def _is_file_recent(self, file_path: str) -> bool:

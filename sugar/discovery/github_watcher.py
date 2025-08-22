@@ -130,7 +130,7 @@ class GitHubWatcher:
         except Exception as e:
             logger.error(f"Error discovering GitHub work: {e}")
         
-        logger.info(f"🔍 GitHubWatcher discovered {len(work_items)} work items")
+        logger.debug(f"🔍 GitHubWatcher discovered {len(work_items)} work items")
         return work_items
     
     async def _discover_issues_gh_cli(self) -> List[Dict[str, Any]]:
@@ -175,7 +175,7 @@ class GitHubWatcher:
             # Limit to 10 issues after filtering
             filtered_issues = filtered_issues[:10]
             
-            logger.info(f"Found {len(issues)} total issues, {len(filtered_issues)} match label filter: {issue_labels}")
+            logger.debug(f"Found {len(issues)} total issues, {len(filtered_issues)} match label filter: {issue_labels}")
             
             for issue in filtered_issues:
                 work_item = self._create_work_item_from_issue_data(issue)

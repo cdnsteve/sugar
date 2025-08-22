@@ -59,7 +59,7 @@ class WorkQueue:
             await db.commit()
         
         self._initialized = True
-        logger.info(f"✅ Work queue initialized: {self.db_path}")
+        logger.debug(f"✅ Work queue initialized: {self.db_path}")
     
     async def work_exists(self, source_file: str, exclude_statuses: List[str] = None) -> bool:
         """Check if work item with given source_file already exists"""
@@ -106,7 +106,7 @@ class WorkQueue:
             ))
             await db.commit()
         
-        logger.info(f"➕ Added work item: {work_item['title']} (priority: {work_item['priority']})")
+        logger.debug(f"➕ Added work item: {work_item['title']} (priority: {work_item['priority']})")
         return work_id
     
     async def get_next_work(self) -> Optional[Dict[str, Any]]:
@@ -151,7 +151,7 @@ class WorkQueue:
             await db.commit()
             
             work_item['attempts'] += 1
-            logger.info(f"📋 Retrieved work item: {work_item['title']} (attempt #{work_item['attempts']})")
+            logger.debug(f"📋 Retrieved work item: {work_item['title']} (attempt #{work_item['attempts']})")
             
             return work_item
     
@@ -169,7 +169,7 @@ class WorkQueue:
             
             await db.commit()
         
-        logger.info(f"✅ Completed work item: {work_id}")
+        logger.debug(f"✅ Completed work item: {work_id}")
     
     async def fail_work(self, work_id: str, error_message: str, max_retries: int = 3):
         """Mark a work item as failed, or retry if under retry limit"""

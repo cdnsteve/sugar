@@ -126,7 +126,7 @@ class SugarLoop:
     
     async def _discover_work(self):
         """Discover new work from all enabled sources"""
-        logger.info("🔍 Discovering work...")
+        logger.debug("🔍 Discovering work...")
         
         discovered_work = []
         
@@ -134,7 +134,7 @@ class SugarLoop:
             try:
                 work_items = await module.discover()
                 discovered_work.extend(work_items)
-                logger.info(f"📋 {module.__class__.__name__} found {len(work_items)} work items")
+                logger.debug(f"📋 {module.__class__.__name__} found {len(work_items)} work items")
             except Exception as e:
                 logger.error(f"Error in {module.__class__.__name__}: {e}")
         
@@ -171,7 +171,7 @@ class SugarLoop:
                 logger.info("📭 No work items ready for execution")
                 break
             
-            logger.info(f"⚡ Executing work: {work_item['title']}")
+            logger.debug(f"⚡ Executing work: {work_item['title']}")
             
             try:
                 # Execute with Claude Code

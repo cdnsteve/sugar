@@ -31,10 +31,10 @@ class ClaudeWrapper:
         self.session_state_file = self.context_file.replace('.json', '_session.json')
         self.dry_run = config.get('dry_run', True)
         
-        logger.info(f"🤖 Claude wrapper initialized: {self.command}")
-        logger.info(f"🧪 Dry run mode: {self.dry_run}")
-        logger.info(f"🔄 Context persistence: {self.use_continuous}")
-        logger.info(f"📋 Context strategy: {self.context_strategy}")
+        logger.debug(f"🤖 Claude wrapper initialized: {self.command}")
+        logger.debug(f"🧪 Dry run mode: {self.dry_run}")
+        logger.debug(f"🔄 Context persistence: {self.use_continuous}")
+        logger.debug(f"📋 Context strategy: {self.context_strategy}")
     
     async def execute_work(self, work_item: Dict[str, Any]) -> Dict[str, Any]:
         """Execute a work item using Claude Code CLI with context persistence"""
@@ -86,12 +86,12 @@ class ClaudeWrapper:
         # Load session state
         session_state = self._load_session_state()
         if not session_state:
-            logger.info("🆕 Starting fresh session - no previous state")
+            logger.debug("🆕 Starting fresh session - no previous state")
             return False
         
         # Check if context is too old
         if self._is_context_too_old(session_state):
-            logger.info("⏰ Starting fresh session - context too old")
+            logger.debug("⏰ Starting fresh session - context too old")
             return False
         
         # Check strategy-specific continuation logic
@@ -108,9 +108,9 @@ class ClaudeWrapper:
             should_continue = True
         
         if should_continue:
-            logger.info(f"🔄 Continuing previous session (strategy: {self.context_strategy})")
+            logger.debug(f"🔄 Continuing previous session (strategy: {self.context_strategy})")
         else:
-            logger.info(f"🆕 Starting fresh session (strategy: {self.context_strategy})")
+            logger.debug(f"🆕 Starting fresh session (strategy: {self.context_strategy})")
             
         return should_continue
     
@@ -282,22 +282,22 @@ Please implement this task by:
         
         if continue_session:
             # Use --continue flag to maintain conversation context with --print for non-interactive mode
-            logger.info(f"🔄 Executing Claude CLI with --continue")
+            logger.debug(f"🔄 Executing Claude CLI with --continue")
             cmd = [self.command, '--continue', '--print', '--permission-mode', 'bypassPermissions']
         else:
             # Fresh session with --print for non-interactive mode
-            logger.info(f"🆕 Executing Claude CLI with fresh session")
+            logger.debug(f"🆕 Executing Claude CLI with fresh session")
             cmd = [self.command, '--print', '--permission-mode', 'bypassPermissions']
         
         # Log more details about execution
-        logger.info(f"🤖 Executing Claude CLI: {' '.join(cmd)}")
-        logger.info(f"📁 Working directory: {os.getcwd()}")
-        logger.info(f"📄 Prompt length: {len(prompt)} characters")
-        logger.info(f"⏱️ Timeout set to: {self.timeout}s")
+        logger.debug(f"🤖 Executing Claude CLI: {' '.join(cmd)}")
+        logger.debug(f"📁 Working directory: {os.getcwd()}")
+        logger.debug(f"📄 Prompt length: {len(prompt)} characters")
+        logger.debug(f"⏱️ Timeout set to: {self.timeout}s")
         if continue_session:
-            logger.info(f"🔄 Using continuation mode - prompt will be sent via stdin")
+            logger.debug(f"🔄 Using continuation mode - prompt will be sent via stdin")
         else:
-            logger.info(f"🆕 Fresh session - prompt will be sent via stdin")
+            logger.debug(f"🆕 Fresh session - prompt will be sent via stdin")
         
         try:
             process = await asyncio.create_subprocess_exec(
@@ -308,7 +308,7 @@ Please implement this task by:
                 cwd=os.getcwd()
             )
             
-            logger.info(f"🚀 Claude process started (PID: {process.pid})")
+            logger.debug(f"🚀 Claude process started (PID: {process.pid})")
             
             # Send prompt via stdin and wait for completion with timeout
             try:
@@ -324,31 +324,31 @@ Please implement this task by:
             execution_time = (datetime.utcnow() - start_time).total_seconds()
             
             # Detailed logging of results
-            logger.info(f"✅ Claude process completed in {execution_time:.2f}s")
-            logger.info(f"📤 Return code: {process.returncode}")
+            logger.debug(f"✅ Claude process completed in {execution_time:.2f}s")
+            logger.debug(f"📤 Return code: {process.returncode}")
             
             stdout_text = stdout.decode('utf-8')
             stderr_text = stderr.decode('utf-8')
             
-            logger.info(f"📤 Stdout length: {len(stdout_text)} characters")
-            logger.info(f"📤 Stderr length: {len(stderr_text)} characters")
+            logger.debug(f"📤 Stdout length: {len(stdout_text)} characters")
+            logger.debug(f"📤 Stderr length: {len(stderr_text)} characters")
             
             # Log first few lines of output for debugging
             if stdout_text:
                 stdout_preview = '\n'.join(stdout_text.split('\n')[:5])
-                logger.info(f"📤 Stdout preview:\n{stdout_preview}")
+                logger.debug(f"📤 Stdout preview:\n{stdout_preview}")
                 if len(stdout_text.split('\n')) > 5:
-                    logger.info(f"📤 ... (truncated, {len(stdout_text.split('\n'))} total lines)")
+                    logger.debug(f"📤 ... (truncated, {len(stdout_text.split('\n'))} total lines)")
             
             if stderr_text:
                 stderr_preview = '\n'.join(stderr_text.split('\n')[:3])
-                logger.info(f"⚠️ Stderr preview:\n{stderr_preview}")
+                logger.debug(f"⚠️ Stderr preview:\n{stderr_preview}")
                 if len(stderr_text.split('\n')) > 3:
-                    logger.info(f"⚠️ ... (truncated, {len(stderr_text.split('\n'))} total lines)")
+                    logger.debug(f"⚠️ ... (truncated, {len(stderr_text.split('\n'))} total lines)")
             
             # Process results
             if process.returncode == 0:
-                logger.info(f"✅ Claude execution successful")
+                logger.debug(f"✅ Claude execution successful")
                 return {
                     "stdout": stdout_text,
                     "stderr": stderr_text,
@@ -374,9 +374,9 @@ Please implement this task by:
         should_continue = self._should_continue_session(work_item)
         
         if should_continue:
-            logger.info(f"🧪 SIMULATION: Continuing session for {work_item['type']} - {work_item['title']}")
+            logger.debug(f"🧪 SIMULATION: Continuing session for {work_item['type']} - {work_item['title']}")
         else:
-            logger.info(f"🧪 SIMULATION: Fresh session for {work_item['type']} - {work_item['title']}")
+            logger.debug(f"🧪 SIMULATION: Fresh session for {work_item['type']} - {work_item['title']}")
         
         # Update session state even in dry run for testing continuity logic
         self._update_session_state(work_item, simulated=True)
