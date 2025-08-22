@@ -34,6 +34,9 @@ def signal_handler(signum, frame):
     logger.info(f"🛑 Shutdown signal received, stopping Sugar...")
     if shutdown_event:
         shutdown_event.set()
+        logger.info("🔔 Shutdown event triggered")
+    else:
+        logger.warning("⚠️ Shutdown event not available")
 
 @click.group()
 @click.option('--config', default='.sugar/config.yaml', help='Configuration file path')

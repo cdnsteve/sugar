@@ -170,25 +170,35 @@ class SugarLoop:
                 
                 logger.info(f"✅ Cycle completed in {cycle_duration:.1f}s, sleeping {sleep_time:.1f}s")
                 
-                # Sleep with periodic shutdown checks
-                try:
-                    await asyncio.wait_for(shutdown_event.wait(), timeout=sleep_time)
-                    # If we get here, shutdown was requested
-                    logger.info("🛑 Shutdown requested during sleep")
-                    break
-                except asyncio.TimeoutError:
-                    # Normal timeout, continue to next cycle
-                    pass
+                # Sleep with frequent shutdown checks (check every 1 second)
+                remaining_sleep = sleep_time
+                while remaining_sleep > 0 and not shutdown_event.is_set():
+                    sleep_chunk = min(1.0, remaining_sleep)  # Sleep in 1-second chunks
+                    try:
+                        await asyncio.wait_for(shutdown_event.wait(), timeout=sleep_chunk)
+                        # If we get here, shutdown was requested
+                        logger.info("🛑 Shutdown detected in sleep loop, exiting...")
+                        return  # Exit the main loop immediately
+                    except asyncio.TimeoutError:
+                        # Normal timeout, continue sleeping
+                        remaining_sleep -= sleep_chunk
+                        # Check if shutdown was set during the chunk
+                        if shutdown_event.is_set():
+                            logger.info("🛑 Shutdown detected after sleep chunk, exiting...")
+                            return
                 
             except Exception as e:
                 logger.error(f"Error in main loop: {e}")
-                # Even during error recovery, check for shutdown
-                try:
-                    await asyncio.wait_for(shutdown_event.wait(), timeout=60)
-                    logger.info("🛑 Shutdown requested during error recovery")
-                    break
-                except asyncio.TimeoutError:
-                    pass
+                # Even during error recovery, check for shutdown frequently
+                remaining_recovery = 60.0  # 60 second error recovery
+                while remaining_recovery > 0 and not shutdown_event.is_set():
+                    recovery_chunk = min(1.0, remaining_recovery)
+                    try:
+                        await asyncio.wait_for(shutdown_event.wait(), timeout=recovery_chunk)
+                        logger.info("🛑 Shutdown requested during error recovery")
+                        return  # Exit immediately
+                    except asyncio.TimeoutError:
+                        remaining_recovery -= recovery_chunk
     
     async def _discover_work(self):
         """Discover new work from all enabled sources"""
