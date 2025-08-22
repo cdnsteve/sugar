@@ -36,6 +36,17 @@ class ClaudeWrapper:
         self.use_structured_requests = config.get('use_structured_requests', True)
         self.structured_input_file = config.get('structured_input_file', '.sugar/claude_input.json')
         
+        # Agent configuration
+        self.enable_agents = config.get('enable_agents', True)
+        self.agent_fallback = config.get('agent_fallback', True)
+        self.agent_selection = config.get('agent_selection', {
+            'bug_fix': 'tech-lead',
+            'feature': 'general-purpose', 
+            'refactor': 'code-reviewer',
+            'test': 'general-purpose',
+            'documentation': 'general-purpose'
+        })
+        
         # Track session state
         self.session_state_file = self.context_file.replace('.json', '_session.json')
         self.dry_run = config.get('dry_run', True)
@@ -53,38 +64,11 @@ class ClaudeWrapper:
             return await self._simulate_execution(work_item)
         
         try:
-            # Determine if we should continue previous session
-            should_continue = self._should_continue_session(work_item)
-            
-            # Prepare the execution context
-            context = self._prepare_context(work_item, continue_session=should_continue)
-            
-            # Create task prompt
-            task_prompt = self._create_task_prompt(work_item, context, continue_session=should_continue)
-            
-            # Execute Claude Code CLI with or without --continue
-            result = await self._execute_claude_cli(task_prompt, context, continue_session=should_continue)
-            
-            # Update session state for next execution
-            self._update_session_state(work_item)
-
-            # Parse Claude's output for better GitHub comments
-            parsed_output = self._parse_claude_output(result.get('stdout', ''))
-            
-            return {
-                "success": True,
-                "result": result,
-                "timestamp": datetime.utcnow().isoformat(),
-                "work_item_id": work_item['id'],
-                "execution_time": result.get('execution_time', 0),
-                "used_continue": should_continue,
-                "context_strategy": self.context_strategy,
-                "output": result.get('stdout', ''),
-                "claude_response": parsed_output.get('response', ''),
-                "files_changed": parsed_output.get('files_changed', []),
-                "summary": parsed_output.get('summary', ''),
-                "actions_taken": parsed_output.get('actions_taken', [])
-            }
+            # Choose execution path based on configuration
+            if self.use_structured_requests:
+                return await self._execute_structured_work(work_item)
+            else:
+                return await self._execute_legacy_work(work_item)
             
         except Exception as e:
             logger.error(f"Claude execution failed: {e}")
@@ -563,3 +547,280 @@ Please implement this task by:
         except Exception as e:
             logger.error(f"❌ Claude CLI not found: {e}")
             return False
+    
+    async def _execute_structured_work(self, work_item: Dict[str, Any]) -> Dict[str, Any]:
+        """Execute work using structured request format with agent selection"""
+        try:
+            # Select agent based on work item characteristics
+            agent_type = self._select_agent_for_work(work_item)
+            execution_mode = ExecutionMode.AGENT if agent_type else ExecutionMode.BASIC
+            
+            # Create structured request
+            if agent_type:
+                structured_request = RequestBuilder.create_agent_request(work_item, agent_type)
+                logger.info(f"🤖 Selected agent: {agent_type.value} for {work_item['type']} task")
+            else:
+                structured_request = RequestBuilder.create_basic_request(work_item)
+                logger.info(f"📝 Using basic Claude for {work_item['type']} task")
+            
+            # Save structured request to file for Claude input
+            request_json = structured_request.to_json()
+            os.makedirs(os.path.dirname(self.structured_input_file), exist_ok=True)
+            with open(self.structured_input_file, 'w') as f:
+                f.write(request_json)
+            
+            # Create task prompt for structured execution
+            task_prompt = self._create_structured_task_prompt(structured_request)
+            
+            # Execute Claude CLI
+            result = await self._execute_claude_cli_structured(task_prompt, structured_request)
+            
+            # Parse response
+            if result.get('success', False):
+                structured_response = StructuredResponse.from_claude_output(
+                    stdout=result.get('stdout', ''),
+                    stderr=result.get('stderr', ''),
+                    return_code=result.get('returncode', 0),
+                    execution_time=result.get('execution_time', 0),
+                    agent_used=agent_type.value if agent_type else None
+                )
+                
+                return {
+                    "success": True,
+                    "result": result,
+                    "structured_response": structured_response.to_dict(),
+                    "timestamp": datetime.utcnow().isoformat(),
+                    "work_item_id": work_item['id'],
+                    "execution_time": result.get('execution_time', 0),
+                    "agent_used": agent_type.value if agent_type else None,
+                    "execution_mode": execution_mode.value,
+                    "output": result.get('stdout', ''),
+                    "claude_response": structured_response.summary,
+                    "files_changed": structured_response.files_modified,
+                    "summary": structured_response.summary,
+                    "actions_taken": structured_response.actions_taken
+                }
+            else:
+                # Agent execution failed - try fallback if enabled
+                if agent_type and self.agent_fallback:
+                    logger.warning(f"🔄 Agent {agent_type.value} failed, falling back to basic Claude")
+                    return await self._execute_legacy_work(work_item)
+                else:
+                    raise Exception(f"Structured execution failed: {result.get('stderr', 'Unknown error')}")
+                    
+        except Exception as e:
+            logger.error(f"Structured execution error: {e}")
+            
+            # Try fallback if enabled
+            if self.agent_fallback:
+                logger.info("🔄 Falling back to legacy execution")
+                return await self._execute_legacy_work(work_item)
+            else:
+                raise
+    
+    async def _execute_legacy_work(self, work_item: Dict[str, Any]) -> Dict[str, Any]:
+        """Execute work using legacy prompt format"""
+        # Determine if we should continue previous session
+        should_continue = self._should_continue_session(work_item)
+        
+        # Prepare the execution context
+        context = self._prepare_context(work_item, continue_session=should_continue)
+        
+        # Create task prompt
+        task_prompt = self._create_task_prompt(work_item, context, continue_session=should_continue)
+        
+        # Execute Claude Code CLI with or without --continue
+        result = await self._execute_claude_cli(task_prompt, context, continue_session=should_continue)
+        
+        # Update session state for next execution
+        self._update_session_state(work_item)
+
+        # Parse Claude's output for better GitHub comments
+        parsed_output = self._parse_claude_output(result.get('stdout', ''))
+        
+        return {
+            "success": True,
+            "result": result,
+            "timestamp": datetime.utcnow().isoformat(),
+            "work_item_id": work_item['id'],
+            "execution_time": result.get('execution_time', 0),
+            "used_continue": should_continue,
+            "context_strategy": self.context_strategy,
+            "execution_mode": "legacy",
+            "output": result.get('stdout', ''),
+            "claude_response": parsed_output.get('response', ''),
+            "files_changed": parsed_output.get('files_changed', []),
+            "summary": parsed_output.get('summary', ''),
+            "actions_taken": parsed_output.get('actions_taken', [])
+        }
+    
+    def _select_agent_for_work(self, work_item: Dict[str, Any]) -> Optional[AgentType]:
+        """Select the best agent for a work item based on task characteristics"""
+        if not self.enable_agents:
+            return None
+        
+        task_type = work_item.get('type', '').lower()
+        title = work_item.get('title', '').lower()
+        description = work_item.get('description', '').lower()
+        
+        # Priority-based agent selection
+        
+        # Code review indicators - use code-reviewer
+        if any(keyword in title or keyword in description for keyword in [
+            'review', 'refactor', 'cleanup', 'optimize', 'improve code quality',
+            'code smell', 'technical debt', 'style', 'formatting'
+        ]):
+            return AgentType.CODE_REVIEWER
+        
+        # Technical architecture/strategy - use tech-lead  
+        if any(keyword in title or keyword in description for keyword in [
+            'architecture', 'design', 'strategy', 'approach', 'plan',
+            'complex', 'system design', 'integration', 'performance',
+            'scalability', 'security', 'critical bug'
+        ]) or task_type in ['bug_fix'] or work_item.get('priority', 3) >= 4:
+            return AgentType.TECH_LEAD
+        
+        # Social media content - use social-media-growth-strategist
+        if any(keyword in title or keyword in description for keyword in [
+            'social media', 'post', 'content', 'engagement', 'followers',
+            'twitter', 'linkedin', 'instagram', 'marketing', 'growth'
+        ]):
+            return AgentType.SOCIAL_MEDIA_STRATEGIST
+        
+        # Configuration/setup tasks - use specific setup agents
+        if any(keyword in title or keyword in description for keyword in [
+            'statusline', 'status line', 'claude code status'
+        ]):
+            return AgentType.STATUSLINE_SETUP
+            
+        if any(keyword in title or keyword in description for keyword in [
+            'output style', 'styling', 'color scheme', 'theme'
+        ]):
+            return AgentType.OUTPUT_STYLE_SETUP
+        
+        # Use configured mapping for task types
+        agent_name = self.agent_selection.get(task_type)
+        if agent_name:
+            try:
+                # Convert string to AgentType enum
+                agent_map = {
+                    'general-purpose': AgentType.GENERAL_PURPOSE,
+                    'code-reviewer': AgentType.CODE_REVIEWER,
+                    'tech-lead': AgentType.TECH_LEAD,
+                    'social-media-growth-strategist': AgentType.SOCIAL_MEDIA_STRATEGIST,
+                    'statusline-setup': AgentType.STATUSLINE_SETUP,
+                    'output-style-setup': AgentType.OUTPUT_STYLE_SETUP
+                }
+                return agent_map.get(agent_name, AgentType.GENERAL_PURPOSE)
+            except:
+                logger.warning(f"Unknown agent type in config: {agent_name}")
+        
+        # Default to general-purpose for everything else
+        return AgentType.GENERAL_PURPOSE
+    
+    def _create_structured_task_prompt(self, structured_request: StructuredRequest) -> str:
+        """Create a task prompt for structured request execution"""
+        agent_info = ""
+        if structured_request.agent_type:
+            agent_info = f"\n**Agent Mode**: {structured_request.agent_type.value}\n"
+        
+        prompt = f"""# Sugar Structured Development Task
+{agent_info}
+I'm working with Sugar's structured request system. Here's the task information in JSON format:
+
+```json
+{structured_request.to_json()}
+```
+
+## Instructions
+Please process this structured request by:
+
+1. **Understanding the task** from the JSON context above
+2. **Implementing the solution** according to the task type and requirements
+3. **Following the execution mode** specified ({structured_request.execution_mode.value})
+4. **Using appropriate tools and patterns** for this type of work
+5. **Providing structured feedback** if possible
+
+## Important Notes
+- This is part of Sugar's autonomous development system
+- The task details are in the JSON structure above
+- Focus on the specific requirements and context provided
+- Make actual changes to complete the task effectively
+
+---
+*Structured task execution via Sugar autonomous development system*
+"""
+        return prompt.strip()
+    
+    async def _execute_claude_cli_structured(self, prompt: str, structured_request: StructuredRequest) -> Dict[str, Any]:
+        """Execute Claude CLI with structured request support"""
+        start_time = datetime.utcnow()
+        
+        # Determine if we should use agent mode
+        if structured_request.agent_type and structured_request.execution_mode == ExecutionMode.AGENT:
+            logger.debug(f"🤖 Executing with agent: {structured_request.agent_type.value}")
+            # Note: Agent mode would be implemented when Claude CLI supports it
+            # For now, we execute normally but track that an agent was intended
+            cmd = [self.command, '--print', '--permission-mode', 'bypassPermissions']
+        else:
+            logger.debug(f"📝 Executing structured request in basic mode")
+            cmd = [self.command, '--print', '--permission-mode', 'bypassPermissions']
+        
+        # Log execution details
+        logger.debug(f"🚀 Executing structured Claude CLI: {' '.join(cmd)}")
+        logger.debug(f"📋 Request mode: {structured_request.execution_mode.value}")
+        if structured_request.agent_type:
+            logger.debug(f"🎯 Target agent: {structured_request.agent_type.value}")
+        
+        try:
+            process = await asyncio.create_subprocess_exec(
+                *cmd,
+                stdin=asyncio.subprocess.PIPE,
+                stdout=asyncio.subprocess.PIPE,
+                stderr=asyncio.subprocess.PIPE,
+                cwd=os.getcwd()
+            )
+            
+            # Send prompt and wait for completion
+            try:
+                stdout, stderr = await asyncio.wait_for(
+                    process.communicate(input=prompt.encode('utf-8')),
+                    timeout=self.timeout
+                )
+            except asyncio.TimeoutError:
+                logger.error(f"⏰ Structured Claude execution timed out after {self.timeout}s")
+                process.kill()
+                raise Exception(f"Claude CLI execution timed out after {self.timeout}s")
+            
+            execution_time = (datetime.utcnow() - start_time).total_seconds()
+            
+            stdout_text = stdout.decode('utf-8')
+            stderr_text = stderr.decode('utf-8')
+            
+            logger.debug(f"✅ Structured execution completed in {execution_time:.2f}s")
+            
+            if process.returncode == 0:
+                return {
+                    "stdout": stdout_text,
+                    "stderr": stderr_text,
+                    "returncode": process.returncode,
+                    "execution_time": execution_time,
+                    "success": True,
+                    "structured_mode": True,
+                    "agent_requested": structured_request.agent_type.value if structured_request.agent_type else None,
+                    "command": ' '.join(cmd)
+                }
+            else:
+                logger.error(f"❌ Structured Claude execution failed: {stderr_text}")
+                return {
+                    "stdout": stdout_text,
+                    "stderr": stderr_text,
+                    "returncode": process.returncode,
+                    "execution_time": execution_time,
+                    "success": False,
+                    "error": stderr_text
+                }
+                
+        except Exception as e:
+            logger.error(f"❌ Structured Claude CLI error: {e}")
+            raise

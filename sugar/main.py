@@ -1186,6 +1186,16 @@ sugar:
     use_structured_requests: true  # Enable structured JSON communication
     structured_input_file: ".sugar/claude_input.json"  # Temp file for complex inputs
     
+    # Agent Selection System (Phase 2 of Agent Integration)
+    enable_agents: true        # Enable Claude agent mode selection
+    agent_fallback: true       # Fall back to basic Claude if agent fails
+    agent_selection:           # Map work types to specific agents
+      bug_fix: "tech-lead"           # Strategic analysis for bug fixes
+      feature: "general-purpose"     # General development for features
+      refactor: "code-reviewer"      # Code review expertise for refactoring
+      test: "general-purpose"        # General development for tests
+      documentation: "general-purpose"  # General development for docs
+    
   # Work Discovery
   discovery:
     # Global exclusions for all discovery modules
