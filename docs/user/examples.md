@@ -91,7 +91,11 @@ sugar:
     code_quality:
       enabled: true
       file_extensions: [".py"]
-      excluded_dirs: ["venv", ".venv", "__pycache__", "build", "dist"]
+      excluded_dirs: [
+        "node_modules", "venv", ".venv", "env", ".env", 
+        "build", "dist", ".tox", ".nox", "coverage",
+        ".sugar", ".claude", "__pycache__"
+      ]
       max_files_per_scan: 30
     
     test_coverage:
@@ -159,8 +163,9 @@ sugar:
       enabled: true
       max_files_per_scan: 50
       excluded_dirs: [
-        "node_modules", "venv", "dist", "build", 
-        "coverage", "docs", "examples", ".git"
+        "node_modules", "venv", ".venv", "env", ".env",
+        "dist", "build", ".tox", ".nox", "coverage", 
+        "docs", "examples", ".git", ".sugar", ".claude"
       ]
       
     github:
@@ -360,8 +365,9 @@ sugar:
     code_quality:
       max_files_per_scan: 25  # Process fewer files per cycle
       excluded_dirs: [
-        "node_modules", "venv", "dist", "build",
-        "coverage", "docs", "examples", ".git",
+        "node_modules", "venv", ".venv", "env", ".env",
+        "dist", "build", ".tox", ".nox", "coverage", 
+        "docs", "examples", ".git", ".sugar", ".claude",
         "logs", "tmp", "cache"
       ]
       

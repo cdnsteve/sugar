@@ -743,7 +743,14 @@ sugar:
       enabled: true
       root_path: "."  # Analyze current project
       file_extensions: [".py", ".js", ".ts", ".jsx", ".tsx"]
-      excluded_dirs: ["node_modules", ".git", "__pycache__", "venv", ".venv", ".sugar"]
+      excluded_dirs: [
+        "node_modules", ".git", "__pycache__", 
+        "venv", ".venv", "env", ".env", "ENV", 
+        "env.bak", "venv.bak", "virtualenv",
+        "build", "dist", ".tox", ".nox",
+        "coverage", "htmlcov", ".pytest_cache",
+        ".sugar", ".claude"
+      ]
       max_files_per_scan: 50
       
     test_coverage:
