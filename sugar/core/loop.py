@@ -138,13 +138,27 @@ class SugarLoop:
             except Exception as e:
                 logger.error(f"Error in {module.__class__.__name__}: {e}")
         
-        # Add discovered work to queue
-        for work_item in discovered_work:
-            await self.work_queue.add_work(work_item)
+        # Add discovered work to queue (with deduplication)
+        added_count = 0
+        skipped_count = 0
         
-        if discovered_work:
-            logger.info(f"➕ Added {len(discovered_work)} new work items to queue")
-        else:
+        for work_item in discovered_work:
+            source_file = work_item.get('source_file', '')
+            
+            # Check if work item already exists (skip failed items for retry)
+            if source_file and await self.work_queue.work_exists(source_file):
+                skipped_count += 1
+                logger.debug(f"⏭️ Skipping duplicate work item: {work_item['title']}")
+                continue
+            
+            await self.work_queue.add_work(work_item)
+            added_count += 1
+        
+        if added_count > 0:
+            logger.info(f"➕ Added {added_count} new work items to queue")
+        if skipped_count > 0:
+            logger.info(f"⏭️ Skipped {skipped_count} duplicate work items")
+        if added_count == 0 and skipped_count == 0:
             logger.info("📭 No new work discovered this cycle")
     
     async def _execute_work(self):

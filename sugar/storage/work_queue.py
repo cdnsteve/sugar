@@ -61,6 +61,24 @@ class WorkQueue:
         self._initialized = True
         logger.info(f"✅ Work queue initialized: {self.db_path}")
     
+    async def work_exists(self, source_file: str, exclude_statuses: List[str] = None) -> bool:
+        """Check if work item with given source_file already exists"""
+        if exclude_statuses is None:
+            exclude_statuses = ['failed']  # Don't prevent retrying failed items
+        
+        async with aiosqlite.connect(self.db_path) as db:
+            query = "SELECT COUNT(*) FROM work_items WHERE source_file = ?"
+            params = [source_file]
+            
+            if exclude_statuses:
+                placeholders = ','.join('?' * len(exclude_statuses))
+                query += f" AND status NOT IN ({placeholders})"
+                params.extend(exclude_statuses)
+            
+            cursor = await db.execute(query, params)
+            count = (await cursor.fetchone())[0]
+            return count > 0
+
     async def add_work(self, work_item: Dict[str, Any]) -> str:
         """Add a new work item to the queue"""
         work_id = str(uuid.uuid4())

@@ -1116,5 +1116,75 @@ sugar:
     file: ".sugar/sugar.log"  # Project-specific logs
 """
 
+@cli.command()
+@click.option('--dry-run', is_flag=True, help='Show what would be removed without actually removing')
+@click.pass_context
+def dedupe(ctx, dry_run):
+    """Remove duplicate work items based on source_file"""
+    import aiosqlite
+    from .storage.work_queue import WorkQueue
+    import yaml
+    
+    async def _dedupe_work():
+        config_file = ctx.obj['config']
+        with open(config_file, 'r') as f:
+            config = yaml.safe_load(f)
+            
+        work_queue = WorkQueue(config['sugar']['storage']['database'])
+        await work_queue.initialize()
+        
+        async with aiosqlite.connect(work_queue.db_path) as db:
+            # Find duplicates - keep the earliest created one for each source_file
+            cursor = await db.execute("""
+                WITH ranked_items AS (
+                    SELECT id, source_file, title, created_at,
+                           ROW_NUMBER() OVER (PARTITION BY source_file ORDER BY created_at ASC) as rn
+                    FROM work_items 
+                    WHERE source_file != '' AND source_file IS NOT NULL
+                )
+                SELECT id, source_file, title, created_at
+                FROM ranked_items 
+                WHERE rn > 1
+                ORDER BY source_file, created_at
+            """)
+            
+            duplicates = await cursor.fetchall()
+            
+            if not duplicates:
+                click.echo("✅ No duplicate work items found")
+                return
+            
+            click.echo(f"Found {len(duplicates)} duplicate work items:")
+            click.echo("=" * 60)
+            
+            for work_id, source_file, title, created_at in duplicates:
+                click.echo(f"🗑️  {work_id[:8]}... - {title}")
+                click.echo(f"    Source: {source_file}")
+                click.echo(f"    Created: {created_at}")
+                click.echo()
+            
+            if dry_run:
+                click.echo("🔍 Dry run mode - no items were removed")
+                return
+            
+            # Remove duplicates
+            if click.confirm(f"Remove {len(duplicates)} duplicate work items?"):
+                duplicate_ids = [row[0] for row in duplicates]
+                
+                for work_id in duplicate_ids:
+                    await db.execute("DELETE FROM work_items WHERE id = ?", (work_id,))
+                
+                await db.commit()
+                click.echo(f"✅ Removed {len(duplicates)} duplicate work items")
+            else:
+                click.echo("❌ Operation cancelled")
+    
+    try:
+        asyncio.run(_dedupe_work())
+    except Exception as e:
+        click.echo(f"❌ Error deduplicating work items: {e}", err=True)
+        sys.exit(1)
+
+
 if __name__ == "__main__":
     cli()
