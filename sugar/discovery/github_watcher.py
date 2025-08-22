@@ -353,3 +353,57 @@ class GitHubWatcher:
                 "error": str(e),
                 "last_check": datetime.utcnow().isoformat()
             }
+    
+    async def comment_on_issue(self, issue_number: int, comment_body: str) -> bool:
+        """Add a comment to a GitHub issue"""
+        if not self.enabled:
+            return False
+            
+        try:
+            if self.gh_cli_available:
+                return await self._comment_via_gh_cli(issue_number, comment_body)
+            elif self.pygithub_available:
+                return await self._comment_via_pygithub(issue_number, comment_body)
+            else:
+                logger.warning("No GitHub authentication method available for commenting")
+                return False
+                
+        except Exception as e:
+            logger.error(f"Error commenting on GitHub issue #{issue_number}: {e}")
+            return False
+    
+    async def _comment_via_gh_cli(self, issue_number: int, comment_body: str) -> bool:
+        """Add comment using GitHub CLI"""
+        try:
+            gh_command = self.config.get('gh_cli', {}).get('command', 'gh')
+            
+            cmd = [
+                gh_command, 'issue', 'comment', str(issue_number),
+                '--repo', self.repo_name,
+                '--body', comment_body
+            ]
+            
+            result = subprocess.run(cmd, capture_output=True, text=True, timeout=30)
+            if result.returncode == 0:
+                logger.info(f"✅ Added comment to GitHub issue #{issue_number}")
+                return True
+            else:
+                logger.error(f"GitHub CLI comment failed: {result.stderr}")
+                return False
+                
+        except Exception as e:
+            logger.error(f"Error using GitHub CLI to comment: {e}")
+            return False
+    
+    async def _comment_via_pygithub(self, issue_number: int, comment_body: str) -> bool:
+        """Add comment using PyGithub"""
+        try:
+            repo = self.github.get_repo(self.repo_name)
+            issue = repo.get_issue(issue_number)
+            issue.create_comment(comment_body)
+            logger.info(f"✅ Added comment to GitHub issue #{issue_number}")
+            return True
+            
+        except Exception as e:
+            logger.error(f"Error using PyGithub to comment: {e}")
+            return False
