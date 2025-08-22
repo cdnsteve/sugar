@@ -249,6 +249,9 @@ class SugarLoop:
             
             logger.info(f"⚡ Executing work [{work_item['id']}]: {work_item['title']}")
             
+            # Assign GitHub issue if this work came from GitHub
+            await self._assign_github_issue(work_item)
+            
             try:
                 # Execute with Claude Code
                 result = await self.claude_executor.execute_work(work_item)
@@ -330,6 +333,44 @@ class SugarLoop:
                 
         except Exception as e:
             logger.error(f"Error commenting on GitHub issue: {e}")
+    
+    async def _assign_github_issue(self, work_item: dict):
+        """Assign GitHub issue if work item originated from GitHub"""
+        try:
+            # Check if this work came from GitHub
+            if (work_item.get('source') != 'github_watcher' or 
+                not work_item.get('context', {}).get('github_issue')):
+                return
+            
+            # Find GitHub watcher module
+            github_watcher = None
+            for module in self.discovery_modules:
+                if isinstance(module, GitHubWatcher):
+                    github_watcher = module
+                    break
+            
+            if not github_watcher or not github_watcher.enabled:
+                logger.debug("GitHub watcher not available for assignment")
+                return
+            
+            # Extract issue details
+            github_issue = work_item['context']['github_issue']
+            issue_number = github_issue.get('number')
+            
+            if not issue_number:
+                logger.warning("No issue number found in GitHub work item")
+                return
+            
+            # Assign the issue
+            success = await github_watcher.assign_issue(issue_number)
+            
+            if success:
+                logger.info(f"👤 Assigned GitHub issue #{issue_number} to current user")
+            else:
+                logger.debug(f"Could not assign GitHub issue #{issue_number}")
+                
+        except Exception as e:
+            logger.error(f"Error assigning GitHub issue: {e}")
     
     def _format_completion_comment(self, work_item: dict, result: dict) -> str:
         """Format concise completion comment for GitHub issue"""

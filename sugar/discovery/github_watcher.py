@@ -372,6 +372,24 @@ class GitHubWatcher:
             logger.error(f"Error commenting on GitHub issue #{issue_number}: {e}")
             return False
     
+    async def assign_issue(self, issue_number: int) -> bool:
+        """Assign a GitHub issue to the authenticated user"""
+        if not self.enabled:
+            return False
+            
+        try:
+            if self.gh_cli_available:
+                return await self._assign_via_gh_cli(issue_number)
+            elif self.pygithub_available:
+                return await self._assign_via_pygithub(issue_number)
+            else:
+                logger.warning("No GitHub authentication method available for assignment")
+                return False
+                
+        except Exception as e:
+            logger.error(f"Error assigning GitHub issue #{issue_number}: {e}")
+            return False
+    
     async def _comment_via_gh_cli(self, issue_number: int, comment_body: str) -> bool:
         """Add comment using GitHub CLI"""
         try:
@@ -406,4 +424,51 @@ class GitHubWatcher:
             
         except Exception as e:
             logger.error(f"Error using PyGithub to comment: {e}")
+            return False
+    
+    async def _assign_via_gh_cli(self, issue_number: int) -> bool:
+        """Assign issue using GitHub CLI"""
+        try:
+            gh_command = self.config.get('gh_cli', {}).get('command', 'gh')
+            
+            cmd = [
+                gh_command, 'issue', 'edit', str(issue_number),
+                '--repo', self.repo_name,
+                '--add-assignee', '@me'
+            ]
+            
+            result = subprocess.run(cmd, capture_output=True, text=True, timeout=30)
+            if result.returncode == 0:
+                logger.info(f"✅ Assigned GitHub issue #{issue_number} to authenticated user")
+                return True
+            else:
+                logger.error(f"GitHub CLI assignment failed: {result.stderr}")
+                return False
+                
+        except Exception as e:
+            logger.error(f"Error using GitHub CLI to assign: {e}")
+            return False
+    
+    async def _assign_via_pygithub(self, issue_number: int) -> bool:
+        """Assign issue using PyGithub"""
+        try:
+            repo = self.github.get_repo(self.repo_name)
+            issue = repo.get_issue(issue_number)
+            
+            # Get current user
+            user = self.github.get_user()
+            
+            # Add current user to assignees (preserving existing ones)
+            current_assignees = [assignee.login for assignee in issue.assignees]
+            if user.login not in current_assignees:
+                current_assignees.append(user.login)
+                issue.edit(assignees=current_assignees)
+                logger.info(f"✅ Assigned GitHub issue #{issue_number} to {user.login}")
+            else:
+                logger.debug(f"GitHub issue #{issue_number} already assigned to {user.login}")
+            
+            return True
+            
+        except Exception as e:
+            logger.error(f"Error using PyGithub to assign: {e}")
             return False
