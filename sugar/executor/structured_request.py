@@ -4,7 +4,7 @@ Structured Request Format for Claude Code CLI Integration
 Provides unified request/response format for both basic Claude and agent mode interactions.
 """
 import json
-from typing import Dict, Any, Optional, List
+from typing import Dict, Any, Optional, List, Union
 from datetime import datetime
 from dataclasses import dataclass, asdict
 from enum import Enum
@@ -18,13 +18,51 @@ class ExecutionMode(Enum):
 
 
 class AgentType(Enum):
-    """Available Claude agent types"""
+    """Available Claude agent types - extensible for user's local agents"""
     GENERAL_PURPOSE = "general-purpose"
     CODE_REVIEWER = "code-reviewer" 
     TECH_LEAD = "tech-lead"
     SOCIAL_MEDIA_STRATEGIST = "social-media-growth-strategist"
     STATUSLINE_SETUP = "statusline-setup"
     OUTPUT_STYLE_SETUP = "output-style-setup"
+    
+    @classmethod
+    def from_string(cls, agent_name: str) -> Optional['AgentType']:
+        """Get AgentType from string, supporting both known and custom agents"""
+        # Try to find exact match in known agents
+        for agent_type in cls:
+            if agent_type.value == agent_name:
+                return agent_type
+        
+        # For unknown agents, create a dynamic entry
+        return DynamicAgentType(agent_name)
+    
+    @classmethod
+    def get_available_agents(cls) -> List[str]:
+        """Get list of all available agent names"""
+        return [agent.value for agent in cls]
+
+
+class DynamicAgentType:
+    """Dynamic agent type for user-configured agents not in the enum"""
+    def __init__(self, agent_name: str):
+        self.value = agent_name
+        self.name = agent_name.upper().replace('-', '_')
+    
+    def __str__(self):
+        return self.value
+    
+    def __repr__(self):
+        return f"DynamicAgentType('{self.value}')"
+    
+    def __eq__(self, other):
+        if isinstance(other, DynamicAgentType):
+            return self.value == other.value
+        elif isinstance(other, AgentType):
+            return self.value == other.value
+        elif isinstance(other, str):
+            return self.value == other
+        return False
 
 
 @dataclass
@@ -50,7 +88,7 @@ class StructuredRequest:
     
     # Execution configuration
     execution_mode: ExecutionMode
-    agent_type: Optional[AgentType] = None
+    agent_type: Optional[Union[AgentType, DynamicAgentType]] = None
     agent_fallback: bool = True
     
     # Context and metadata
@@ -514,10 +552,16 @@ class RequestBuilder:
         return StructuredRequest.from_work_item(work_item, ExecutionMode.BASIC)
     
     @staticmethod  
-    def create_agent_request(work_item: Dict[str, Any], agent_type: AgentType) -> StructuredRequest:
+    def create_agent_request(work_item: Dict[str, Any], agent_type: Union[AgentType, DynamicAgentType, str]) -> StructuredRequest:
         """Create an agent mode structured request"""
         request = StructuredRequest.from_work_item(work_item, ExecutionMode.AGENT)
-        request.agent_type = agent_type
+        
+        # Handle string agent names by converting to appropriate type
+        if isinstance(agent_type, str):
+            request.agent_type = AgentType.from_string(agent_type)
+        else:
+            request.agent_type = agent_type
+            
         return request
     
     @staticmethod

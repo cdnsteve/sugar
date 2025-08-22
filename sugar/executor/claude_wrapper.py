@@ -6,13 +6,13 @@ import json
 import logging
 from datetime import datetime
 from pathlib import Path
-from typing import Dict, Any, Optional
+from typing import Dict, Any, Optional, Union
 import tempfile
 import os
 
 from .structured_request import (
     StructuredRequest, StructuredResponse, RequestBuilder, 
-    ExecutionMode, AgentType
+    ExecutionMode, AgentType, DynamicAgentType
 )
 
 logger = logging.getLogger(__name__)
@@ -46,6 +46,10 @@ class ClaudeWrapper:
             'test': 'general-purpose',
             'documentation': 'general-purpose'
         })
+        
+        # Dynamic agent discovery
+        self.available_agents = config.get('available_agents', [])  # User can specify available agents
+        self.auto_discover_agents = config.get('auto_discover_agents', False)  # Future: auto-discover from Claude CLI
         
         # Track session state
         self.session_state_file = self.context_file.replace('.json', '_session.json')
@@ -654,7 +658,7 @@ Please implement this task by:
             "actions_taken": parsed_output.get('actions_taken', [])
         }
     
-    def _select_agent_for_work(self, work_item: Dict[str, Any]) -> Optional[AgentType]:
+    def _select_agent_for_work(self, work_item: Dict[str, Any]) -> Optional[Union[AgentType, DynamicAgentType]]:
         """Select the best agent for a work item based on task characteristics"""
         if not self.enable_agents:
             return None
@@ -663,60 +667,76 @@ Please implement this task by:
         title = work_item.get('title', '').lower()
         description = work_item.get('description', '').lower()
         
-        # Priority-based agent selection (order matters - most specific first)
+        # First check user's configured mapping for this task type
+        selected_agent_name = self.agent_selection.get(task_type)
         
-        # Social media content - use social-media-growth-strategist (check first for specificity)
-        if any(keyword in title or keyword in description for keyword in [
-            'social media', 'post', 'content strategy', 'engagement', 'followers',
-            'twitter', 'linkedin', 'instagram', 'marketing', 'growth', 'social'
-        ]):
-            return AgentType.SOCIAL_MEDIA_STRATEGIST
-        
-        # Code review indicators - use code-reviewer
-        if any(keyword in title or keyword in description for keyword in [
-            'review', 'refactor', 'cleanup', 'optimize', 'improve code quality',
-            'code smell', 'technical debt', 'style', 'formatting'
-        ]):
-            return AgentType.CODE_REVIEWER
-        
-        # Technical architecture/strategy - use tech-lead  
-        if any(keyword in title or keyword in description for keyword in [
-            'architecture', 'design', 'strategy', 'approach', 'plan',
-            'complex', 'system design', 'integration', 'performance',
-            'scalability', 'security', 'critical bug'
-        ]) or task_type in ['bug_fix'] or work_item.get('priority', 3) >= 4:
-            return AgentType.TECH_LEAD
-        
-        # Configuration/setup tasks - use specific setup agents
-        if any(keyword in title or keyword in description for keyword in [
-            'statusline', 'status line', 'claude code status'
-        ]):
-            return AgentType.STATUSLINE_SETUP
+        # If no configured mapping, use intelligent keyword-based selection
+        if not selected_agent_name:
+            # Social media content - use social-media-growth-strategist (check first for specificity)
+            if any(keyword in title or keyword in description for keyword in [
+                'social media', 'post', 'content strategy', 'engagement', 'followers',
+                'twitter', 'linkedin', 'instagram', 'marketing', 'growth', 'social'
+            ]):
+                selected_agent_name = 'social-media-growth-strategist'
             
-        if any(keyword in title or keyword in description for keyword in [
-            'output style', 'styling', 'color scheme', 'theme'
-        ]):
-            return AgentType.OUTPUT_STYLE_SETUP
+            # Code review indicators - use code-reviewer
+            elif any(keyword in title or keyword in description for keyword in [
+                'review', 'refactor', 'cleanup', 'optimize', 'improve code quality',
+                'code smell', 'technical debt', 'style', 'formatting'
+            ]):
+                selected_agent_name = 'code-reviewer'
+            
+            # Technical architecture/strategy - use tech-lead  
+            elif any(keyword in title or keyword in description for keyword in [
+                'architecture', 'design', 'strategy', 'approach', 'plan',
+                'complex', 'system design', 'integration', 'performance',
+                'scalability', 'security', 'critical bug'
+            ]) or work_item.get('priority', 3) >= 4:
+                selected_agent_name = 'tech-lead'
+            
+            # Configuration/setup tasks - use specific setup agents
+            elif any(keyword in title or keyword in description for keyword in [
+                'statusline', 'status line', 'claude code status'
+            ]):
+                selected_agent_name = 'statusline-setup'
+                
+            elif any(keyword in title or keyword in description for keyword in [
+                'output style', 'styling', 'color scheme', 'theme'
+            ]):
+                selected_agent_name = 'output-style-setup'
+            
+            # Final fallback
+            else:
+                selected_agent_name = 'general-purpose'
         
-        # Use configured mapping for task types
-        agent_name = self.agent_selection.get(task_type)
-        if agent_name:
-            try:
-                # Convert string to AgentType enum
-                agent_map = {
-                    'general-purpose': AgentType.GENERAL_PURPOSE,
-                    'code-reviewer': AgentType.CODE_REVIEWER,
-                    'tech-lead': AgentType.TECH_LEAD,
-                    'social-media-growth-strategist': AgentType.SOCIAL_MEDIA_STRATEGIST,
-                    'statusline-setup': AgentType.STATUSLINE_SETUP,
-                    'output-style-setup': AgentType.OUTPUT_STYLE_SETUP
-                }
-                return agent_map.get(agent_name, AgentType.GENERAL_PURPOSE)
-            except:
-                logger.warning(f"Unknown agent type in config: {agent_name}")
+        # Validate agent availability and return appropriate type
+        return self._get_agent_type(selected_agent_name)
+    
+    def _get_agent_type(self, agent_name: str) -> Optional[Union[AgentType, DynamicAgentType]]:
+        """Get agent type, supporting both built-in and custom agents"""
+        if not agent_name:
+            return AgentType.GENERAL_PURPOSE
         
-        # Default to general-purpose for everything else
-        return AgentType.GENERAL_PURPOSE
+        # Check if user has specified available agents
+        if self.available_agents:
+            if agent_name in self.available_agents:
+                return AgentType.from_string(agent_name)
+            else:
+                logger.debug(f"Agent '{agent_name}' not in available_agents list, falling back to general-purpose")
+                # Try to find a fallback agent in the available list
+                fallback_options = ['general-purpose', 'tech-lead', 'code-reviewer']
+                for fallback in fallback_options:
+                    if fallback in self.available_agents:
+                        return AgentType.from_string(fallback)
+                
+                # If no fallback found, use first available agent
+                if self.available_agents:
+                    return AgentType.from_string(self.available_agents[0])
+                    
+                return AgentType.GENERAL_PURPOSE
+        
+        # If no available agents specified, allow any agent (dynamic discovery)
+        return AgentType.from_string(agent_name)
     
     def _create_structured_task_prompt(self, structured_request: StructuredRequest) -> str:
         """Create a task prompt for structured request execution"""

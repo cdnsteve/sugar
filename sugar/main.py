@@ -1196,6 +1196,12 @@ sugar:
       test: "general-purpose"        # General development for tests
       documentation: "general-purpose"  # General development for docs
     
+    # Dynamic Agent Discovery (supports any agents you have configured locally)
+    # available_agents: []       # Optional: specify which agents are available
+                                # If empty, Sugar will accept any agent name
+                                # Example: ["my-custom-agent", "security-specialist", "database-expert"]
+    # auto_discover_agents: false  # Future: auto-discover agents from Claude CLI
+    
   # Work Discovery
   discovery:
     # Global exclusions for all discovery modules
