@@ -366,6 +366,15 @@ class SugarLoop:
             
             if success:
                 logger.info(f"👤 Assigned GitHub issue #{issue_number} to current user")
+                
+                # Add "working on it" comment
+                working_comment = "👀 Sugar is now working on this issue..."
+                comment_success = await github_watcher.comment_on_issue(issue_number, working_comment)
+                
+                if comment_success:
+                    logger.info(f"💬 Posted working status to GitHub issue #{issue_number}")
+                else:
+                    logger.debug(f"Could not post working status to GitHub issue #{issue_number}")
             else:
                 logger.debug(f"Could not assign GitHub issue #{issue_number}")
                 
