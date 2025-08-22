@@ -307,8 +307,26 @@ class TestCoverageAnalyzer:
         """Find complex functions that need testing"""
         complex_functions = []
         
+        # Debug: Test the exclusion logic with a known problematic path
+        test_path = "./venv/lib/python3.13/site-packages/typing_extensions.py"
+        should_exclude = self._should_exclude_path(test_path)
+        logger.info(f"Testing exclusion for {test_path}: should_exclude = {should_exclude}")
+        
         for root, dirs, files in os.walk(self.root_path):
-            # Focus on source directories
+            # Skip excluded directories
+            if self._should_exclude_path(root):
+                logger.debug(f"Skipping excluded directory: {root}")
+                dirs[:] = []  # Don't recurse into this directory
+                continue
+                
+            # Filter out excluded subdirectories before walking into them
+            original_dirs = dirs[:]
+            dirs[:] = [d for d in dirs if not self._should_exclude_path(os.path.join(root, d))]
+            if len(dirs) != len(original_dirs):
+                excluded_dirs = [d for d in original_dirs if d not in dirs]
+                logger.debug(f"Filtered out excluded subdirectories from {root}: {excluded_dirs}")
+            
+            # Focus on source directories (but only if not already excluded)
             path_parts = Path(root).parts
             if not any(src_dir in path_parts for src_dir in self.source_dirs):
                 continue
@@ -316,6 +334,11 @@ class TestCoverageAnalyzer:
             for file in files:
                 if file.endswith('.py'):
                     file_path = os.path.join(root, file)
+                    
+                    # Skip excluded files (double-check at file level)
+                    if self._should_exclude_path(file_path):
+                        logger.debug(f"Skipping excluded file: {file_path}")
+                        continue
                     
                     try:
                         functions = await self._analyze_python_complexity(file_path)
