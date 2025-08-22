@@ -71,7 +71,7 @@ def init(project_dir):
         
         # Detect GitHub CLI and repository
         github_config = _detect_github_config(project_path)
-        if github_config['gh_available']:
+        if github_config['cli_available']:
             click.echo(f"✅ Found GitHub CLI: {github_config['gh_command']}")
             if github_config['repo']:
                 click.echo(f"✅ Detected GitHub repository: {github_config['repo']}")
@@ -839,7 +839,9 @@ def _detect_github_config(project_path: Path) -> dict:
     import os
     
     github_config = {
-        'gh_available': False,
+        'detected': True,  # Mark that detection was attempted
+        'cli_available': False,
+        'gh_available': False,  # Keep for backward compatibility
         'gh_command': 'gh',
         'authenticated': False,
         'repo': '',
@@ -850,7 +852,8 @@ def _detect_github_config(project_path: Path) -> dict:
         # Check if GitHub CLI is available
         result = subprocess.run(['gh', '--version'], capture_output=True, text=True, timeout=10)
         if result.returncode == 0:
-            github_config['gh_available'] = True
+            github_config['cli_available'] = True
+            github_config['gh_available'] = True  # Keep for backward compatibility
             
             # Check if authenticated
             auth_result = subprocess.run(['gh', 'auth', 'status'], capture_output=True, text=True, timeout=10)
