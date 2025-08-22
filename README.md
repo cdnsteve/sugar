@@ -1,6 +1,17 @@
 # Sugar - AI-Powered Autonomous Development System
 
-A lightweight autonomous development system specifically designed for Claude Code CLI integration that can be installed as a library in any project.
+**An intelligent autonomous development assistant that works 24/7 to improve your codebase using Claude AI.**
+
+Sugar is a lightweight autonomous development system specifically designed for Claude Code CLI integration that can be installed as a library in any project. It continuously discovers work from GitHub issues, error logs, and code quality analysis, then automatically implements fixes and improvements using Claude's advanced reasoning capabilities.
+
+## ✨ What Makes Sugar Special
+
+- 🤖 **Truly Autonomous**: Runs 24/7 discovering and fixing issues without human intervention
+- 🧠 **Claude AI Integration**: Leverages Claude's advanced reasoning for high-quality code changes  
+- 🔍 **Smart Discovery**: Automatically finds work from GitHub issues, error logs, and code analysis
+- 🎯 **Project-Focused**: Each project gets isolated Sugar instance with custom configuration
+- 🔧 **Battle-Tested**: Handles real development workflows with git, GitHub, testing, and deployment
+- 📈 **Learning System**: Adapts and improves based on success/failure patterns
 
 ## 🚀 Quick Start
 
@@ -78,11 +89,13 @@ Sugar operates in **two modes**:
 ### 🤖 Autonomous Discovery
 Sugar continuously:
 - 🔍 **Discovers work** from error logs, feedback, and GitHub issues
-- 📊 **Analyzes code quality** and identifies improvements
+- 📊 **Analyzes code quality** and identifies improvements  
 - 🧪 **Detects missing tests** and coverage gaps
-- ⚡ **Executes tasks** using Claude Code CLI
-- 🧠 **Learns and adapts** from results
-- 🔄 **Repeats autonomously** without human intervention
+- ⚡ **Executes tasks** using Claude Code CLI with full context
+- 🌿 **Creates branches & PRs** or commits directly to main (configurable)
+- 💬 **Updates GitHub issues** with detailed progress and completion status
+- 🧠 **Learns and adapts** from results to improve future performance
+- 🔄 **Repeats autonomously** 24/7 without human intervention
 
 ### 👤 Manual Task Management
 You can also directly add tasks:
@@ -134,7 +147,10 @@ sugar:
     github:
       enabled: false  # Set to true and configure to enable
       repo: ""  # e.g., "user/repository"
-      token: ""  # GitHub token for API access
+      issue_labels: []  # No filtering - work on ALL open issues
+      workflow:
+        auto_close_issues: true
+        git_workflow: "direct_commit"  # direct_commit|pull_request
       
     code_quality:
       enabled: true
