@@ -42,7 +42,10 @@ class WorkQueue:
                     last_attempt_at TIMESTAMP,
                     completed_at TIMESTAMP,
                     result TEXT,
-                    error_message TEXT
+                    error_message TEXT,
+                    total_execution_time REAL DEFAULT 0.0,
+                    started_at TIMESTAMP,
+                    total_elapsed_time REAL DEFAULT 0.0
                 )
             """)
             
@@ -56,10 +59,43 @@ class WorkQueue:
                 ON work_items (status)
             """)
             
+            # Migrate existing databases to add timing columns
+            await self._migrate_timing_columns(db)
+            
             await db.commit()
         
         self._initialized = True
+    
+    async def _migrate_timing_columns(self, db):
+        """Add timing columns to existing databases if they don't exist"""
+        try:
+            # Check if timing columns exist
+            cursor = await db.execute("PRAGMA table_info(work_items)")
+            columns = await cursor.fetchall()
+            column_names = [col[1] for col in columns]
+            
+            # Add missing timing columns
+            if 'total_execution_time' not in column_names:
+                await db.execute("ALTER TABLE work_items ADD COLUMN total_execution_time REAL DEFAULT 0.0")
+                logger.info("Added total_execution_time column to existing database")
+                
+            if 'started_at' not in column_names:
+                await db.execute("ALTER TABLE work_items ADD COLUMN started_at TIMESTAMP")
+                logger.info("Added started_at column to existing database")
+                
+            if 'total_elapsed_time' not in column_names:
+                await db.execute("ALTER TABLE work_items ADD COLUMN total_elapsed_time REAL DEFAULT 0.0")
+                logger.info("Added total_elapsed_time column to existing database")
+                
+        except Exception as e:
+            logger.warning(f"Migration warning (non-critical): {e}")
         logger.debug(f"✅ Work queue initialized: {self.db_path}")
+    
+    async def close(self):
+        """Close the work queue (for testing)"""
+        # SQLite connections are closed automatically, but this method
+        # provides a consistent interface for tests
+        pass
     
     async def work_exists(self, source_file: str, exclude_statuses: List[str] = None) -> bool:
         """Check if work item with given source_file already exists"""
@@ -144,6 +180,7 @@ class WorkQueue:
                 SET status = 'active', 
                     attempts = attempts + 1,
                     last_attempt_at = CURRENT_TIMESTAMP,
+                    started_at = CASE WHEN started_at IS NULL THEN CURRENT_TIMESTAMP ELSE started_at END,
                     updated_at = CURRENT_TIMESTAMP
                 WHERE id = ?
             """, (work_item['id'],))
@@ -156,22 +193,43 @@ class WorkQueue:
             return work_item
     
     async def complete_work(self, work_id: str, result: Dict[str, Any]):
-        """Mark a work item as completed with results"""
+        """Mark a work item as completed with results and timing"""
         async with aiosqlite.connect(self.db_path) as db:
+            # Extract execution time from result
+            execution_time = 0.0
+            try:
+                if isinstance(result, dict):
+                    # Try various ways to extract execution time
+                    execution_time = (
+                        result.get('execution_time', 0) or
+                        result.get('result', {}).get('execution_time', 0) or
+                        0.0
+                    )
+            except (TypeError, AttributeError):
+                execution_time = 0.0
+            
             await db.execute("""
                 UPDATE work_items 
                 SET status = 'completed',
                     result = ?,
                     completed_at = CURRENT_TIMESTAMP,
-                    updated_at = CURRENT_TIMESTAMP
+                    updated_at = CURRENT_TIMESTAMP,
+                    total_execution_time = total_execution_time + ?,
+                    total_elapsed_time = (
+                        CASE 
+                            WHEN started_at IS NOT NULL 
+                            THEN (julianday(CURRENT_TIMESTAMP) - julianday(started_at)) * 86400.0
+                            ELSE (julianday(CURRENT_TIMESTAMP) - julianday(created_at)) * 86400.0
+                        END
+                    )
                 WHERE id = ?
-            """, (json.dumps(result), work_id))
+            """, (json.dumps(result), execution_time, work_id))
             
             await db.commit()
         
-        logger.debug(f"✅ Completed work item: {work_id}")
+        logger.debug(f"✅ Completed work item: {work_id} (+{execution_time:.1f}s execution)")
     
-    async def fail_work(self, work_id: str, error_message: str, max_retries: int = 3):
+    async def fail_work(self, work_id: str, error_message: str, max_retries: int = 3, execution_time: float = 0.0):
         """Mark a work item as failed, or retry if under retry limit"""
         async with aiosqlite.connect(self.db_path) as db:
             # Get current attempts
@@ -187,27 +245,36 @@ class WorkQueue:
             attempts, title = row
             
             if attempts >= max_retries:
-                # Final failure
+                # Final failure - record total elapsed time
                 await db.execute("""
                     UPDATE work_items 
                     SET status = 'failed',
                         error_message = ?,
-                        updated_at = CURRENT_TIMESTAMP
+                        updated_at = CURRENT_TIMESTAMP,
+                        total_execution_time = total_execution_time + ?,
+                        total_elapsed_time = (
+                            CASE 
+                                WHEN started_at IS NOT NULL 
+                                THEN (julianday(CURRENT_TIMESTAMP) - julianday(started_at)) * 86400.0
+                                ELSE (julianday(CURRENT_TIMESTAMP) - julianday(created_at)) * 86400.0
+                            END
+                        )
                     WHERE id = ?
-                """, (error_message, work_id))
+                """, (error_message, execution_time, work_id))
                 
-                logger.error(f"❌ Work item failed permanently: {title} (after {attempts} attempts)")
+                logger.error(f"❌ Work item failed permanently: {title} (after {attempts} attempts, +{execution_time:.1f}s)")
             else:
-                # Retry later
+                # Retry later - accumulate execution time but don't calculate elapsed time yet
                 await db.execute("""
                     UPDATE work_items 
                     SET status = 'pending',
                         error_message = ?,
-                        updated_at = CURRENT_TIMESTAMP
+                        updated_at = CURRENT_TIMESTAMP,
+                        total_execution_time = total_execution_time + ?
                     WHERE id = ?
-                """, (error_message, work_id))
+                """, (error_message, execution_time, work_id))
                 
-                logger.warning(f"⚠️ Work item will be retried: {title} (attempt {attempts}/{max_retries})")
+                logger.warning(f"⚠️ Work item will be retried: {title} (attempt {attempts}/{max_retries}, +{execution_time:.1f}s)")
             
             await db.commit()
     

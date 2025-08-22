@@ -249,3 +249,220 @@ class TestWorkQueue:
         # Test limiting results
         limited_tasks = await mock_work_queue.get_recent_work(limit=2)
         assert len(limited_tasks) == 2
+
+
+class TestTimingTracking:
+    """Test timing tracking functionality"""
+    
+    @pytest.mark.asyncio
+    async def test_timing_columns_exist(self, temp_dir):
+        """Test that timing columns are created during initialization"""
+        db_path = temp_dir / "timing_test.db"
+        queue = WorkQueue(str(db_path))
+        
+        await queue.initialize()
+        
+        # Test that we can query timing columns without error
+        import aiosqlite
+        async with aiosqlite.connect(str(db_path)) as db:
+            cursor = await db.execute("PRAGMA table_info(work_items)")
+            columns = await cursor.fetchall()
+            column_names = [col[1] for col in columns]
+            
+            assert 'total_execution_time' in column_names
+            assert 'started_at' in column_names
+            assert 'total_elapsed_time' in column_names
+        
+        await queue.close()
+    
+    @pytest.mark.asyncio 
+    async def test_started_at_timestamp_on_work_retrieval(self, temp_dir):
+        """Test that started_at is set when work is retrieved"""
+        db_path = temp_dir / "timing_test.db"
+        queue = WorkQueue(str(db_path))
+        await queue.initialize()
+        
+        # Add a work item
+        task_data = {
+            "type": "test",
+            "title": "Timing test task",
+            "priority": 3,
+            "source": "test"
+        }
+        
+        task_id = await queue.add_work(task_data)
+        
+        # Retrieve work (this should set started_at)
+        work_item = await queue.get_next_work()
+        
+        assert work_item is not None
+        assert work_item['id'] == task_id
+        assert work_item['status'] == 'active'
+        
+        # Check that started_at was set in database
+        retrieved_item = await queue.get_work_item(task_id)
+        assert retrieved_item['started_at'] is not None
+        
+        await queue.close()
+    
+    @pytest.mark.asyncio
+    async def test_execution_time_tracking_on_completion(self, temp_dir):
+        """Test that execution time is tracked when work is completed"""
+        db_path = temp_dir / "timing_test.db"
+        queue = WorkQueue(str(db_path))
+        await queue.initialize()
+        
+        # Add and start work
+        task_data = {
+            "type": "test",
+            "title": "Execution time test",
+            "priority": 3,
+            "source": "test"
+        }
+        
+        task_id = await queue.add_work(task_data)
+        work_item = await queue.get_next_work()
+        
+        # Complete work with execution time
+        result = {
+            "success": True,
+            "execution_time": 5.5,
+            "result": {"message": "Task completed successfully"}
+        }
+        
+        await queue.complete_work(task_id, result)
+        
+        # Verify timing was recorded
+        completed_item = await queue.get_work_item(task_id)
+        
+        assert completed_item['status'] == 'completed'
+        assert completed_item['total_execution_time'] == 5.5
+        assert completed_item['total_elapsed_time'] > 0
+        assert completed_item['completed_at'] is not None
+        
+        await queue.close()
+    
+    @pytest.mark.asyncio
+    async def test_cumulative_execution_time_on_retry(self, temp_dir):
+        """Test that execution time accumulates across retries"""
+        db_path = temp_dir / "timing_test.db"
+        queue = WorkQueue(str(db_path))
+        await queue.initialize()
+        
+        # Add work
+        task_data = {
+            "type": "test",
+            "title": "Retry timing test",
+            "priority": 3,
+            "source": "test"
+        }
+        
+        task_id = await queue.add_work(task_data)
+        
+        # First attempt - fail with execution time
+        work_item = await queue.get_next_work()
+        await queue.fail_work(task_id, "First failure", execution_time=3.0)
+        
+        # Check timing after first failure
+        item_after_first = await queue.get_work_item(task_id)
+        assert item_after_first['total_execution_time'] == 3.0
+        assert item_after_first['status'] == 'pending'  # Should retry
+        
+        # Second attempt - fail again
+        work_item = await queue.get_next_work()
+        await queue.fail_work(task_id, "Second failure", execution_time=2.5)
+        
+        # Check cumulative timing
+        item_after_second = await queue.get_work_item(task_id)
+        assert item_after_second['total_execution_time'] == 5.5  # 3.0 + 2.5
+        assert item_after_second['status'] == 'pending'  # Should retry
+        
+        # Third attempt - succeed
+        work_item = await queue.get_next_work()
+        result = {
+            "success": True,
+            "execution_time": 1.5,
+            "result": {"message": "Finally succeeded"}
+        }
+        await queue.complete_work(task_id, result)
+        
+        # Check final timing
+        final_item = await queue.get_work_item(task_id)
+        assert final_item['total_execution_time'] == 7.0  # 5.5 + 1.5
+        assert final_item['total_elapsed_time'] > 0
+        assert final_item['status'] == 'completed'
+        
+        await queue.close()
+    
+    @pytest.mark.asyncio
+    async def test_elapsed_time_calculation(self, temp_dir):
+        """Test that total elapsed time is calculated correctly"""
+        db_path = temp_dir / "timing_test.db"
+        queue = WorkQueue(str(db_path))
+        await queue.initialize()
+        
+        # Add work
+        task_data = {
+            "type": "test", 
+            "title": "Elapsed time test",
+            "priority": 3,
+            "source": "test"
+        }
+        
+        task_id = await queue.add_work(task_data)
+        
+        # Get work (sets started_at)
+        work_item = await queue.get_next_work()
+        
+        # Simulate some time passing
+        import asyncio
+        await asyncio.sleep(0.1)  # 100ms
+        
+        # Complete work
+        result = {"success": True, "execution_time": 2.0}
+        await queue.complete_work(task_id, result)
+        
+        # Check elapsed time
+        completed_item = await queue.get_work_item(task_id)
+        
+        assert completed_item['total_elapsed_time'] >= 0.1  # At least 100ms
+        assert completed_item['total_elapsed_time'] < 10.0  # But reasonable
+        assert completed_item['total_execution_time'] == 2.0
+        
+        await queue.close()
+    
+    @pytest.mark.asyncio
+    async def test_migration_adds_timing_columns(self, temp_dir):
+        """Test that existing databases get timing columns added"""
+        db_path = temp_dir / "migration_test.db"
+        
+        # Create database with old schema (no timing columns)
+        import aiosqlite
+        async with aiosqlite.connect(str(db_path)) as db:
+            await db.execute("""
+                CREATE TABLE work_items (
+                    id TEXT PRIMARY KEY,
+                    type TEXT NOT NULL,
+                    title TEXT NOT NULL,
+                    status TEXT DEFAULT 'pending',
+                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                    result TEXT
+                )
+            """)
+            await db.commit()
+        
+        # Initialize WorkQueue (should trigger migration)
+        queue = WorkQueue(str(db_path))
+        await queue.initialize()
+        
+        # Check that timing columns were added
+        async with aiosqlite.connect(str(db_path)) as db:
+            cursor = await db.execute("PRAGMA table_info(work_items)")
+            columns = await cursor.fetchall()
+            column_names = [col[1] for col in columns]
+            
+            assert 'total_execution_time' in column_names
+            assert 'started_at' in column_names
+            assert 'total_elapsed_time' in column_names
+        
+        await queue.close()

@@ -270,9 +270,17 @@ class SugarLoop:
             # Prepare unified workflow (replaces GitHub-specific workflow)
             workflow = await self.workflow_orchestrator.prepare_work_execution(work_item)
             
+            # Track execution timing
+            from datetime import datetime
+            start_time = datetime.utcnow()
+            execution_time = 0.0
+            
             try:
                 # Execute with Claude Code
                 result = await self.claude_executor.execute_work(work_item)
+                
+                # Calculate execution time
+                execution_time = (datetime.utcnow() - start_time).total_seconds()
                 
                 # Complete unified workflow (commit, branch, PR, issues)
                 workflow_success = await self.workflow_orchestrator.complete_work_execution(
@@ -292,8 +300,11 @@ class SugarLoop:
                 logger.info(f"✅ Work completed [{work_item['id']}]: {work_item['title']}")
                 
             except Exception as e:
+                # Calculate execution time even on failure
+                execution_time = (datetime.utcnow() - start_time).total_seconds()
+                
                 logger.error(f"❌ Work execution failed [{work_item['id']}]: {e}")
-                await self.work_queue.fail_work(work_item['id'], str(e))
+                await self.work_queue.fail_work(work_item['id'], str(e), execution_time=execution_time)
                 
                 # Handle failed workflow cleanup
                 await self._handle_failed_workflow(work_item, workflow, str(e))

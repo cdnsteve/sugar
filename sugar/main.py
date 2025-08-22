@@ -35,6 +35,19 @@ def setup_logging(log_file_path='.sugar/sugar.log', debug=False):
 
 logger = logging.getLogger(__name__)
 
+def _format_duration(seconds: float) -> str:
+    """Format duration in seconds to human-readable format"""
+    if seconds < 60:
+        return f"{seconds:.1f}s"
+    elif seconds < 3600:
+        minutes = int(seconds / 60)
+        remaining_seconds = seconds % 60
+        return f"{minutes}m {remaining_seconds:.0f}s"
+    else:
+        hours = int(seconds / 3600)
+        remaining_minutes = int((seconds % 3600) / 60)
+        return f"{hours}h {remaining_minutes}m"
+
 # Global variable to hold the loop instance
 sugar_loop = None
 shutdown_event = None
@@ -251,7 +264,22 @@ def list(ctx, status, limit, task_type):
             click.echo(f"{status_emoji} {priority_str} [{task['type']}] {task['title']}")
             if task.get('description') and len(task['description']) < 100:
                 click.echo(f"   📝 {task['description']}")
-            click.echo(f"   🆔 {task['id']} | 📅 {task['created_at']} | 🔄 {task['attempts']} attempts")
+            
+            # Build info line with timing for completed/failed tasks
+            info_parts = [
+                f"🆔 {task['id']}",
+                f"📅 {task['created_at']}",
+                f"🔄 {task['attempts']} attempts"
+            ]
+            
+            # Add timing information for completed/failed tasks
+            if task['status'] in ['completed', 'failed']:
+                if task.get('total_execution_time', 0) > 0:
+                    info_parts.append(f"⏱️ {task['total_execution_time']:.1f}s")
+                if task.get('total_elapsed_time', 0) > 0:
+                    info_parts.append(f"🕐 {_format_duration(task['total_elapsed_time'])}")
+            
+            click.echo(f"   {' | '.join(info_parts)}")
             click.echo()
         
     except Exception as e:
@@ -301,6 +329,14 @@ def view(ctx, task_id):
         click.echo(f"📊 Status: {task['status']}")
         click.echo(f"🎯 Priority: {task['priority']}/5")
         click.echo(f"🏷️  Source: {task.get('source', 'unknown')}")
+        
+        # Display timing information
+        if task.get('total_execution_time', 0) > 0:
+            click.echo(f"⏱️  Execution Time: {task['total_execution_time']:.1f}s")
+        if task.get('total_elapsed_time', 0) > 0:
+            click.echo(f"🕐 Total Elapsed: {_format_duration(task['total_elapsed_time'])}")
+        if task.get('started_at'):
+            click.echo(f"🚀 Started: {task['started_at']}")
         
         if task.get('context'):
             click.echo(f"🔍 Context: {json.dumps(task['context'], indent=2)}")
