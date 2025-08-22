@@ -1,32 +1,120 @@
-# Changelog
+# Sugar Changelog
 
-All notable changes to Sugar will be documented in this file.
+All notable changes to the Sugar autonomous development system will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased]
+## [1.0.0] - 2025-08-22
+
+### 🎯 MAJOR RELEASE: Unified Workflow System
+
+This release marks Sugar's first major stable version with comprehensive workflow management for autonomous development.
 
 ### Added
-- Comprehensive test suite with pytest
-- CI/CD pipeline with GitHub Actions
-- Pre-commit hooks for code quality
-- Docker support for containerized deployment
-- Security scanning with bandit and safety
-- Code coverage reporting
-- Type checking with mypy
-- Automated release workflow
+
+#### Unified Workflow System
+- **WorkflowOrchestrator**: New centralized workflow management system
+- **Workflow Profiles**: Three preconfigured workflow patterns:
+  - `solo`: Fast development with direct commits, minimal overhead
+  - `balanced`: Small team collaboration with PR workflow and selective issue creation
+  - `enterprise`: Full governance with comprehensive tracking and review requirements
+
+#### Configuration System
+- **Profile-based configuration** in `.sugar/config.yaml`
+- **Conventional commit automation** with work type detection
+- **Flexible workflow overrides** for custom team requirements
+- **Backward compatibility** with existing Sugar installations
+
+#### Workflow Features
+- **Consistent git operations** across all work types (tests, quality, errors, GitHub issues)
+- **Smart issue handling**: Internal processing for tests/quality, GitHub integration for issue-sourced work
+- **Branch management**: Automatic feature branch creation for PR workflows
+- **Commit message automation**: Work type detection with conventional commit formatting
 
 ### Changed
-- Project renamed from claude-ccal to Sugar
-- CLI command changed from `ccal` to `sugar`
-- Package directory renamed from `claude_ccal` to `sugar`
-- Configuration directory changed from `.ccal` to `.sugar`
-- Updated all documentation with new naming
 
-### Security
-- Added security scanning to CI pipeline
-- Implemented pre-commit hooks for vulnerability detection
+#### Core Architecture
+- **Replaced GitHub-specific workflows** with unified workflow orchestrator
+- **Centralized git operations** through workflow profiles
+- **Standardized work execution pipeline** for all discovery modules
+- **Enhanced error handling** and workflow cleanup on failures
+
+#### Discovery Integration
+- **Test coverage analyzer**: Now handles discovered work through unified workflow
+- **Code quality scanner**: Integrated with workflow system for consistent git operations
+- **Error monitor**: Uses workflow profiles for commit behavior
+- **GitHub watcher**: Maintains issue updates while using unified git workflow
+
+### Technical Details
+
+#### New Components
+```
+sugar/workflow/
+├── __init__.py
+└── orchestrator.py     # WorkflowOrchestrator class
+```
+
+#### Configuration Schema
+```yaml
+workflow:
+  profile: "solo"  # solo | balanced | enterprise
+  custom:          # Optional profile overrides
+    git:
+      workflow_type: "direct_commit"  # direct_commit | pull_request
+      commit_style: "conventional"    # conventional | simple
+      auto_commit: true
+    github:
+      auto_create_issues: false       # Create issues for discovered work
+      update_existing_issues: true    # Update GitHub-sourced issues
+    discovery:
+      handle_internally: true         # Process tests/quality without external tracking
+```
+
+#### Workflow Behavior Matrix
+| Profile | Git Workflow | GitHub Issues | Commit Style | Target Use Case |
+|---------|-------------|---------------|--------------|----------------|
+| solo | direct_commit | Internal only | conventional | Individual developers |
+| balanced | pull_request | Selective (priority 3+) | conventional | Small teams |
+| enterprise | pull_request | All work tracked | conventional | Large teams/compliance |
+
+### Fixed
+- **Logging configuration**: Fixed hardcoded log paths, now respects config settings
+- **Directory creation**: Automatic creation of log directories during initialization
+- **Version reporting**: Fixed --version flag requiring subcommands
+- **Path security**: Resolved directory traversal vulnerabilities in discovery modules
+
+### Infrastructure
+- **Semantic versioning**: Established version management practices
+- **Automated testing**: Workflow system tested across all profiles
+- **Documentation**: Comprehensive workflow documentation and examples
+
+---
+
+## [0.2.0] - 2025-08-22
+
+### Added
+- **Logging Configuration Fix**: Sugar now writes logs to configured path instead of hardcoded location
+- **Automatic Log Directory Creation**: Log directories created automatically during initialization
+- **Config-based Logging**: Logging respects `.sugar/config.yaml` settings
+
+### Fixed  
+- **Log File Location**: Fixed Sugar writing to wrong log file location
+- **sugar logs -f**: Now works correctly out of the box without manual setup
+
+---
+
+## [Unreleased]
+
+### Planned Features
+- CI/CD pipeline with GitHub Actions  
+- Docker support for containerized deployment
+- Pre-commit hooks for code quality
+- Security scanning with bandit and safety
+- Type checking with mypy
+- Automated release workflow
+- Performance metrics and monitoring
+- Enhanced team collaboration features
 
 ## [0.1.0] - 2024-01-01
 
