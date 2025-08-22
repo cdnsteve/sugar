@@ -386,9 +386,23 @@ class SugarLoop:
         task_id = work_item.get('id', 'unknown')
         task_title = work_item.get('title', 'Unknown task')
         
-        # Extract the most important information concisely
+        # Determine the actual work type and create appropriate header
+        actual_work_type = self._determine_actual_work_type(result, work_item)
+        
+        # Create header based on actual work type
+        header_map = {
+            'verification': '🔍 Issue Verified',
+            'documentation_verification': '📋 Documentation Verified', 
+            'bug_fix': '🐛 Bug Fixed',
+            'feature': '✨ Feature Added',
+            'update': '📝 Updated',
+            'documentation': '📋 Documentation Updated'
+        }
+        
+        header = header_map.get(actual_work_type, '✅ Issue Resolved')
+        
         lines = [
-            f"## ✅ Issue Resolved (`{task_id}`)",
+            f"## {header} (`{task_id}`)",
             ""
         ]
         
@@ -437,10 +451,12 @@ class SugarLoop:
                 ""
             ])
         
-        # If no meaningful actions were found, show the task context
+        # If no meaningful actions were found, show the task context with correct type
         if not actions_added and not result.get('files_changed'):
+            task_clean = task_title.replace('Address GitHub issue: ', '')
             lines.extend([
-                f"**Task:** {task_title.replace('Address GitHub issue: ', '')}",
+                f"**Task:** {task_clean}",
+                f"**Type:** {actual_work_type}",
                 ""
             ])
         
@@ -547,6 +563,49 @@ class SugarLoop:
         # If more than 70% overlap, consider similar
         similarity = overlap / total_unique if total_unique > 0 else 0
         return similarity > 0.7
+    
+    def _determine_actual_work_type(self, result: dict, work_item: dict) -> str:
+        """Determine the actual work type based on Claude's analysis and actions"""
+        output = result.get('output', '')
+        summary = result.get('summary', '')
+        actions = result.get('actions_taken', [])
+        original_type = work_item.get('type', 'unknown')
+        
+        # Combine all text for analysis
+        all_text = f"{output} {summary} {' '.join(actions)}".lower()
+        
+        # Check for verification/analysis patterns
+        if any(phrase in all_text for phrase in [
+            'already', 'already exists', 'already includes', 'already proper',
+            'verified that', 'confirmed that', 'found that', 'checked',
+            'no changes needed', 'requirement satisfied', 'properly listed',
+            'comprehensive', 'analysis shows', 'reviewing the current'
+        ]):
+            return 'verification'
+        
+        # Check for actual file changes/updates
+        if any(phrase in all_text for phrase in [
+            'updated', 'modified', 'added new', 'created', 'implemented',
+            'wrote to', 'changed', 'fixed'
+        ]) and result.get('files_changed'):
+            if 'bug' in all_text or 'fix' in all_text or 'error' in all_text:
+                return 'bug_fix'
+            elif 'feature' in all_text or 'enhancement' in all_text:
+                return 'feature'
+            else:
+                return 'update'
+        
+        # Check for documentation work
+        if any(phrase in all_text for phrase in [
+            'readme', 'documentation', 'docs', 'author section'
+        ]):
+            if 'already' in all_text or 'verified' in all_text:
+                return 'documentation_verification'
+            else:
+                return 'documentation'
+        
+        # Fallback to original type if we can't determine better
+        return original_type
 
     async def health_check(self) -> dict:
         """Return system health status"""
