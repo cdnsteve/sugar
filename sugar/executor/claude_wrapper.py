@@ -473,10 +473,18 @@ Please implement this task by:
                             break
                 actions_taken.append(line)
                 
-            # Capture success indicators and actions
+            # Capture success indicators and actions  
             if (line.startswith('✅') or line.startswith('✓') or 
                 'successfully' in line.lower() or 'completed' in line.lower() or
                 'added' in line.lower() or 'fixed' in line.lower()):
+                actions_taken.append(line)
+                
+            # Capture analysis and findings
+            if any(phrase in line.lower() for phrase in [
+                'already exists', 'already includes', 'found that', 'verified that',
+                'analysis shows', 'readme contains', 'file contains', 'properly listed',
+                'no changes needed', 'requirement satisfied', 'confirmed that'
+            ]):
                 actions_taken.append(line)
                 
             # Include in Claude response if we're in that section

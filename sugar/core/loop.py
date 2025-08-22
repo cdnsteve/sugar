@@ -387,30 +387,63 @@ class SugarLoop:
         """Extract a concise summary from Claude's output"""
         # Try to get Claude's actual response first
         claude_response = result.get('claude_response', '')
+        output = result.get('output', '')
         
-        # Look for summary patterns in Claude's response
+        # Look for Claude's key findings or conclusions
+        summary_candidates = []
+        
+        # Parse Claude's response for meaningful statements
         if claude_response:
             lines = claude_response.split('\n')
             for line in lines:
                 line = line.strip()
-                # Find lines that summarize what was done
-                if any(word in line.lower() for word in ['successfully', 'completed', 'updated', 'added', 'fixed', 'created']):
-                    if len(line) > 10 and len(line) < 200:  # Good summary length
-                        return line.rstrip('.')
+                # Look for conclusion or finding statements
+                if any(phrase in line.lower() for phrase in [
+                    'already', 'found', 'confirmed', 'verified', 'checked',
+                    'analysis', 'shows', 'indicates', 'discovered', 'exists',
+                    'no changes needed', 'requirement satisfied', 'properly'
+                ]):
+                    if 20 < len(line) < 300:  # Good summary length
+                        summary_candidates.append(line.rstrip('.'))
+                
+                # Also look for action statements
+                elif any(word in line.lower() for word in [
+                    'updated', 'added', 'created', 'modified', 'fixed', 'implemented'
+                ]):
+                    if 20 < len(line) < 300:
+                        summary_candidates.append(line.rstrip('.'))
+        
+        # If no Claude response, try parsing the full output
+        if not summary_candidates and output:
+            lines = output.split('\n')
+            for line in lines:
+                line = line.strip()
+                # Look for key findings in output
+                if any(phrase in line.lower() for phrase in [
+                    'the readme', 'author section', 'already includes', 'properly listed',
+                    'verified that', 'analysis shows', 'file contains'
+                ]):
+                    if 20 < len(line) < 300:
+                        summary_candidates.append(line.rstrip('.'))
+                        break
+        
+        # Return the best candidate
+        if summary_candidates:
+            return summary_candidates[0]
         
         # Fallback to summary field
         summary = result.get('summary', '')
-        if summary and len(summary) < 200:
+        if summary and len(summary) < 200 and summary != "Task completed successfully":
             return summary.rstrip('.')
         
         # Fallback to first meaningful action
         actions = result.get('actions_taken', [])
         if actions:
             first_action = actions[0].lstrip('✅✓ ').strip()
-            if len(first_action) < 200:
+            if len(first_action) < 200 and first_action != "Task completed successfully":
                 return first_action.rstrip('.')
         
-        return "Task completed successfully"
+        return ""
 
     async def health_check(self) -> dict:
         """Return system health status"""
