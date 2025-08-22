@@ -7,6 +7,7 @@ import subprocess
 import re
 from typing import Optional, Dict, Any
 from pathlib import Path
+from ..__version__ import get_version_info, __version__
 
 logger = logging.getLogger(__name__)
 
@@ -50,8 +51,11 @@ class GitOperations:
                 logger.info("No changes to commit")
                 return True
             
+            # Add Sugar version info to commit message
+            full_commit_message = f"{commit_message}\n\n🤖 Generated with {get_version_info()}\n\nCo-Authored-By: Claude <noreply@anthropic.com>"
+            
             # Commit changes
-            result = await self._run_git_command(['commit', '-m', commit_message])
+            result = await self._run_git_command(['commit', '-m', full_commit_message])
             
             if result['returncode'] == 0:
                 logger.info(f"📝 Committed changes: {commit_message}")

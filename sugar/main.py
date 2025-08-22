@@ -12,6 +12,7 @@ import click
 from datetime import datetime
 
 from .core.loop import SugarLoop
+from .__version__ import get_version_info, __version__
 
 # Configure logging
 logging.basicConfig(
@@ -41,12 +42,18 @@ def signal_handler(signum, frame):
 @click.group()
 @click.option('--config', default='.sugar/config.yaml', help='Configuration file path')
 @click.option('--debug', is_flag=True, help='Enable debug logging')
+@click.option('--version', is_flag=True, help='Show version information')
 @click.pass_context
-def cli(ctx, config, debug):
+def cli(ctx, config, debug, version):
     """Sugar - AI-powered autonomous development system
     
     A lightweight autonomous development system that works with Claude Code CLI
     """
+    # Handle version request
+    if version:
+        click.echo(get_version_info())
+        ctx.exit()
+    
     # Set logging level based on debug flag
     if debug:
         logging.getLogger().setLevel(logging.DEBUG)
@@ -64,7 +71,7 @@ def init(project_dir):
     project_path = Path(project_dir).resolve()
     sugar_dir = project_path / '.sugar'
     
-    click.echo(f"🚀 Initializing Sugar in {project_path}")
+    click.echo(f"🚀 Initializing {get_version_info()} in {project_path}")
     
     try:
         # Create .sugar directory
@@ -118,7 +125,7 @@ def init(project_dir):
         with open(logs_dir / 'sugar_init_success.json', 'w') as f:
             json.dump(sample_success, f, indent=2)
         
-        click.echo(f"✅ Sugar initialized successfully!")
+        click.echo(f"✅ {get_version_info()} initialized successfully!")
         click.echo(f"📁 Config: {config_path}")
         click.echo(f"📁 Database: {sugar_dir / 'sugar.db'}")
         click.echo(f"📁 Logs: {sugar_dir / 'logs'}")
@@ -766,7 +773,7 @@ async def validate_config(sugar_loop):
 
 async def run_once(sugar_loop):
     """Run Sugar for one cycle and exit"""
-    logger.info("🔄 Running Sugar for one cycle...")
+    logger.info(f"🔄 Running {get_version_info()} for one cycle...")
     
     # Initialize
     await sugar_loop.work_queue.initialize()
@@ -802,7 +809,7 @@ async def run_continuous(sugar_loop):
         with open(pidfile, 'w') as f:
             f.write(str(os.getpid()))
         
-        logger.info("🚀 Starting Sugar in continuous mode...")
+        logger.info(f"🚀 Starting {get_version_info()} in continuous mode...")
         logger.info("💡 Press Ctrl+C to stop Sugar gracefully")
         logger.info(f"💡 Or run 'sugar stop' from another terminal")
         

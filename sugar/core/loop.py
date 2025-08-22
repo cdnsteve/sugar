@@ -17,6 +17,7 @@ from ..storage.work_queue import WorkQueue
 from ..learning.feedback_processor import FeedbackProcessor
 from ..learning.adaptive_scheduler import AdaptiveScheduler
 from ..utils.git_operations import GitOperations
+from ..__version__ import get_version_info
 
 logger = logging.getLogger(__name__)
 
@@ -84,7 +85,7 @@ class SugarLoop:
     
     async def start(self):
         """Start the autonomous loop"""
-        logger.info("🤖 Starting Sugar - AI-powered autonomous development system")
+        logger.info(f"🤖 Starting {get_version_info()}")
         
         # Initialize storage
         await self.work_queue.initialize()
@@ -96,7 +97,7 @@ class SugarLoop:
     
     async def start_with_shutdown(self, shutdown_event):
         """Start the autonomous loop with shutdown event monitoring"""
-        logger.info("🤖 Starting Sugar - AI-powered autonomous development system")
+        logger.info(f"🤖 Starting {get_version_info()}")
         
         # Initialize storage
         await self.work_queue.initialize()
