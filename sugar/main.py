@@ -1309,5 +1309,104 @@ def dedupe(ctx, dry_run):
         sys.exit(1)
 
 
+@cli.command()
+@click.option('--dry-run', is_flag=True, help='Show what would be removed without actually removing')
+@click.pass_context
+def cleanup(ctx, dry_run):
+    """Remove bogus work items (Sugar initialization tests, venv files, etc.)"""
+    import aiosqlite
+    from .storage.work_queue import WorkQueue
+    import yaml
+    
+    async def _cleanup_bogus_work():
+        # Load configuration
+        config_file = ctx.obj['config']
+        with open(config_file, 'r') as f:
+            config = yaml.safe_load(f)
+        
+        # Connect to database
+        db_path = config['sugar']['storage']['database']
+        async with aiosqlite.connect(db_path) as db:
+            # Find bogus work items
+            bogus_patterns = [
+                "Sugar initialization test",
+                "Sugar has been successfully initialized",
+                "init_test.json",
+                "/venv/lib/",
+                "/venv/site-packages/",
+                "/.venv/lib/",
+                "/node_modules/",
+                "/__pycache__/"
+            ]
+            
+            bogus_items = []
+            for pattern in bogus_patterns:
+                # Check title, description, and source_file
+                query = """
+                    SELECT id, title, source_file, created_at, status 
+                    FROM work_items 
+                    WHERE title LIKE ? 
+                       OR description LIKE ?
+                       OR source_file LIKE ?
+                    ORDER BY created_at DESC
+                """
+                like_pattern = f"%{pattern}%"
+                async with db.execute(query, (like_pattern, like_pattern, like_pattern)) as cursor:
+                    rows = await cursor.fetchall()
+                    bogus_items.extend(rows)
+            
+            # Remove duplicates (same ID)
+            unique_bogus = {}
+            for item in bogus_items:
+                unique_bogus[item[0]] = item
+            bogus_items = list(unique_bogus.values())
+            
+            if not bogus_items:
+                click.echo("✅ No bogus work items found")
+                return
+            
+            click.echo(f"Found {len(bogus_items)} potentially bogus work items:")
+            click.echo("=" * 80)
+            
+            for work_id, title, source_file, created_at, status in bogus_items:
+                status_icon = "⚡" if status == "active" else "✅" if status == "completed" else "⏳"
+                click.echo(f"{status_icon} {work_id[:8]}... - {title}")
+                if source_file:
+                    click.echo(f"    Source: {source_file}")
+                click.echo(f"    Created: {created_at} | Status: {status}")
+                click.echo()
+            
+            if dry_run:
+                click.echo("🔍 Dry run mode - no items were removed")
+                return
+            
+            # Remove bogus items
+            if click.confirm(f"Remove {len(bogus_items)} potentially bogus work items?"):
+                bogus_ids = [row[0] for row in bogus_items]
+                
+                for work_id in bogus_ids:
+                    await db.execute("DELETE FROM work_items WHERE id = ?", (work_id,))
+                
+                await db.commit()
+                click.echo(f"✅ Removed {len(bogus_items)} bogus work items")
+                
+                # Also clean up the old init_test.json if it exists
+                import pathlib
+                project_path = pathlib.Path.cwd()
+                old_test_file = project_path / 'logs' / 'errors' / 'init_test.json'
+                if old_test_file.exists():
+                    old_test_file.unlink()
+                    click.echo("🗑️  Removed old init_test.json file")
+                    
+            else:
+                click.echo("❌ Operation cancelled")
+    
+    try:
+        asyncio.run(_cleanup_bogus_work())
+    except Exception as e:
+        click.echo(f"❌ Error cleaning up bogus work items: {e}", err=True)
+        sys.exit(1)
+
+
 if __name__ == "__main__":
     cli()
