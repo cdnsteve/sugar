@@ -976,11 +976,57 @@ def _find_claude_cli():
     
     return None
 
+def _get_workflow_config_section() -> str:
+    """Generate GitHub workflow configuration section"""
+    return """
+      # Label filtering options:
+      # issue_labels: ["bug", "enhancement"]  # Specific labels to watch
+      # issue_labels: []                      # No filtering - work on ALL open issues  
+      # issue_labels: ["*"]                   # Work on issues with any labels (exclude unlabeled)
+      # issue_labels: ["unlabeled"]           # Work only on issues without labels
+      
+      # Workflow settings for completed work
+      workflow:
+        # Auto-close issues after successful completion
+        auto_close_issues: true
+        
+        # Git workflow: "direct_commit" or "pull_request"
+        git_workflow: "direct_commit"  # direct_commit|pull_request
+        
+        # Branch settings (used when git_workflow: "pull_request")
+        branch:
+          # Auto-create feature branches for each issue
+          create_branches: true
+          # Branch naming pattern (variables: {issue_number}, {issue_title_slug})
+          name_pattern: "sugar/issue-{issue_number}"
+          # Base branch for new branches and PRs
+          base_branch: "main"
+          
+        # Pull request settings (used when git_workflow: "pull_request")
+        pull_request:
+          # Auto-create PRs after completing work
+          auto_create: true
+          # Auto-merge PRs (only if all checks pass)
+          auto_merge: false
+          # PR title pattern (variables: same as branch naming)
+          title_pattern: "Fix #{issue_number}: {issue_title}"
+          # Include work summary in PR description
+          include_work_summary: true
+          
+        # Commit settings
+        commit:
+          # Include issue reference in commit messages
+          include_issue_ref: true
+          # Commit message pattern (variables: {issue_number}, {work_summary})
+          message_pattern: "Fix #{issue_number}: {work_summary}"
+          # Auto-commit changes after completing work
+          auto_commit: true"""
+
 def _get_github_config_section(github_config: dict = None) -> str:
     """Generate GitHub configuration section based on detection results"""
     if not github_config or not github_config.get('detected'):
         # Default GitHub section when no detection attempted
-        return """
+        return f"""
       enabled: false  # Set to true and configure to enable
       repo: ""  # e.g., "user/repository"
       
@@ -995,9 +1041,9 @@ def _get_github_config_section(github_config: dict = None) -> str:
         command: "gh"  # Path to gh command
         use_default_auth: true  # Use gh CLI's existing authentication
         
-      # Discovery settings
-      issue_labels: ["bug", "enhancement", "good-first-issue"]
-      check_interval_minutes: 30"""
+      # Discovery settings  
+      issue_labels: []  # No filtering - work on ALL open issues
+      check_interval_minutes: 30{_get_workflow_config_section()}"""
     
     if github_config.get('authenticated') and github_config.get('repo'):
         # GitHub CLI detected, authenticated, and repo found
@@ -1013,9 +1059,9 @@ def _get_github_config_section(github_config: dict = None) -> str:
         command: "gh"  # GitHub CLI detected
         use_default_auth: true  # Using existing gh authentication
         
-      # Discovery settings
-      issue_labels: ["bug", "enhancement", "good-first-issue"]
-      check_interval_minutes: 30"""
+      # Discovery settings  
+      issue_labels: []  # No filtering - work on ALL open issues
+      check_interval_minutes: 30{_get_workflow_config_section()}"""
     
     elif github_config.get('cli_available'):
         repo_comment = f'# Auto-detected: "{github_config["repo"]}"' if github_config.get('repo') else '# Set to "owner/repository" format'
@@ -1033,13 +1079,13 @@ def _get_github_config_section(github_config: dict = None) -> str:
         command: "gh"  # GitHub CLI detected
         use_default_auth: true  # Authenticate with 'gh auth login'
         
-      # Discovery settings
-      issue_labels: ["bug", "enhancement", "good-first-issue"]
-      check_interval_minutes: 30"""
+      # Discovery settings  
+      issue_labels: []  # No filtering - work on ALL open issues
+      check_interval_minutes: 30{_get_workflow_config_section()}"""
     
     else:
         # GitHub CLI not detected
-        return """
+        return f"""
       enabled: false  # GitHub CLI not detected - install or use token auth
       repo: ""  # e.g., "user/repository"
       
@@ -1054,9 +1100,9 @@ def _get_github_config_section(github_config: dict = None) -> str:
         command: "gh"  # Install with: brew install gh (macOS) or see github.com/cli/cli
         use_default_auth: true
         
-      # Discovery settings
-      issue_labels: ["bug", "enhancement", "good-first-issue"]
-      check_interval_minutes: 30"""
+      # Discovery settings  
+      issue_labels: []  # No filtering - work on ALL open issues
+      check_interval_minutes: 30{_get_workflow_config_section()}"""
 
 def _generate_default_config(claude_cmd: str, project_root: str, github_config: dict = None) -> str:
     """Generate default Sugar configuration"""

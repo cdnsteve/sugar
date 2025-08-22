@@ -16,6 +16,7 @@ from ..executor.claude_wrapper import ClaudeWrapper
 from ..storage.work_queue import WorkQueue
 from ..learning.feedback_processor import FeedbackProcessor
 from ..learning.adaptive_scheduler import AdaptiveScheduler
+from ..utils.git_operations import GitOperations
 
 logger = logging.getLogger(__name__)
 
@@ -34,6 +35,9 @@ class SugarLoop:
         # Initialize learning components
         self.feedback_processor = FeedbackProcessor(self.work_queue)
         self.adaptive_scheduler = AdaptiveScheduler(self.work_queue, self.feedback_processor)
+        
+        # Initialize git operations
+        self.git_ops = GitOperations()
         
         # Initialize work discovery modules
         self.discovery_modules = []
@@ -221,8 +225,17 @@ class SugarLoop:
         for work_item in discovered_work:
             source_file = work_item.get('source_file', '')
             
-            # Check if work item already exists (skip failed items for retry)
-            if source_file and await self.work_queue.work_exists(source_file):
+            # Smart deduplication: different logic for different sources
+            should_skip = False
+            if source_file:
+                if work_item.get('source') == 'github_watcher':
+                    # For GitHub issues, only skip if pending/in_progress (not completed)
+                    should_skip = await self.work_queue.work_exists(source_file, exclude_statuses=['failed', 'completed'])
+                else:
+                    # For other sources, use default logic (skip all except failed)
+                    should_skip = await self.work_queue.work_exists(source_file)
+            
+            if should_skip:
                 skipped_count += 1
                 logger.debug(f"⏭️ Skipping duplicate work item: {work_item['title']}")
                 continue
@@ -249,8 +262,8 @@ class SugarLoop:
             
             logger.info(f"⚡ Executing work [{work_item['id']}]: {work_item['title']}")
             
-            # Assign GitHub issue if this work came from GitHub
-            await self._assign_github_issue(work_item)
+            # Start GitHub workflow if this work came from GitHub
+            branch_info = await self._start_github_workflow(work_item)
             
             try:
                 # Execute with Claude Code
@@ -259,14 +272,17 @@ class SugarLoop:
                 # Update work item with result
                 await self.work_queue.complete_work(work_item['id'], result)
                 
-                # Comment on GitHub issue if this work came from GitHub
-                await self._comment_on_github_issue(work_item, result)
+                # Complete GitHub workflow (commit, PR, close issue)
+                await self._complete_github_workflow(work_item, result, branch_info)
                 
                 logger.info(f"✅ Work completed [{work_item['id']}]: {work_item['title']}")
                 
             except Exception as e:
                 logger.error(f"❌ Work execution failed [{work_item['id']}]: {e}")
                 await self.work_queue.fail_work(work_item['id'], str(e))
+                
+                # Handle failed workflow cleanup
+                await self._handle_failed_workflow(work_item, branch_info, str(e))
     
     async def _process_feedback(self):
         """Process execution results and learn from them"""
@@ -412,10 +428,9 @@ class SugarLoop:
         # Get meaningful actions
         meaningful_actions = []
         if result.get('actions_taken'):
-            key_actions = [action.lstrip('✅✓ ').strip() for action in result['actions_taken'][:3]]
+            key_actions = [action.lstrip('✅✓ ').strip() for action in result['actions_taken'][:8]]  # Get up to 8 actions
             meaningful_actions = [action for action in key_actions 
-                                if action and action != "Task completed successfully" 
-                                and action != summary]  # Avoid duplication with summary
+                                if action and action != "Task completed successfully"]  # Don't filter by summary yet
         
         # Show summary if it's different from actions
         if summary and summary != "Task completed successfully":
@@ -430,12 +445,34 @@ class SugarLoop:
         # Add actions if we have meaningful ones (prioritize detailed explanations)
         actions_added = False
         if meaningful_actions:
-            # Filter out generic "Task Completed" type messages
-            detailed_actions = [action for action in meaningful_actions 
-                             if not any(generic in action.lower() for generic in [
-                                 'task completed', 'successfully completed', 'task done'
-                             ])]
+            # Filter out only the most generic messages, be less aggressive
+            detailed_actions = []
+            for action in meaningful_actions:
+                # Skip only very generic messages
+                if any(generic in action.lower() for generic in [
+                    'task completed successfully', 'work completed', 'task done'
+                ]) and len(action.strip()) < 30:  # Only skip if both generic AND short
+                    continue
+                    
+                # For longer, detailed explanations, be much less restrictive
+                if len(action.strip()) > 50:  # Detailed explanations - keep them
+                    detailed_actions.append(action)
+                    continue
+                    
+                # For shorter actions, check similarity more carefully
+                if summary and len(action.strip()) < 50:
+                    # Only skip if very similar AND both are short
+                    if (self._are_similar_strings(action, summary) and 
+                        len(summary.strip()) < 50):
+                        continue
+                        
+                # Skip very short actions (less than 15 chars)
+                if len(action.strip()) < 15:
+                    continue
+                    
+                detailed_actions.append(action)
             
+            # If we have meaningful actions, show them
             if detailed_actions:
                 lines.extend([
                     "**What was done:**",
@@ -443,6 +480,24 @@ class SugarLoop:
                     ""
                 ])
                 actions_added = True
+            # If no detailed actions but we have some original actions, show the most substantial one
+            elif meaningful_actions:
+                # Find the most substantial action (prioritize length and detail)
+                best_action = ""
+                for action in meaningful_actions:
+                    if (len(action.strip()) > len(best_action.strip()) and 
+                        not any(generic in action.lower() for generic in [
+                            'task completed successfully', 'work completed'
+                        ])):
+                        best_action = action
+                        
+                if best_action and len(best_action.strip()) > 10:
+                    lines.extend([
+                        "**What was done:**",
+                        f"- {best_action}",
+                        ""
+                    ])
+                    actions_added = True
         
         # Add files changed if available (most important info)
         if result.get('files_changed'):
@@ -606,6 +661,285 @@ class SugarLoop:
         
         # Fallback to original type if we can't determine better
         return original_type
+    
+    async def _start_github_workflow(self, work_item: dict) -> dict:
+        """Start GitHub workflow for issue-based work"""
+        branch_info = {"created_branch": False, "branch_name": None, "original_branch": None}
+        
+        try:
+            # Check if this work came from GitHub
+            if (work_item.get('source') != 'github_watcher' or 
+                not work_item.get('context', {}).get('github_issue')):
+                return branch_info
+            
+            # Get GitHub configuration
+            github_config = self.config['sugar']['discovery'].get('github', {})
+            workflow_config = github_config.get('workflow', {})
+            
+            if not workflow_config.get('auto_close_issues', True):
+                # Just assign and comment if workflow is disabled
+                await self._assign_github_issue(work_item)
+                return branch_info
+            
+            # Assign GitHub issue and add working comment
+            await self._assign_github_issue(work_item)
+            
+            # Handle branching workflow
+            git_workflow = workflow_config.get('git_workflow', 'direct_commit')
+            if git_workflow == 'pull_request':
+                branch_info = await self._create_feature_branch(work_item, workflow_config)
+            
+            return branch_info
+            
+        except Exception as e:
+            logger.error(f"Error starting GitHub workflow: {e}")
+            return branch_info
+    
+    async def _create_feature_branch(self, work_item: dict, workflow_config: dict) -> dict:
+        """Create a feature branch for the work item"""
+        branch_info = {"created_branch": False, "branch_name": None, "original_branch": None}
+        
+        try:
+            # Get current branch
+            original_branch = await self.git_ops.get_current_branch()
+            branch_info["original_branch"] = original_branch
+            
+            # Get issue details
+            github_issue = work_item['context']['github_issue']
+            issue_number = github_issue.get('number')
+            issue_title = work_item.get('title', '').replace('Address GitHub issue: ', '')
+            
+            # Format branch name
+            branch_config = workflow_config.get('branch', {})
+            pattern = branch_config.get('name_pattern', 'sugar/issue-{issue_number}')
+            variables = {
+                'issue_number': issue_number,
+                'issue_title_slug': self.git_ops.slugify_title(issue_title)
+            }
+            branch_name = self.git_ops.format_branch_name(pattern, variables)
+            
+            # Create and checkout branch
+            base_branch = branch_config.get('base_branch', 'main')
+            success = await self.git_ops.create_branch(branch_name, base_branch)
+            
+            if success:
+                branch_info["created_branch"] = True
+                branch_info["branch_name"] = branch_name
+                logger.info(f"🌿 Created feature branch '{branch_name}' for issue #{issue_number}")
+            
+            return branch_info
+            
+        except Exception as e:
+            logger.error(f"Error creating feature branch: {e}")
+            return branch_info
+    
+    async def _complete_github_workflow(self, work_item: dict, result: dict, branch_info: dict):
+        """Complete GitHub workflow after successful execution"""
+        try:
+            # Check if this work came from GitHub
+            if (work_item.get('source') != 'github_watcher' or 
+                not work_item.get('context', {}).get('github_issue')):
+                return
+            
+            # Get GitHub configuration
+            github_config = self.config['sugar']['discovery'].get('github', {})
+            workflow_config = github_config.get('workflow', {})
+            
+            if not workflow_config.get('auto_close_issues', True):
+                # Just comment if workflow is disabled
+                await self._comment_on_github_issue(work_item, result)
+                return
+            
+            # Commit changes if enabled
+            if workflow_config.get('commit', {}).get('auto_commit', True):
+                await self._commit_work_changes(work_item, result, workflow_config)
+            
+            # Handle workflow type
+            git_workflow = workflow_config.get('git_workflow', 'direct_commit')
+            
+            if git_workflow == 'pull_request' and branch_info.get('created_branch'):
+                await self._handle_pull_request_workflow(work_item, result, branch_info, workflow_config)
+            else:
+                await self._handle_direct_commit_workflow(work_item, result, workflow_config)
+                
+        except Exception as e:
+            logger.error(f"Error completing GitHub workflow: {e}")
+    
+    async def _commit_work_changes(self, work_item: dict, result: dict, workflow_config: dict):
+        """Commit changes made during work execution"""
+        try:
+            # Check if there are changes to commit
+            if not await self.git_ops.has_uncommitted_changes():
+                logger.debug("No changes to commit")
+                return
+            
+            # Get issue details
+            github_issue = work_item['context']['github_issue']
+            issue_number = github_issue.get('number')
+            
+            # Format commit message
+            commit_config = workflow_config.get('commit', {})
+            if commit_config.get('include_issue_ref', True):
+                pattern = commit_config.get('message_pattern', 'Fix #{issue_number}: {work_summary}')
+                work_summary = self._extract_work_summary(result)
+                variables = {
+                    'issue_number': issue_number,
+                    'work_summary': work_summary
+                }
+                commit_message = self.git_ops.format_commit_message(pattern, variables)
+            else:
+                commit_message = self._extract_work_summary(result)
+            
+            # Commit changes
+            success = await self.git_ops.commit_changes(commit_message)
+            if success:
+                logger.info(f"📝 Committed changes for issue #{issue_number}")
+            
+        except Exception as e:
+            logger.error(f"Error committing changes: {e}")
+    
+    async def _handle_pull_request_workflow(self, work_item: dict, result: dict, branch_info: dict, workflow_config: dict):
+        """Handle pull request workflow"""
+        try:
+            github_issue = work_item['context']['github_issue']
+            issue_number = github_issue.get('number')
+            branch_name = branch_info.get('branch_name')
+            
+            if not branch_name:
+                logger.error("No branch name available for PR creation")
+                return
+            
+            # Push branch
+            push_success = await self.git_ops.push_branch(branch_name)
+            if not push_success:
+                logger.error(f"Failed to push branch {branch_name}")
+                return
+            
+            # Create pull request if configured
+            pr_config = workflow_config.get('pull_request', {})
+            if pr_config.get('auto_create', True):
+                pr_url = await self._create_pull_request(work_item, result, branch_info, workflow_config)
+                
+                if pr_url:
+                    # Update issue with PR link
+                    completion_comment = self._format_completion_comment(work_item, result)
+                    completion_comment += f"\n\n🔀 **Pull Request:** {pr_url}"
+                    
+                    # Find GitHub watcher and comment
+                    github_watcher = self._get_github_watcher()
+                    if github_watcher:
+                        await github_watcher.comment_on_issue(issue_number, completion_comment)
+                        
+                        # Close issue if not auto-merging PR
+                        if not pr_config.get('auto_merge', False):
+                            await github_watcher.close_issue(issue_number)
+            
+        except Exception as e:
+            logger.error(f"Error in pull request workflow: {e}")
+    
+    async def _handle_direct_commit_workflow(self, work_item: dict, result: dict, workflow_config: dict):
+        """Handle direct commit workflow"""
+        try:
+            # Comment and close issue
+            github_watcher = self._get_github_watcher()
+            if not github_watcher:
+                return
+            
+            github_issue = work_item['context']['github_issue']
+            issue_number = github_issue.get('number')
+            
+            # Create completion comment
+            completion_comment = self._format_completion_comment(work_item, result)
+            
+            # Close issue with comment
+            await github_watcher.close_issue(issue_number, completion_comment)
+            
+        except Exception as e:
+            logger.error(f"Error in direct commit workflow: {e}")
+    
+    async def _create_pull_request(self, work_item: dict, result: dict, branch_info: dict, workflow_config: dict) -> Optional[str]:
+        """Create a pull request"""
+        try:
+            github_watcher = self._get_github_watcher()
+            if not github_watcher:
+                return None
+            
+            github_issue = work_item['context']['github_issue']
+            issue_number = github_issue.get('number')
+            issue_title = work_item.get('title', '').replace('Address GitHub issue: ', '')
+            
+            # Format PR title
+            pr_config = workflow_config.get('pull_request', {})
+            title_pattern = pr_config.get('title_pattern', 'Fix #{issue_number}: {issue_title}')
+            variables = {
+                'issue_number': issue_number,
+                'issue_title': issue_title
+            }
+            pr_title = self.git_ops.format_pr_title(title_pattern, variables)
+            
+            # Create PR body
+            pr_body = f"Fixes #{issue_number}\n\n"
+            if pr_config.get('include_work_summary', True):
+                work_summary = self._extract_work_summary(result)
+                pr_body += f"## Summary\n{work_summary}\n\n"
+            
+            pr_body += "## Changes\n"
+            if result.get('files_changed'):
+                pr_body += f"- Modified files: {', '.join(result['files_changed'])}\n"
+            
+            pr_body += "\n---\n*This PR was automatically created by Sugar AI*"
+            
+            # Create PR
+            base_branch = workflow_config.get('branch', {}).get('base_branch', 'main')
+            return await github_watcher.create_pull_request(
+                branch_info['branch_name'], pr_title, pr_body, base_branch
+            )
+            
+        except Exception as e:
+            logger.error(f"Error creating pull request: {e}")
+            return None
+    
+    async def _handle_failed_workflow(self, work_item: dict, branch_info: dict, error: str):
+        """Handle cleanup when workflow fails"""
+        try:
+            # If we created a branch, switch back to original
+            if branch_info.get('created_branch') and branch_info.get('original_branch'):
+                await self.git_ops._run_git_command(['checkout', branch_info['original_branch']])
+                logger.info(f"🔄 Switched back to {branch_info['original_branch']} after failure")
+            
+            # Comment on issue about the failure
+            if (work_item.get('source') == 'github_watcher' and 
+                work_item.get('context', {}).get('github_issue')):
+                
+                github_watcher = self._get_github_watcher()
+                if github_watcher:
+                    issue_number = work_item['context']['github_issue'].get('number')
+                    failure_comment = f"❌ **Sugar AI encountered an error while working on this issue:**\n\n```\n{error}\n```\n\nI'll retry this work item in the next cycle."
+                    await github_watcher.comment_on_issue(issue_number, failure_comment)
+                    
+        except Exception as e:
+            logger.error(f"Error handling failed workflow: {e}")
+    
+    def _extract_work_summary(self, result: dict) -> str:
+        """Extract a concise work summary for commits and PRs"""
+        # Try to get the most descriptive summary
+        summary = result.get('summary', '')
+        if summary and len(summary) > 10:
+            return summary
+        
+        # Fallback to first meaningful action
+        actions = result.get('actions_taken', [])
+        if actions:
+            return actions[0].lstrip('✅✓ ').strip()
+        
+        return "Completed work via Sugar AI"
+    
+    def _get_github_watcher(self) -> Optional[GitHubWatcher]:
+        """Get the GitHub watcher module"""
+        for module in self.discovery_modules:
+            if isinstance(module, GitHubWatcher):
+                return module
+        return None
 
     async def health_check(self) -> dict:
         """Return system health status"""

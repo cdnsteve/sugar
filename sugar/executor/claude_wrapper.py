@@ -453,12 +453,20 @@ Please implement this task by:
             if not line:
                 continue
                 
-            # Skip prompt echoes and system messages
+            # Detect start of Claude's actual response
             if (line.startswith('I\'ll') or line.startswith('Let me') or 
                 line.startswith('I\'m') or line.startswith('I need to') or
-                line.startswith('Looking at') or line.startswith('I can see')):
+                line.startswith('Looking at') or line.startswith('I can see') or
+                line.startswith('I have successfully') or line.startswith('I successfully') or
+                line.startswith('I\'ve successfully') or line.startswith('I implemented')):
                 in_claude_response = True
                 claude_response_lines.append(line)
+                # Also capture detailed implementation statements as actions
+                if any(phrase in line.lower() for phrase in [
+                    'i have successfully', 'i successfully', 'i\'ve successfully',
+                    'i implemented', 'i created', 'i added', 'i updated'
+                ]):
+                    actions_taken.append(line)
                 continue
             
             # Capture file operations
@@ -491,7 +499,11 @@ Please implement this task by:
             # Capture detailed explanations and multi-line descriptions
             if any(phrase in line.lower() for phrase in [
                 'here\'s what', 'accomplished:', 'the readme.md file', 'author section',
-                'comprehensive', 'resolved', 'requesting to', 'ensure you add'
+                'comprehensive', 'resolved', 'requesting to', 'ensure you add',
+                'changes made:', 'i have successfully', 'the changes include',
+                'i successfully', 'i\'ve successfully', 'implementation includes',
+                'the solution', 'this implementation', 'the feature', 'i added',
+                'i created', 'i implemented', 'i updated', 'i modified'
             ]):
                 actions_taken.append(line)
                 
@@ -507,11 +519,14 @@ Please implement this task by:
             # Clean up summary
             summary = summary.lstrip('✅✓ ').strip()
         
+        # Sort actions by length to prioritize detailed explanations
+        actions_taken.sort(key=len, reverse=True)
+        
         return {
             "response": '\n'.join(claude_response_lines[-20:]),  # Last 20 lines of Claude's response
             "files_changed": list(set(files_changed)),  # Remove duplicates
             "summary": summary,
-            "actions_taken": actions_taken[:5]  # Top 5 actions
+            "actions_taken": actions_taken[:8]  # Top 8 actions, sorted by detail level
         }
 
     async def validate_claude_cli(self) -> bool:

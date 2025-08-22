@@ -141,6 +141,9 @@ class GitHubWatcher:
             gh_command = self.config.get('gh_cli', {}).get('command', 'gh')
             issue_labels = self.config.get('issue_labels', ['bug', 'enhancement'])
             
+            # Log the label filtering mode being used
+            self._log_label_filtering_mode(issue_labels)
+            
             # Get all open issues first (we'll filter by labels after)
             cmd = [
                 gh_command, 'issue', 'list',
@@ -160,22 +163,22 @@ class GitHubWatcher:
             
             issues = json.loads(result.stdout)
             
-            # Filter issues by labels (OR logic - issue needs at least one matching label)
+            # Filter issues by labels with flexible filtering modes
             filtered_issues = []
             for issue in issues:
                 issue_label_names = [label['name'].lower() for label in issue.get('labels', [])]
                 config_labels = [label.lower() for label in issue_labels]
                 
-                # Check if issue has any of the configured labels
-                if any(label in issue_label_names for label in config_labels):
-                    filtered_issues.append(issue)
-                elif not issue_labels:  # If no label filter configured, include all issues
+                # Determine if this issue should be included based on label filtering mode
+                should_include = self._should_include_issue_by_labels(issue_label_names, config_labels, issue_labels)
+                
+                if should_include:
                     filtered_issues.append(issue)
             
             # Limit to 10 issues after filtering
             filtered_issues = filtered_issues[:10]
             
-            logger.debug(f"Found {len(issues)} total issues, {len(filtered_issues)} match label filter: {issue_labels}")
+            logger.debug(f"Found {len(issues)} total issues, {len(filtered_issues)} match filtering criteria")
             
             for issue in filtered_issues:
                 work_item = self._create_work_item_from_issue_data(issue)
@@ -197,9 +200,22 @@ class GitHubWatcher:
             repo = self.github.get_repo(self.repo_name)
             issues = repo.get_issues(state='open', since=since, sort='created')
             
-            for issue in issues[:10]:  # Limit to 10 most recent
+            issue_labels = self.config.get('issue_labels', ['bug', 'enhancement'])
+            
+            # Log the label filtering mode being used
+            self._log_label_filtering_mode(issue_labels)
+            
+            processed_count = 0
+            for issue in issues:
                 # Skip pull requests (they show up in issues)
                 if issue.pull_request:
+                    continue
+                
+                # Apply label filtering
+                issue_label_names = [label.name.lower() for label in issue.labels]
+                config_labels = [label.lower() for label in issue_labels]
+                
+                if not self._should_include_issue_by_labels(issue_label_names, config_labels, issue_labels):
                     continue
                 
                 # Convert PyGithub issue to dict format
@@ -218,6 +234,11 @@ class GitHubWatcher:
                 work_item = self._create_work_item_from_issue_data(issue_data)
                 if work_item:
                     work_items.append(work_item)
+                    processed_count += 1
+                    
+                # Limit to 10 issues after filtering
+                if processed_count >= 10:
+                    break
                     
         except Exception as e:
             logger.error(f"GitHub API error getting issues: {e}")
@@ -472,3 +493,166 @@ class GitHubWatcher:
         except Exception as e:
             logger.error(f"Error using PyGithub to assign: {e}")
             return False
+    
+    def _should_include_issue_by_labels(self, issue_labels: list, config_labels: list, original_config: list) -> bool:
+        """Determine if an issue should be included based on label filtering configuration"""
+        
+        # Mode 1: Empty list [] - No filtering, include ALL issues
+        if not original_config:
+            return True
+        
+        # Mode 2: Wildcard ["*"] - Include issues that have ANY labels (exclude unlabeled)
+        if len(original_config) == 1 and original_config[0] == "*":
+            return len(issue_labels) > 0
+        
+        # Mode 3: Unlabeled ["unlabeled"] - Include only issues WITHOUT labels
+        if len(original_config) == 1 and original_config[0].lower() == "unlabeled":
+            return len(issue_labels) == 0
+        
+        # Mode 4: Specific labels - Include issues that have at least one matching label
+        return any(label in issue_labels for label in config_labels)
+    
+    def _log_label_filtering_mode(self, issue_labels: list):
+        """Log what label filtering mode is being used"""
+        if not issue_labels:
+            logger.debug("🏷️ Label filtering: ALL open issues (no label restrictions)")
+        elif len(issue_labels) == 1 and issue_labels[0] == "*":
+            logger.debug("🏷️ Label filtering: Issues with ANY labels (excluding unlabeled)")
+        elif len(issue_labels) == 1 and issue_labels[0].lower() == "unlabeled":
+            logger.debug("🏷️ Label filtering: Only UNLABELED issues")
+        else:
+            logger.debug(f"🏷️ Label filtering: Issues with labels: {issue_labels}")
+    
+    async def close_issue(self, issue_number: int, completion_comment: str = None) -> bool:
+        """Close a GitHub issue after successful completion"""
+        if not self.enabled:
+            return False
+            
+        try:
+            if self.gh_cli_available:
+                return await self._close_issue_via_gh_cli(issue_number, completion_comment)
+            elif self.pygithub_available:
+                return await self._close_issue_via_pygithub(issue_number, completion_comment)
+            else:
+                logger.warning("No GitHub authentication method available for closing issues")
+                return False
+                
+        except Exception as e:
+            logger.error(f"Error closing GitHub issue #{issue_number}: {e}")
+            return False
+    
+    async def create_pull_request(self, branch_name: str, title: str, body: str, base_branch: str = "main") -> Optional[str]:
+        """Create a pull request from a branch"""
+        if not self.enabled:
+            return None
+            
+        try:
+            if self.gh_cli_available:
+                return await self._create_pr_via_gh_cli(branch_name, title, body, base_branch)
+            elif self.pygithub_available:
+                return await self._create_pr_via_pygithub(branch_name, title, body, base_branch)
+            else:
+                logger.warning("No GitHub authentication method available for creating PRs")
+                return None
+                
+        except Exception as e:
+            logger.error(f"Error creating pull request: {e}")
+            return None
+    
+    async def _close_issue_via_gh_cli(self, issue_number: int, completion_comment: str = None) -> bool:
+        """Close issue using GitHub CLI"""
+        try:
+            gh_command = self.config.get('gh_cli', {}).get('command', 'gh')
+            
+            # Add final comment if provided
+            if completion_comment:
+                comment_success = await self._comment_via_gh_cli(issue_number, completion_comment)
+                if not comment_success:
+                    logger.warning(f"Could not add final comment to issue #{issue_number}")
+            
+            # Close the issue
+            cmd = [
+                gh_command, 'issue', 'close', str(issue_number),
+                '--repo', self.repo_name,
+                '--comment', 'Completed by Sugar AI - closing issue.'
+            ]
+            
+            result = subprocess.run(cmd, capture_output=True, text=True, timeout=30)
+            if result.returncode == 0:
+                logger.info(f"🔒 Closed GitHub issue #{issue_number}")
+                return True
+            else:
+                logger.error(f"GitHub CLI close failed: {result.stderr}")
+                return False
+                
+        except Exception as e:
+            logger.error(f"Error using GitHub CLI to close issue: {e}")
+            return False
+    
+    async def _close_issue_via_pygithub(self, issue_number: int, completion_comment: str = None) -> bool:
+        """Close issue using PyGithub"""
+        try:
+            repo = self.github.get_repo(self.repo_name)
+            issue = repo.get_issue(issue_number)
+            
+            # Add final comment if provided
+            if completion_comment:
+                try:
+                    issue.create_comment(completion_comment)
+                except Exception as e:
+                    logger.warning(f"Could not add final comment to issue #{issue_number}: {e}")
+            
+            # Close the issue
+            issue.edit(state='closed')
+            logger.info(f"🔒 Closed GitHub issue #{issue_number}")
+            return True
+            
+        except Exception as e:
+            logger.error(f"Error using PyGithub to close issue: {e}")
+            return False
+    
+    async def _create_pr_via_gh_cli(self, branch_name: str, title: str, body: str, base_branch: str = "main") -> Optional[str]:
+        """Create PR using GitHub CLI"""
+        try:
+            gh_command = self.config.get('gh_cli', {}).get('command', 'gh')
+            
+            cmd = [
+                gh_command, 'pr', 'create',
+                '--repo', self.repo_name,
+                '--title', title,
+                '--body', body,
+                '--base', base_branch,
+                '--head', branch_name
+            ]
+            
+            result = subprocess.run(cmd, capture_output=True, text=True, timeout=30)
+            if result.returncode == 0:
+                pr_url = result.stdout.strip()
+                logger.info(f"🔀 Created pull request: {pr_url}")
+                return pr_url
+            else:
+                logger.error(f"GitHub CLI PR creation failed: {result.stderr}")
+                return None
+                
+        except Exception as e:
+            logger.error(f"Error using GitHub CLI to create PR: {e}")
+            return None
+    
+    async def _create_pr_via_pygithub(self, branch_name: str, title: str, body: str, base_branch: str = "main") -> Optional[str]:
+        """Create PR using PyGithub"""
+        try:
+            repo = self.github.get_repo(self.repo_name)
+            
+            pr = repo.create_pull(
+                title=title,
+                body=body,
+                head=branch_name,
+                base=base_branch
+            )
+            
+            logger.info(f"🔀 Created pull request #{pr.number}: {pr.html_url}")
+            return pr.html_url
+            
+        except Exception as e:
+            logger.error(f"Error using PyGithub to create PR: {e}")
+            return None
