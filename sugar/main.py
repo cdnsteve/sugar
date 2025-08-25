@@ -14,6 +14,20 @@ from datetime import datetime
 from .core.loop import SugarLoop
 from .__version__ import get_version_info, __version__
 
+def format_json_pretty(data, max_width=80):
+    """Format JSON data for readable terminal display"""
+    if isinstance(data, str):
+        try:
+            data = json.loads(data)
+        except json.JSONDecodeError:
+            return data
+    
+    if not isinstance(data, (dict, list)):
+        return str(data)
+    
+    # Format with nice indentation - let json.dumps handle the structure
+    return json.dumps(data, indent=2, ensure_ascii=False)
+
 def setup_logging(log_file_path='.sugar/sugar.log', debug=False):
     """Setup logging with proper file path from configuration"""
     # Ensure log directory exists
@@ -288,8 +302,9 @@ def list(ctx, status, limit, task_type):
 
 @cli.command()
 @click.argument('task_id')
+@click.option('--format', 'output_format', type=click.Choice(['pretty', 'compact']), default='pretty', help='JSON output format (default: pretty)')
 @click.pass_context
-def view(ctx, task_id):
+def view(ctx, task_id, output_format):
     """View detailed information about a specific task"""
     
     from .storage.work_queue import WorkQueue
@@ -343,10 +358,20 @@ def view(ctx, task_id):
             click.echo(f"🔗 Commit: {task['commit_sha'][:8]}...{task['commit_sha'][-8:]}")
         
         if task.get('context'):
-            click.echo(f"🔍 Context: {json.dumps(task['context'], indent=2)}")
+            click.echo(f"🔍 Context:")
+            if output_format == 'pretty':
+                formatted_context = format_json_pretty(task['context'])
+                click.echo(formatted_context)
+            else:
+                click.echo(json.dumps(task['context']) if isinstance(task['context'], dict) else str(task['context']))
         
         if task.get('result'):
-            click.echo(f"📋 Result: {task['result']}")
+            click.echo(f"📋 Result:")
+            if output_format == 'pretty':
+                formatted_result = format_json_pretty(task['result'])
+                click.echo(formatted_result)
+            else:
+                click.echo(json.dumps(task['result']) if isinstance(task['result'], dict) else str(task['result']))
             
         click.echo()
         
