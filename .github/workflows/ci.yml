@@ -45,7 +45,7 @@ jobs:
     - name: Type check with mypy
       run: |
         # Temporarily relaxed for release - TODO: Fix type annotations
-        mypy sugar --ignore-missing-imports --disable-error-code=no-untyped-def,no-untyped-call,no-any-return,var-annotated,type-arg --no-strict-optional || echo "Type checking completed with warnings"
+        mypy sugar --ignore-missing-imports --allow-untyped-defs --allow-incomplete-defs --no-strict-optional || echo "Type checking completed with warnings"
     
     - name: Test with pytest
       run: |
