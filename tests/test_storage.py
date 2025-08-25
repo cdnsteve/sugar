@@ -123,14 +123,14 @@ class TestWorkQueue:
         # Should be pending for retry since max_retries not reached
         assert task["status"] == "pending"
         assert task["attempts"] == 1
-        
+
         # Now exceed max retries to get permanent failure
         await mock_work_queue.mark_work_active(task_id)
         await mock_work_queue.mark_work_failed(task_id, {"error": "Second failure"})
-        
+
         await mock_work_queue.mark_work_active(task_id)
         await mock_work_queue.mark_work_failed(task_id, {"error": "Third failure"})
-        
+
         # Should now be permanently failed
         task = await mock_work_queue.get_work_by_id(task_id)
         assert task["status"] == "failed"
@@ -164,7 +164,9 @@ class TestWorkQueue:
         assert stats["total"] == 3
         assert stats["pending"] == 2  # One never started, one failed but will retry
         assert stats["completed"] == 1
-        assert stats["failed"] == 0  # No permanently failed items (max_retries not reached)
+        assert (
+            stats["failed"] == 0
+        )  # No permanently failed items (max_retries not reached)
         assert stats["active"] == 0
 
     @pytest.mark.asyncio
@@ -344,6 +346,7 @@ class TestTimingTracking:
 
         # Simulate some time passing
         import asyncio
+
         await asyncio.sleep(0.01)  # 10ms
 
         # Complete work with execution time
@@ -449,7 +452,9 @@ class TestTimingTracking:
         # Check elapsed time
         completed_item = await queue.get_work_item(task_id)
 
-        assert completed_item["total_elapsed_time"] >= 0  # At least 0 (may be very fast)
+        assert (
+            completed_item["total_elapsed_time"] >= 0
+        )  # At least 0 (may be very fast)
         assert completed_item["total_elapsed_time"] < 10.0  # But reasonable
         assert completed_item["total_execution_time"] == 2.0
 

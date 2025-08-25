@@ -134,22 +134,24 @@ class TestSugarList:
     def test_list_tasks_all(self, mock_queue_class, cli_runner):
         """Test listing all tasks"""
         from unittest.mock import AsyncMock
-        
+
         mock_queue = MagicMock()
         mock_queue_class.return_value = mock_queue
         mock_queue.initialize = AsyncMock()
-        mock_queue.get_recent_work = AsyncMock(return_value=[
-            {
-                "id": "task-1",
-                "type": "bug_fix",
-                "title": "Fix auth bug",
-                "description": "Fix login issues",
-                "priority": 5,
-                "status": "pending",
-                "created_at": "2024-01-01T12:00:00Z",
-                "attempts": 0,
-            }
-        ])
+        mock_queue.get_recent_work = AsyncMock(
+            return_value=[
+                {
+                    "id": "task-1",
+                    "type": "bug_fix",
+                    "title": "Fix auth bug",
+                    "description": "Fix login issues",
+                    "priority": 5,
+                    "status": "pending",
+                    "created_at": "2024-01-01T12:00:00Z",
+                    "attempts": 0,
+                }
+            ]
+        )
 
         with cli_runner.isolated_filesystem():
             (Path.cwd() / ".sugar").mkdir()
@@ -165,7 +167,7 @@ class TestSugarList:
     def test_list_tasks_filtered(self, mock_queue_class, cli_runner):
         """Test listing tasks with filters"""
         from unittest.mock import AsyncMock
-        
+
         mock_queue = MagicMock()
         mock_queue_class.return_value = mock_queue
         mock_queue.initialize = AsyncMock()
@@ -192,21 +194,25 @@ class TestSugarStatus:
     def test_status_display(self, mock_queue_class, cli_runner):
         """Test status command displays correct information"""
         from unittest.mock import AsyncMock
-        
+
         mock_queue = MagicMock()
         mock_queue_class.return_value = mock_queue
         mock_queue.initialize = AsyncMock()
-        mock_queue.get_stats = AsyncMock(return_value={
-            "total": 10,
-            "pending": 3,
-            "active": 1,
-            "completed": 5,
-            "failed": 1,
-            "recent_24h": 7,
-        })
-        mock_queue.get_recent_work = AsyncMock(return_value=[
-            {"type": "bug_fix", "title": "Next urgent task", "priority": 5}
-        ])
+        mock_queue.get_stats = AsyncMock(
+            return_value={
+                "total": 10,
+                "pending": 3,
+                "active": 1,
+                "completed": 5,
+                "failed": 1,
+                "recent_24h": 7,
+            }
+        )
+        mock_queue.get_recent_work = AsyncMock(
+            return_value=[
+                {"type": "bug_fix", "title": "Next urgent task", "priority": 5}
+            ]
+        )
 
         with cli_runner.isolated_filesystem():
             (Path.cwd() / ".sugar").mkdir()

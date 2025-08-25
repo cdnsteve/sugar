@@ -612,7 +612,9 @@ class WorkQueue:
         """Mark a work item as completed"""
         await self.complete_work(work_id, result)
 
-    async def mark_work_failed(self, work_id: str, error_info: Dict[str, Any], max_retries: int = 3):
+    async def mark_work_failed(
+        self, work_id: str, error_info: Dict[str, Any], max_retries: int = 3
+    ):
         """Mark a work item as failed"""
         error_message = error_info.get("error", "Unknown error")
         if "details" in error_info:

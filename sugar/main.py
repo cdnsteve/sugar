@@ -1737,13 +1737,22 @@ def stop(ctx, force):
 
 
 @cli.command()
-@click.option('--format', type=click.Choice(['json', 'yaml', 'text']), default='json', help='Output format')
-@click.option('--output', '-o', help='Output file path (default: stdout)')
-@click.option('--include-sensitive', is_flag=True, help='Include sensitive config (paths, tokens) - use with caution')
+@click.option(
+    "--format",
+    type=click.Choice(["json", "yaml", "text"]),
+    default="json",
+    help="Output format",
+)
+@click.option("--output", "-o", help="Output file path (default: stdout)")
+@click.option(
+    "--include-sensitive",
+    is_flag=True,
+    help="Include sensitive config (paths, tokens) - use with caution",
+)
 @click.pass_context
 def debug(ctx, format, output, include_sensitive):
     """Generate comprehensive diagnostic information for troubleshooting
-    
+
     This command outputs system state, configuration, and recent activity
     to help diagnose issues. Safe by default - excludes sensitive information.
     """
@@ -1753,16 +1762,21 @@ def debug(ctx, format, output, include_sensitive):
     import json
     from datetime import datetime, timedelta
     from pathlib import Path
-    
+
     async def generate_diagnostic():
-        config_file = ctx.obj['config']
-        with open(config_file, 'r') as f:
+        config_file = ctx.obj["config"]
+        with open(config_file, "r") as f:
             config = yaml.safe_load(f)
-        
+
         from .storage.work_queue import WorkQueue
-        work_queue = WorkQueue(config.get('sugar', {}).get('storage', {}).get('database', '.sugar/sugar.db'))
+
+        work_queue = WorkQueue(
+            config.get("sugar", {})
+            .get("storage", {})
+            .get("database", ".sugar/sugar.db")
+        )
         await work_queue.initialize()
-        
+
         # Collect diagnostic information
         diagnostic = {
             "timestamp": datetime.now().isoformat(),
@@ -1771,171 +1785,216 @@ def debug(ctx, format, output, include_sensitive):
                 "platform": platform.platform(),
                 "python_version": platform.python_version(),
                 "architecture": platform.architecture()[0],
-                "hostname": platform.node() if include_sensitive else "***REDACTED***"
+                "hostname": platform.node() if include_sensitive else "***REDACTED***",
             },
             "environment": {
-                "working_directory": str(Path.cwd()) if include_sensitive else "***REDACTED***",
-                "config_file": config_file if include_sensitive else str(Path(config_file).name),
-                "sugar_directory": str(Path(config_file).parent) if include_sensitive else ".sugar/"
+                "working_directory": (
+                    str(Path.cwd()) if include_sensitive else "***REDACTED***"
+                ),
+                "config_file": (
+                    config_file if include_sensitive else str(Path(config_file).name)
+                ),
+                "sugar_directory": (
+                    str(Path(config_file).parent) if include_sensitive else ".sugar/"
+                ),
             },
             "tool_status": {},
             "configuration": {},
             "work_queue_status": {},
             "recent_activity": {},
-            "potential_issues": []
+            "potential_issues": [],
         }
-        
+
         # Check tool availability
         tools_to_check = [
             ("claude_cli", ["claude", "--version"]),
-            ("github_cli", ["gh", "--version"]), 
+            ("github_cli", ["gh", "--version"]),
             ("git", ["git", "--version"]),
-            ("python", ["python", "--version"])
+            ("python", ["python", "--version"]),
         ]
-        
+
         for tool_name, cmd in tools_to_check:
             try:
                 result = subprocess.run(cmd, capture_output=True, text=True, timeout=5)
                 diagnostic["tool_status"][tool_name] = {
                     "available": result.returncode == 0,
-                    "version": result.stdout.strip().split('\n')[0] if result.returncode == 0 else None,
-                    "error": result.stderr.strip() if result.returncode != 0 else None
+                    "version": (
+                        result.stdout.strip().split("\n")[0]
+                        if result.returncode == 0
+                        else None
+                    ),
+                    "error": result.stderr.strip() if result.returncode != 0 else None,
                 }
             except Exception as e:
                 diagnostic["tool_status"][tool_name] = {
                     "available": False,
-                    "error": str(e)
+                    "error": str(e),
                 }
-        
+
         # Git repository status
         try:
-            git_status = subprocess.run(["git", "status", "--porcelain"], capture_output=True, text=True)
-            git_branch = subprocess.run(["git", "branch", "--show-current"], capture_output=True, text=True)
-            git_remote = subprocess.run(["git", "remote", "-v"], capture_output=True, text=True)
-            
+            git_status = subprocess.run(
+                ["git", "status", "--porcelain"], capture_output=True, text=True
+            )
+            git_branch = subprocess.run(
+                ["git", "branch", "--show-current"], capture_output=True, text=True
+            )
+            git_remote = subprocess.run(
+                ["git", "remote", "-v"], capture_output=True, text=True
+            )
+
             diagnostic["git_status"] = {
                 "is_git_repo": git_status.returncode == 0,
-                "current_branch": git_branch.stdout.strip() if git_branch.returncode == 0 else None,
-                "has_changes": len(git_status.stdout.strip()) > 0 if git_status.returncode == 0 else None,
-                "remotes": git_remote.stdout.strip().split('\n') if git_remote.returncode == 0 and not include_sensitive else ["***REDACTED***"] if git_remote.returncode == 0 else []
+                "current_branch": (
+                    git_branch.stdout.strip() if git_branch.returncode == 0 else None
+                ),
+                "has_changes": (
+                    len(git_status.stdout.strip()) > 0
+                    if git_status.returncode == 0
+                    else None
+                ),
+                "remotes": (
+                    git_remote.stdout.strip().split("\n")
+                    if git_remote.returncode == 0 and not include_sensitive
+                    else ["***REDACTED***"] if git_remote.returncode == 0 else []
+                ),
             }
         except Exception as e:
             diagnostic["git_status"] = {"error": str(e)}
-        
+
         # Configuration analysis (sanitized)
         config_analysis = config.copy()
         if not include_sensitive:
             # Sanitize sensitive paths and tokens
-            if 'sugar' in config_analysis and 'claude' in config_analysis['sugar']:
-                if 'cli_path' in config_analysis['sugar']['claude']:
-                    config_analysis['sugar']['claude']['cli_path'] = "***REDACTED***"
-            if 'sugar' in config_analysis and 'github' in config_analysis['sugar']:
-                if 'token' in config_analysis['sugar']['github']:
-                    config_analysis['sugar']['github']['token'] = "***REDACTED***"
-        
+            if "sugar" in config_analysis and "claude" in config_analysis["sugar"]:
+                if "cli_path" in config_analysis["sugar"]["claude"]:
+                    config_analysis["sugar"]["claude"]["cli_path"] = "***REDACTED***"
+            if "sugar" in config_analysis and "github" in config_analysis["sugar"]:
+                if "token" in config_analysis["sugar"]["github"]:
+                    config_analysis["sugar"]["github"]["token"] = "***REDACTED***"
+
         diagnostic["configuration"] = config_analysis
-        
+
         # Work queue analysis
         try:
             # Get total counts by status
             all_work = await work_queue.get_pending_work(limit=1000)
             status_counts = {}
             for item in all_work:
-                status = item.get('status', 'unknown')
+                status = item.get("status", "unknown")
                 status_counts[status] = status_counts.get(status, 0) + 1
-            
+
             # Get recent work (last 10 items)
             recent_work = [
                 {
-                    "id": item.get('id', ''),
-                    "title": item.get('title', ''),
-                    "type": item.get('type', ''),
-                    "status": item.get('status', ''),
-                    "priority": item.get('priority', 3),
-                    "created_at": item.get('created_at', ''),
-                    "attempts": item.get('attempts', 0),
-                    "source": item.get('source', ''),
-                    "error_message": item.get('error_message', '') if item.get('error_message') else None
+                    "id": item.get("id", ""),
+                    "title": item.get("title", ""),
+                    "type": item.get("type", ""),
+                    "status": item.get("status", ""),
+                    "priority": item.get("priority", 3),
+                    "created_at": item.get("created_at", ""),
+                    "attempts": item.get("attempts", 0),
+                    "source": item.get("source", ""),
+                    "error_message": (
+                        item.get("error_message", "")
+                        if item.get("error_message")
+                        else None
+                    ),
                 }
                 for item in all_work[:10]  # Last 10 items
             ]
-            
+
             diagnostic["work_queue_status"] = {
                 "total_items": len(all_work),
                 "status_breakdown": status_counts,
-                "recent_items": recent_work
+                "recent_items": recent_work,
             }
-            
+
         except Exception as e:
             diagnostic["work_queue_status"] = {"error": str(e)}
-        
+
         # Analyze potential issues based on configuration and status
         issues = []
-        
+
         # Check for common dry-run issues
-        if config.get('sugar', {}).get('execution', {}).get('dry_run', True):
-            issues.append({
-                "severity": "warning",
-                "category": "configuration",
-                "issue": "Dry-run mode is enabled",
-                "description": "Sugar will simulate actions but not make actual changes (commits, GitHub updates, etc.)",
-                "fix": "Set 'dry_run: false' in .sugar/config.yaml under sugar.execution section"
-            })
-        
+        if config.get("sugar", {}).get("execution", {}).get("dry_run", True):
+            issues.append(
+                {
+                    "severity": "warning",
+                    "category": "configuration",
+                    "issue": "Dry-run mode is enabled",
+                    "description": "Sugar will simulate actions but not make actual changes (commits, GitHub updates, etc.)",
+                    "fix": "Set 'dry_run: false' in .sugar/config.yaml under sugar.execution section",
+                }
+            )
+
         # Check for GitHub CLI auth
         if not diagnostic["tool_status"].get("github_cli", {}).get("available"):
-            issues.append({
-                "severity": "error", 
-                "category": "tools",
-                "issue": "GitHub CLI not available",
-                "description": "Required for GitHub integration (reading/updating issues, creating branches)",
-                "fix": "Install GitHub CLI: https://cli.github.com/"
-            })
-        
+            issues.append(
+                {
+                    "severity": "error",
+                    "category": "tools",
+                    "issue": "GitHub CLI not available",
+                    "description": "Required for GitHub integration (reading/updating issues, creating branches)",
+                    "fix": "Install GitHub CLI: https://cli.github.com/",
+                }
+            )
+
         # Check for Claude CLI
         if not diagnostic["tool_status"].get("claude_cli", {}).get("available"):
-            issues.append({
-                "severity": "error",
-                "category": "tools", 
-                "issue": "Claude CLI not available",
-                "description": "Required for AI-powered code execution",
-                "fix": "Install Claude CLI: npm install -g @anthropic-ai/claude-code-cli"
-            })
-        
+            issues.append(
+                {
+                    "severity": "error",
+                    "category": "tools",
+                    "issue": "Claude CLI not available",
+                    "description": "Required for AI-powered code execution",
+                    "fix": "Install Claude CLI: npm install -g @anthropic-ai/claude-code-cli",
+                }
+            )
+
         # Check for git repository
         if not diagnostic["git_status"].get("is_git_repo"):
-            issues.append({
-                "severity": "error",
-                "category": "environment",
-                "issue": "Not in a Git repository", 
-                "description": "Sugar requires a Git repository to function",
-                "fix": "Run 'git init' or ensure you're in a Git repository"
-            })
-        
+            issues.append(
+                {
+                    "severity": "error",
+                    "category": "environment",
+                    "issue": "Not in a Git repository",
+                    "description": "Sugar requires a Git repository to function",
+                    "fix": "Run 'git init' or ensure you're in a Git repository",
+                }
+            )
+
         # Check for failed work items
-        failed_count = diagnostic["work_queue_status"].get("status_breakdown", {}).get("failed", 0)
+        failed_count = (
+            diagnostic["work_queue_status"].get("status_breakdown", {}).get("failed", 0)
+        )
         if failed_count > 0:
-            issues.append({
-                "severity": "warning",
-                "category": "execution",
-                "issue": f"{failed_count} failed work items",
-                "description": "Some tasks have failed - check error messages in recent activity",
-                "fix": "Review failed items with 'sugar list --status failed' and check logs"
-            })
-        
+            issues.append(
+                {
+                    "severity": "warning",
+                    "category": "execution",
+                    "issue": f"{failed_count} failed work items",
+                    "description": "Some tasks have failed - check error messages in recent activity",
+                    "fix": "Review failed items with 'sugar list --status failed' and check logs",
+                }
+            )
+
         diagnostic["potential_issues"] = issues
-        
+
         return diagnostic
-    
+
     # Generate diagnostic data
     import asyncio
+
     diagnostic_data = asyncio.run(generate_diagnostic())
-    
+
     # Format output
-    if format == 'json':
+    if format == "json":
         output_text = json.dumps(diagnostic_data, indent=2, default=str)
-    elif format == 'yaml':
-        output_text = yaml.dump(diagnostic_data, default_flow_style=False, sort_keys=False)
+    elif format == "yaml":
+        output_text = yaml.dump(
+            diagnostic_data, default_flow_style=False, sort_keys=False
+        )
     else:  # text
         output_text = f"""
 Sugar Diagnostic Report
@@ -1948,9 +2007,9 @@ Python: {diagnostic_data['system_info']['python_version']}
 
 === TOOL STATUS ===
 """
-        for tool, status in diagnostic_data['tool_status'].items():
+        for tool, status in diagnostic_data["tool_status"].items():
             output_text += f"{tool}: {'✓' if status['available'] else '✗'} {status.get('version', status.get('error', ''))}\n"
-        
+
         output_text += f"""
 === WORK QUEUE ===
 Total Items: {diagnostic_data['work_queue_status'].get('total_items', 'Error')}
@@ -1958,14 +2017,14 @@ Status Breakdown: {diagnostic_data['work_queue_status'].get('status_breakdown', 
 
 === POTENTIAL ISSUES ({len(diagnostic_data['potential_issues'])}) ===
 """
-        for issue in diagnostic_data['potential_issues']:
+        for issue in diagnostic_data["potential_issues"]:
             output_text += f"[{issue['severity'].upper()}] {issue['issue']}\n"
             output_text += f"  Description: {issue['description']}\n"
             output_text += f"  Fix: {issue['fix']}\n\n"
-    
+
     # Output to file or stdout
     if output:
-        with open(output, 'w') as f:
+        with open(output, "w") as f:
             f.write(output_text)
         click.echo(f"✅ Diagnostic information written to: {output}")
     else:
