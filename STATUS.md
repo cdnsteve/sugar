@@ -1,12 +1,12 @@
-# Sugar v1.2.0 - Status Tracking Document
+# Sugar v1.3.0 - Status Tracking Document
 
-**Current Version**: 1.2.0  
-**Release Date**: 2025-08-22  
-**Status**: ✅ STABLE - Major Release Deployed
+**Current Version**: 1.3.0  
+**Release Date**: 2025-08-25  
+**Status**: ✅ STABLE - Enhanced User Experience Release
 
 ## 🎯 Major Release Summary
 
-Sugar v1.2.0 introduces **Structured Claude Agent Integration** with dynamic agent discovery, making it the most advanced autonomous development system for Claude. Building on the solid v1.0.0 foundation with Unified Workflow System, v1.2.0 adds intelligent agent selection and support for any Claude agents users have configured locally.
+Sugar v1.3.0 introduces **Bidirectional Traceability** and **Pretty JSON Formatting**, significantly enhancing developer experience and audit capabilities. Building on v1.2.0's Structured Claude Agent Integration, v1.3.0 adds complete traceability between Sugar work items and git commits, plus dramatically improved JSON readability in the CLI interface.
 
 ---
 
@@ -31,6 +31,21 @@ Sugar v1.2.0 introduces **Structured Claude Agent Integration** with dynamic age
 - [x] **Enhanced File Detection**: Tracks changes across 15+ file types
 - [x] **Robust Fallback System**: Agent → Basic Claude → Legacy execution
 - [x] **Performance Analytics**: Execution time, agent success rates, response quality tracking
+
+### Bidirectional Traceability System (NEW in v1.3.0)
+- [x] **Git → Sugar Traceability**: Work item IDs included in all git commit messages
+- [x] **Sugar → Git Traceability**: Commit SHAs captured and stored in work item database
+- [x] **Complete Audit Trail**: Full visibility between autonomous work and git changes
+- [x] **Database Schema Enhancement**: commit_sha column with migration support
+- [x] **CLI Integration**: sugar view displays associated commit SHAs
+- [x] **Automatic Capture**: Commit SHAs recorded after successful git operations
+
+### Enhanced User Experience (NEW in v1.3.0)
+- [x] **Pretty JSON Formatting**: Human-readable JSON display in sugar view command
+- [x] **Flexible Output Options**: --format flag (pretty/compact) with pretty as default
+- [x] **Dramatically Improved Readability**: Context and Result fields now scannable
+- [x] **Developer-Friendly Output**: No more walls of unreadable JSON text
+- [x] **Data Integrity**: Complete information preservation with better presentation
 
 ### Unified Workflow System (NEW in v1.0.0)
 - [x] **WorkflowOrchestrator**: Centralized workflow management
@@ -207,10 +222,11 @@ pip install sugar-ai
 3. **v1.0.0**: ✅ **Unified Workflow System - MAJOR STABLE RELEASE**
 4. **v1.1.0**: ✅ **Comprehensive Timing Tracking System**
 5. **v1.2.0**: ✅ **Structured Claude Agent Integration - ADVANCED AI INTEGRATION**
+6. **v1.3.0**: ✅ **Bidirectional Traceability & Enhanced UX - DEVELOPER EXPERIENCE BREAKTHROUGH**
 
-**Sugar v1.2.0** represents the most advanced autonomous development platform for Claude, with intelligent agent selection, dynamic agent discovery, and comprehensive quality tracking. It supports any Claude agents users have configured locally while maintaining robust fallback systems and detailed performance analytics.
+**Sugar v1.3.0** delivers the ultimate developer experience with complete bidirectional traceability between Sugar work items and git commits, plus dramatically improved JSON readability in CLI output. This release transforms Sugar from a powerful automation tool into a truly developer-friendly platform with full audit trails and human-readable interfaces.
 
 ---
 
-*Last Updated: 2025-08-22*  
+*Last Updated: 2025-08-25*  
 *Next Review: Weekly during active development*
