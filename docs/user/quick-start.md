@@ -37,10 +37,10 @@ cd sugar
 pip install -e .
 ```
 
-### Option 2: Install from PyPI (Coming Soon)
+### Option 2: Install from PyPI (Recommended)
 
 ```bash
-pip install sugar
+pip install sugarai
 ```
 
 ## Basic Usage

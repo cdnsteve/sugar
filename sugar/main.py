@@ -487,6 +487,114 @@ def update(ctx, task_id, title, description, priority, task_type, status):
         sys.exit(1)
 
 @cli.command()
+@click.argument('task_id')
+@click.option('--priority', '-p', type=click.IntRange(1, 5), help='Set priority (1=highest, 5=lowest)')
+@click.option('--urgent', is_flag=True, help='Set priority to urgent (1)')
+@click.option('--high', is_flag=True, help='Set priority to high (2)')
+@click.option('--normal', is_flag=True, help='Set priority to normal (3)')
+@click.option('--low', is_flag=True, help='Set priority to low (4)')
+@click.option('--minimal', is_flag=True, help='Set priority to minimal (5)')
+@click.pass_context
+def priority(ctx, task_id, priority, urgent, high, normal, low, minimal):
+    """Change the priority of a task"""
+    
+    from .storage.work_queue import WorkQueue
+    import yaml
+    
+    # Count how many priority options were specified
+    priority_flags = [urgent, high, normal, low, minimal]
+    flag_count = sum(priority_flags)
+    
+    # Validate that only one priority method is specified
+    if priority is not None and flag_count > 0:
+        click.echo("❌ Cannot specify both --priority and priority flags (--urgent, --high, etc.)")
+        sys.exit(1)
+    
+    if flag_count > 1:
+        click.echo("❌ Can only specify one priority flag at a time")
+        sys.exit(1)
+    
+    if priority is None and flag_count == 0:
+        click.echo("❌ Must specify either --priority <1-5> or a priority flag (--urgent, --high, etc.)")
+        sys.exit(1)
+    
+    # Map priority flags to numeric values
+    if urgent:
+        new_priority = 1
+        priority_name = "urgent"
+    elif high:
+        new_priority = 2
+        priority_name = "high"
+    elif normal:
+        new_priority = 3
+        priority_name = "normal"
+    elif low:
+        new_priority = 4
+        priority_name = "low"
+    elif minimal:
+        new_priority = 5
+        priority_name = "minimal"
+    else:
+        new_priority = priority
+        priority_names = {1: "urgent", 2: "high", 3: "normal", 4: "low", 5: "minimal"}
+        priority_name = priority_names.get(new_priority, str(new_priority))
+    
+    try:
+        config_file = ctx.obj['config']
+        with open(config_file, 'r') as f:
+            config = yaml.safe_load(f)
+        
+        work_queue = WorkQueue(config.get('storage', {}).get('database', '.sugar/sugar.db'))
+        
+        async def change_priority():
+            await work_queue.initialize()
+            
+            # Get current task to show before/after
+            current_task = await work_queue.get_work_by_id(task_id)
+            if not current_task:
+                click.echo(f"❌ Task not found: {task_id}")
+                return False
+            
+            old_priority = current_task.get('priority', 3)
+            old_priority_names = {1: "urgent", 2: "high", 3: "normal", 4: "low", 5: "minimal"}
+            old_priority_name = old_priority_names.get(old_priority, str(old_priority))
+            
+            # Update the priority
+            success = await work_queue.update_work(
+                task_id, 
+                {'priority': new_priority}
+            )
+            
+            if success:
+                # Priority indicators for display
+                priority_indicators = {
+                    1: "🔥",  # urgent
+                    2: "⚡",  # high  
+                    3: "📋",  # normal
+                    4: "📝",  # low
+                    5: "💤"   # minimal
+                }
+                
+                old_indicator = priority_indicators.get(old_priority, "📋")
+                new_indicator = priority_indicators.get(new_priority, "📋")
+                
+                click.echo(f"✅ Priority changed: {old_indicator} {old_priority_name} → {new_indicator} {priority_name}")
+                click.echo(f"   Task: {current_task['title']}")
+                return True
+            else:
+                click.echo(f"❌ Failed to update task priority")
+                return False
+        
+        import asyncio
+        success = asyncio.run(change_priority())
+        if not success:
+            sys.exit(1)
+            
+    except Exception as e:
+        click.echo(f"❌ Error changing task priority: {e}", err=True)
+        sys.exit(1)
+
+@cli.command()
 @click.option('--lines', '-n', default=50, help='Number of log lines to show')
 @click.option('--follow', '-f', is_flag=True, help='Follow log output (like tail -f)')
 @click.option('--level', type=click.Choice(['DEBUG', 'INFO', 'WARNING', 'ERROR']), help='Filter by log level')

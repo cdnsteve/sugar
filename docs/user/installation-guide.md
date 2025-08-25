@@ -36,7 +36,13 @@ Sugar is an AI-powered autonomous development system packaged as a reusable Pyth
 
 ## Installation
 
-### Option 1: Install from Source (Recommended for now)
+### Option 1: PyPI Installation (Recommended)
+
+```bash
+pip install sugarai
+```
+
+### Option 2: Install from Source (For Development)
 
 ```bash
 # Clone or download the sugar package
@@ -48,12 +54,6 @@ pip install -e .
 
 # Or install directly without cloning
 pip install -e git+https://github.com/cdnsteve/sugar.git#egg=sugar
-```
-
-### Option 2: PyPI Installation (Coming Soon)
-
-```bash
-pip install sugar
 ```
 
 ## Quick Start
