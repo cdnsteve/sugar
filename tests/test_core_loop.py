@@ -29,8 +29,8 @@ class TestSugarLoop:
                 "discovery": {
                     "error_logs": {"enabled": True},
                     "github": {"enabled": False},
-                    "code_quality": {"enabled": True},
-                    "test_coverage": {"enabled": True},
+                    "code_quality": {"enabled": True, "root_path": "."},
+                    "test_coverage": {"enabled": True, "root_path": "."},
                 },
             }
         }

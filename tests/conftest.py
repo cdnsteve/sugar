@@ -3,6 +3,7 @@ Pytest configuration and fixtures for Sugar tests
 """
 
 import pytest
+import pytest_asyncio
 import tempfile
 import shutil
 from pathlib import Path
@@ -166,7 +167,7 @@ def event_loop():
     loop.close()
 
 
-@pytest.fixture
+@pytest_asyncio.fixture
 async def mock_work_queue(temp_dir):
     """Create a mock work queue for testing"""
     from sugar.storage.work_queue import WorkQueue

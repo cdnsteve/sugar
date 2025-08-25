@@ -219,6 +219,7 @@ class WorkQueue:
             await db.commit()
 
             work_item["attempts"] += 1
+            work_item["status"] = "active"
             logger.debug(
                 f"📋 Retrieved work item: {work_item['title']} (attempt #{work_item['attempts']})"
             )
@@ -467,8 +468,9 @@ class WorkQueue:
             async with db.execute(
                 """
                 SELECT id, type, title, description, priority, status, source, 
-                       context, created_at, updated_at, attempts, last_attempt_at, result,
-                       total_execution_time, started_at, total_elapsed_time, commit_sha
+                       context, created_at, updated_at, attempts, last_attempt_at, 
+                       completed_at, result, total_execution_time, started_at, 
+                       total_elapsed_time, commit_sha
                 FROM work_items 
                 WHERE id = ?
             """,
@@ -490,11 +492,12 @@ class WorkQueue:
                         "updated_at": row[9],
                         "attempts": row[10],
                         "last_attempt_at": row[11],
-                        "result": json.loads(row[12]) if row[12] else None,
-                        "total_execution_time": row[13],
-                        "started_at": row[14],
-                        "total_elapsed_time": row[15],
-                        "commit_sha": row[16],
+                        "completed_at": row[12],
+                        "result": json.loads(row[13]) if row[13] else None,
+                        "total_execution_time": row[14],
+                        "started_at": row[15],
+                        "total_elapsed_time": row[16],
+                        "commit_sha": row[17],
                     }
                 return None
 
@@ -552,7 +555,66 @@ class WorkQueue:
         return {
             "initialized": self._initialized,
             "database_path": self.db_path,
-            "queue_stats": stats,
-            "active_work_items": stats.get("active", 0),
-            "pending_work_items": stats.get("pending", 0),
+            "total_tasks": stats.get("total", 0),
+            "status": "healthy",
         }
+
+    async def get_pending_work(self, limit: int = 10) -> List[Dict[str, Any]]:
+        """Get pending work items ordered by priority"""
+        async with aiosqlite.connect(self.db_path) as db:
+            db.row_factory = aiosqlite.Row
+
+            cursor = await db.execute(
+                """
+                SELECT * FROM work_items 
+                WHERE status = 'pending'
+                ORDER BY priority DESC, created_at ASC 
+                LIMIT ?
+                """,
+                (limit,),
+            )
+            rows = await cursor.fetchall()
+
+            work_items = []
+            for row in rows:
+                work_item = dict(row)
+                # Parse JSON fields
+                for field in ["context", "result"]:
+                    if work_item[field]:
+                        try:
+                            work_item[field] = json.loads(work_item[field])
+                        except json.JSONDecodeError:
+                            work_item[field] = {}
+                    else:
+                        work_item[field] = {}
+                work_items.append(work_item)
+
+            return work_items
+
+    async def mark_work_active(self, work_id: str):
+        """Mark a work item as active"""
+        async with aiosqlite.connect(self.db_path) as db:
+            await db.execute(
+                """
+                UPDATE work_items 
+                SET status = 'active', 
+                    attempts = attempts + 1,
+                    last_attempt_at = CURRENT_TIMESTAMP,
+                    started_at = CASE WHEN started_at IS NULL THEN CURRENT_TIMESTAMP ELSE started_at END,
+                    updated_at = CURRENT_TIMESTAMP
+                WHERE id = ?
+                """,
+                (work_id,),
+            )
+            await db.commit()
+
+    async def mark_work_completed(self, work_id: str, result: Dict[str, Any]):
+        """Mark a work item as completed"""
+        await self.complete_work(work_id, result)
+
+    async def mark_work_failed(self, work_id: str, error_info: Dict[str, Any], max_retries: int = 3):
+        """Mark a work item as failed"""
+        error_message = error_info.get("error", "Unknown error")
+        if "details" in error_info:
+            error_message += f": {error_info['details']}"
+        await self.fail_work(work_id, error_message, max_retries)
