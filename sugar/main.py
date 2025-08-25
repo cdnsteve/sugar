@@ -239,7 +239,7 @@ def add(ctx, title, task_type, priority, description, urgent):
 
 @cli.command()
 @click.option('--status', type=click.Choice(['pending', 'active', 'completed', 'failed', 'all']), default='all', help='Filter by status')
-@click.option('--limit', default=10, help='Number of tasks to show')
+@click.option('--limit', default=20, help='Number of tasks to show')
 @click.option('--type', 'task_type', type=click.Choice(['bug_fix', 'feature', 'test', 'refactor', 'documentation', 'all']), default='all', help='Filter by type')
 @click.pass_context
 def list(ctx, status, limit, task_type):
@@ -262,7 +262,24 @@ def list(ctx, status, limit, task_type):
             click.echo(f"📭 No {status if status != 'all' else ''} tasks found")
             return
         
-        click.echo(f"\n📋 {len(tasks)} Tasks ({status if status != 'all' else 'all statuses'}):")
+        # Count tasks by status for summary header
+        status_counts = {}
+        for task in tasks:
+            task_status = task['status']
+            status_counts[task_status] = status_counts.get(task_status, 0) + 1
+        
+        # Build summary parts
+        summary_parts = []
+        status_order = ['pending', 'active', 'completed', 'failed']
+        for status_type in status_order:
+            count = status_counts.get(status_type, 0)
+            if count > 0:
+                emoji = {'pending': '⏳', 'active': '⚡', 'completed': '✅', 'failed': '❌'}[status_type]
+                summary_parts.append(f"{count} {status_type} {emoji}")
+        
+        summary_text = ", ".join(summary_parts) if summary_parts else "no tasks"
+        
+        click.echo(f"\n📋 {len(tasks)} Tasks ({summary_text}):")
         click.echo("=" * 60)
         
         for task in tasks:
