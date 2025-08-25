@@ -177,6 +177,8 @@ def init(project_dir):
         click.echo("1. Review and customize the config: .sugar/config.yaml")
         click.echo("2. Add tasks: sugar add 'Your first task'")
         click.echo("3. Start autonomous mode: sugar run")
+        click.echo("\n⚖️  By using Sugar, you agree to the Terms of Service (see TERMS.md)")
+        click.echo("   Software provided 'AS IS' - users responsible for reviewing AI-generated code.")
         
     except Exception as e:
         click.echo(f"❌ Failed to initialize Sugar: {e}", err=True)
@@ -891,6 +893,14 @@ Complete documentation: docs/README.md
 • Monitor logs with 'tail -f .sugar/sugar.log'
 • Use 'sugar status' to check queue health
 • Each project needs its own 'sugar init'
+
+⚖️  LEGAL DISCLAIMER
+--------------------
+• Sugar is provided "AS IS" without warranty of any kind
+• Users are responsible for reviewing all AI-generated code
+• Not affiliated with Anthropic, Inc. ("Claude" is their trademark)
+• See TERMS.md for complete terms and liability disclaimers
+• By using Sugar, you agree to these terms and conditions
 
 Ready to supercharge your development workflow? 🚀
 """)

@@ -38,6 +38,8 @@ Sugar is a lightweight autonomous development system specifically designed for C
 pip install sugarai
 ```
 
+> ⚠️ **IMPORTANT DISCLAIMER**: By installing and using Sugar, you agree to the [Terms of Service and Disclaimer](TERMS.md). Sugar is provided "AS IS" without warranty. Users are solely responsible for reviewing AI-generated code and ensuring appropriate safeguards. Sugar is not affiliated with or endorsed by Anthropic, Inc. "Claude" and "Claude Code" are trademarks of Anthropic, Inc.
+
 **Or install from source for latest development version:**
 
 ```bash
@@ -621,12 +623,30 @@ sugar run --once
 4. Follow existing code patterns
 5. Update documentation for new features
 
+## ⚖️ Legal and Disclaimers
+
+### Terms of Service
+By using Sugar, you agree to our [Terms of Service and Disclaimer](TERMS.md), which includes:
+- **No Warranty**: Software provided "AS IS" without warranties of any kind
+- **Limitation of Liability**: No responsibility for code damage, data loss, or system issues
+- **User Responsibility**: Users must review all AI-generated code before use
+- **Security**: Never use on production systems without proper testing and safeguards
+
+### Trademark Notice
+Sugar is an independent third-party tool. "Claude," "Claude Code," and related marks are trademarks of Anthropic, Inc. Sugar is not affiliated with, endorsed by, or sponsored by Anthropic, Inc.
+
+### Risk Acknowledgment
+- AI-generated code may contain errors or security vulnerabilities
+- Always review and test generated code in safe environments
+- Maintain proper backups of your projects
+- Use appropriate security measures for your development environment
+
 ## 📄 License
 
-MIT License - see LICENSE file for details.
+MIT License with additional disclaimers - see [LICENSE](LICENSE) and [TERMS.md](TERMS.md) for complete details.
 
 ---
 
-**Claude Sugar v0.1.0** - Built for Claude Code CLI autonomous development across any project or codebase.
+**Sugar v1.6.2** - Built for Claude Code CLI autonomous development across any project or codebase.
 
 *Transform any project into an autonomous development environment with just `sugar init`.*

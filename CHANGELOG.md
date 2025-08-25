@@ -5,6 +5,32 @@ All notable changes to the Sugar autonomous development system will be documente
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.6.2] - 2025-08-25
+
+### 🔧 PATCH RELEASE: Legal Protection and Disclaimers
+
+This patch release adds comprehensive legal protections and disclaimers to limit liability and clarify trademark usage.
+
+### Added
+- **Terms of Service**: Complete TERMS.md with liability disclaimers and user responsibilities
+- **Legal Disclaimers**: Added to README.md, CLI help command, and init command output
+- **Trademark Notice**: Clear statement that Sugar is not affiliated with Anthropic, Inc.
+- **Risk Acknowledgment**: Warnings about AI-generated code risks and security considerations
+
+### Legal Protections
+- **No Warranty**: Software provided "AS IS" without warranties of any kind
+- **Limitation of Liability**: No responsibility for code damage, data loss, system issues, or business interruption
+- **User Responsibility**: Clear statement that users must review all AI-generated code
+- **Security Warnings**: Guidance on safe usage and testing practices
+- **Trademark Compliance**: Proper attribution of Anthropic's trademarks
+
+### User Experience
+- **Informed Consent**: Users see disclaimers during initialization and help
+- **Easy Access**: Terms linked prominently in README and CLI output
+- **Clear Boundaries**: Explicit guidance on safe usage practices
+
+By using Sugar v1.6.2+, users automatically agree to these terms and acknowledge the risks associated with AI-generated code.
+
 ## [1.6.1] - 2025-08-25
 
 ### 🔧 PATCH RELEASE: Version Display Fix
