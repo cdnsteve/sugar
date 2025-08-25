@@ -237,6 +237,53 @@ sugar priority task-abc123 -p 4
 
 ---
 
+### `sugar debug`
+
+Generate comprehensive diagnostic information for troubleshooting Sugar issues.
+
+```bash
+sugar debug [OPTIONS]
+```
+
+**Options:**
+- `--format [json|yaml|text]` - Output format (default: json)
+- `-o, --output TEXT` - Write output to file instead of stdout
+- `--include-sensitive` - Include sensitive information (paths, tokens) - use with caution
+
+**Examples:**
+```bash
+# Basic diagnostic report (JSON format)
+sugar debug
+
+# Human-readable text format
+sugar debug --format text
+
+# Save to file for GitHub issue
+sugar debug --output sugar-diagnostic.json
+
+# Include sensitive info for internal debugging
+sugar debug --include-sensitive --format yaml
+```
+
+**What it captures:**
+- **System Information**: Sugar version, platform, Python version
+- **Tool Status**: Claude CLI, GitHub CLI, Git availability and versions
+- **Configuration**: Project settings (sanitized by default)
+- **Work Queue Status**: Task counts, recent items, error messages
+- **Git Repository**: Current branch, changes, remotes (sanitized)
+- **Potential Issues**: Automated analysis with suggested fixes
+
+**Use Cases:**
+- **GitHub Issues**: Attach diagnostic output when reporting bugs
+- **Troubleshooting**: Quickly identify configuration problems
+- **Support**: Share system state with maintainers (sensitive data excluded)
+- **Debugging**: Understand why Sugar isn't making commits/branches
+
+**Privacy Note:** 
+By default, sensitive information (file paths, tokens, repository URLs) is redacted. Use `--include-sensitive` only when necessary and never share sensitive diagnostics publicly.
+
+---
+
 ### `sugar remove`
 
 Remove a task from the work queue.

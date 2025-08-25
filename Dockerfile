@@ -73,5 +73,5 @@ LABEL org.opencontainers.image.title="Sugar" \
       org.opencontainers.image.description="AI-powered autonomous development system with Claude agent integration" \
       org.opencontainers.image.url="https://github.com/cdnsteve/sugar" \
       org.opencontainers.image.source="https://github.com/cdnsteve/sugar" \
-      org.opencontainers.image.version="1.6.4" \
+      org.opencontainers.image.version="1.7.0" \
       org.opencontainers.image.authors="Steven Leggett <contact@roboticforce.io>"

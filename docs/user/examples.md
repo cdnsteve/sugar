@@ -553,4 +553,58 @@ sugar priority payment-id --normal            # 📋 Can wait
 #    Task: User profile page
 ```
 
+## 🔍 Troubleshooting & Debugging Examples
+
+### Diagnostic Report Generation
+
+```bash
+# Sugar is reading GitHub issues but not making commits/branches?
+# Generate a diagnostic report to identify the issue
+sugar debug --format text
+
+# Expected output will show potential issues like:
+# [WARNING] Dry-run mode is enabled
+# Description: Sugar will simulate actions but not make actual changes
+# Fix: Set 'dry_run: false' in .sugar/config.yaml
+
+# Save diagnostic for GitHub issue reporting
+sugar debug --output bug-report.json
+
+# Include this in your bug report:
+# "Attached diagnostic shows Sugar v1.6.4 on macOS with GitHub CLI available
+# but dry_run mode enabled, explaining why no commits are made."
+```
+
+### Common Issue Resolution
+
+```bash
+# Issue: "Sugar processes work but nothing happens"
+sugar debug --format text | grep -A 3 "POTENTIAL ISSUES"
+
+# Likely causes and fixes:
+# 1. Dry-run mode: Edit .sugar/config.yaml, set dry_run: false
+# 2. Missing tools: Install Claude CLI or GitHub CLI
+# 3. Git repo issues: Ensure you're in a proper Git repository
+# 4. Authentication: Check GitHub CLI login with 'gh auth status'
+
+# After fixing issues, verify with another diagnostic
+sugar debug --format text | head -20
+```
+
+### Support Workflow
+
+```bash
+# When reporting bugs to Sugar maintainers:
+
+# 1. Generate sanitized diagnostic (safe to share publicly)
+sugar debug --output sugar-issue-diagnostic.json
+
+# 2. Create GitHub issue with diagnostic attached
+# 3. Include specific error behavior description
+# 4. Maintainers can quickly identify configuration/environment issues
+
+# For internal debugging (never share publicly):
+sugar debug --include-sensitive --format yaml > internal-debug.yaml
+```
+
 These examples show Sugar's flexibility across different project types, team sizes, and development workflows. The key is configuring Sugar appropriately for your specific needs and gradually increasing automation as you gain confidence.

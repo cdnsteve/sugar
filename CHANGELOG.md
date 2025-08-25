@@ -5,6 +5,60 @@ All notable changes to the Sugar autonomous development system will be documente
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.7.0] - 2025-08-25
+
+### 🎯 MINOR RELEASE: Diagnostic & Troubleshooting System
+
+This release introduces comprehensive diagnostic capabilities to help users and maintainers troubleshoot Sugar issues more effectively.
+
+### Added
+
+#### New `sugar debug` Command
+- **Comprehensive Diagnostics**: Generate detailed system state, configuration, and activity reports
+- **Multiple Output Formats**: JSON, YAML, and human-readable text formats
+- **Privacy-Safe by Default**: Automatically redacts sensitive information (paths, tokens, URLs)
+- **Automated Issue Detection**: Identifies common problems with suggested fixes
+- **GitHub Issue Integration**: Perfect for attaching diagnostic info to bug reports
+
+#### Diagnostic Information Captured
+- **System Information**: Sugar version, platform, Python version, architecture
+- **Tool Status**: Claude CLI, GitHub CLI, Git availability and versions
+- **Configuration Analysis**: Project settings (sanitized for privacy)
+- **Work Queue Status**: Task counts by status, recent items, error messages
+- **Git Repository State**: Current branch, uncommitted changes, remote info
+- **Potential Issues**: Automated analysis with specific fix recommendations
+
+#### Smart Issue Detection
+- **Dry-run Mode**: Detects when Sugar simulates but doesn't execute changes
+- **Missing Tools**: Identifies unavailable CLI tools (Claude, GitHub, Git)
+- **Repository Issues**: Warns about non-Git directories or configuration problems
+- **Failed Tasks**: Highlights work items that need attention
+
+### Use Cases
+- **Bug Reports**: Attach `sugar debug --output bug-report.json` to GitHub issues
+- **Troubleshooting**: Quick diagnosis of "reading issues but not committing" problems
+- **Support**: Share system state with maintainers (sensitive data excluded by default)
+- **Self-Service**: Users can identify and fix common configuration issues independently
+
+### Documentation
+- **CLI Reference**: Complete `sugar debug` command documentation
+- **Examples**: Troubleshooting workflows and diagnostic usage patterns
+- **Privacy Guidelines**: Clear guidance on safe vs sensitive diagnostic sharing
+
+### Addressing User Pain Points
+This release directly addresses the common issue where "Sugar reads GitHub issues perfectly but doesn't update status, make commits, or create branches" by providing immediate visibility into:
+- Dry-run mode configuration
+- Tool availability and authentication
+- Git repository status
+- Configuration problems
+
+### Example Output
+```bash
+sugar debug --format text
+# Shows: [WARNING] Dry-run mode is enabled
+# Fix: Set 'dry_run: false' in .sugar/config.yaml
+```
+
 ## [1.6.4] - 2025-08-25
 
 ### 🔧 PATCH RELEASE: CI/CD Pipeline Type Checking Fix
