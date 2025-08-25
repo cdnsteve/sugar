@@ -5,6 +5,83 @@ All notable changes to the Sugar autonomous development system will be documente
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.3.0] - 2025-08-25
+
+### 🎯 MAJOR RELEASE: Bidirectional Traceability & Enhanced User Experience
+
+This release delivers a developer experience breakthrough with complete traceability between Sugar work items and git commits, plus dramatically improved JSON readability in CLI output.
+
+### Added
+
+#### Bidirectional Traceability System
+- **Git → Sugar Traceability**: Work item IDs automatically included in all git commit messages
+- **Sugar → Git Traceability**: Commit SHAs captured and stored in work item database
+- **Complete Audit Trail**: Full visibility between autonomous work and git changes
+- **Database Schema Enhancement**: New `commit_sha` column with automatic migration support
+- **CLI Integration**: `sugar view` command displays associated commit SHAs
+- **Automatic Capture**: Commit SHAs recorded after successful git operations
+
+#### Enhanced User Experience  
+- **Pretty JSON Formatting**: Human-readable JSON display in `sugar view` command
+- **Flexible Output Options**: New `--format` flag with `pretty` (default) and `compact` modes
+- **Dramatically Improved Readability**: Context and Result fields now scannable and structured
+- **Developer-Friendly Output**: Eliminates walls of unreadable JSON text
+- **Data Integrity**: Complete information preservation with superior presentation
+
+### Changed
+- **sugar view**: Now defaults to pretty JSON formatting for improved readability
+- **Commit Messages**: Now include Work ID for complete traceability
+- **Database Schema**: Enhanced with commit_sha tracking field
+
+### Technical Details
+- Added `get_latest_commit_sha()` method to GitOperations
+- Extended `get_work_by_id()` to include commit_sha and timing fields
+- Updated WorkflowOrchestrator to capture and store commit SHAs
+- Created `format_json_pretty()` utility for terminal JSON display
+- Enhanced database migration system for commit_sha column
+
+---
+
+## [1.2.0] - 2025-08-22
+
+### 🎯 MAJOR RELEASE: Structured Claude Agent Integration
+
+This release introduces advanced Claude agent integration with dynamic agent discovery, making Sugar the most sophisticated autonomous development system for Claude.
+
+### Added
+
+#### Structured Claude Agent Integration
+- **Dynamic Agent Discovery**: Works with any Claude agents configured locally
+- **Intelligent Agent Selection**: Analyzes work characteristics for optimal agent matching
+- **Built-in Agent Support**: tech-lead, code-reviewer, social-media-growth-strategist, general-purpose
+- **Custom Agent Support**: Users can configure any agent names they prefer
+- **Structured Request System**: JSON-based communication with enhanced response parsing
+- **Quality Assessment**: 0.0-1.0 quality scores with confidence levels (high/medium/low)
+- **Enhanced File Detection**: Tracks changes across 15+ file types
+- **Robust Fallback System**: Agent → Basic Claude → Legacy execution paths
+- **Performance Analytics**: Execution time, agent success rates, response quality tracking
+
+#### Agent Configuration System
+- **Flexible Agent Mapping**: Map work types to specific agents via configuration
+- **Agent Selection Priority**: User configuration overrides keyword-based selection
+- **Dynamic Agent Types**: Support for any user-configured agent names
+- **Comprehensive Agent Analytics**: Track success rates and performance per agent
+
+### Changed
+- **Claude Executor**: Now supports both structured agent mode and legacy execution
+- **Work Execution**: Enhanced with agent selection logic and structured responses
+- **Configuration**: Extended agent section with selection mappings and discovery options
+- **Response Processing**: Improved parsing and quality assessment for agent responses
+
+### Technical Details
+- Added `StructuredRequest` and `StructuredResponse` dataclasses
+- Implemented `AgentType` enum with dynamic agent type support
+- Enhanced `ClaudeWrapper` with dual execution paths (structured/legacy)
+- Added agent selection algorithms with priority-based keyword matching
+- Comprehensive agent performance tracking and analytics
+
+---
+
 ## [1.0.0] - 2025-08-22
 
 ### 🎯 MAJOR RELEASE: Unified Workflow System
