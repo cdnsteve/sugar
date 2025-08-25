@@ -127,15 +127,15 @@ class TestSugarLoop:
 
             loop = SugarLoop(str(sugar_config_file))
 
-            # Replace discovery modules with AsyncMock
-            loop.error_monitor = AsyncMock()
-            loop.error_monitor.discover_work = AsyncMock(
+            # Mock the discovery_modules list directly
+            mock_error_module = AsyncMock()
+            mock_error_module.discover = AsyncMock(
                 return_value=[
                     {"type": "bug_fix", "title": "Fix error", "source": "error_log"}
                 ]
             )
-            loop.quality_scanner = AsyncMock()
-            loop.quality_scanner.discover_work = AsyncMock(
+            mock_quality_module = AsyncMock()
+            mock_quality_module.discover = AsyncMock(
                 return_value=[
                     {
                         "type": "refactor",
@@ -144,12 +144,17 @@ class TestSugarLoop:
                     }
                 ]
             )
-            loop.coverage_analyzer = AsyncMock()
-            loop.coverage_analyzer.discover_work = AsyncMock(
+            mock_coverage_module = AsyncMock()
+            mock_coverage_module.discover = AsyncMock(
                 return_value=[
                     {"type": "test", "title": "Add tests", "source": "test_coverage"}
                 ]
             )
+            loop.discovery_modules = [
+                mock_error_module,
+                mock_quality_module,
+                mock_coverage_module,
+            ]
 
             loop.work_queue = AsyncMock()
             loop.work_queue.add_work = AsyncMock()
@@ -227,7 +232,7 @@ class TestSugarLoop:
             # Replace components with AsyncMock - simulate failure and return None after first call
             loop.work_queue = AsyncMock()
             loop.work_queue.get_next_work = AsyncMock(side_effect=[mock_tasks[0], None])
-            loop.work_queue.mark_work_failed = AsyncMock()
+            loop.work_queue.fail_work = AsyncMock()  # Correct method name
             loop.workflow_orchestrator = AsyncMock()
             loop.workflow_orchestrator.prepare_work_execution = AsyncMock(
                 return_value={}
@@ -237,11 +242,13 @@ class TestSugarLoop:
             loop.claude_executor.execute_work = AsyncMock(
                 side_effect=Exception("Claude CLI failed")
             )
+            # Mock the failure workflow handler
+            loop._handle_failed_workflow = AsyncMock()
 
             await loop._execute_work()
 
             # Verify work was marked as failed
-            loop.work_queue.mark_work_failed.assert_called_once()
+            loop.work_queue.fail_work.assert_called_once()
 
     @pytest.mark.asyncio
     async def test_concurrent_work_execution(self, sugar_config_file):
@@ -311,7 +318,7 @@ class TestSugarLoop:
                 return_value={"pending": 0, "completed": 5, "failed": 1}
             )
             loop.feedback_processor = AsyncMock()
-            loop.feedback_processor.process_recent_completions = AsyncMock(
+            loop.feedback_processor.process_feedback = AsyncMock(  # Correct method name
                 return_value={"recommendations": ["test recommendation"]}
             )
             loop.adaptive_scheduler = AsyncMock()
@@ -320,5 +327,5 @@ class TestSugarLoop:
             await loop._process_feedback()
 
             # Verify feedback processing was called
-            loop.feedback_processor.process_recent_completions.assert_called_once()
+            loop.feedback_processor.process_feedback.assert_called_once()
             loop.adaptive_scheduler.update_priorities.assert_called_once()
