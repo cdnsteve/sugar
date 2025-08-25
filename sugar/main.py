@@ -40,11 +40,26 @@ def setup_logging(log_file_path=".sugar/sugar.log", debug=False):
     # Clear any existing handlers
     logging.getLogger().handlers.clear()
 
+    # Use simple handlers with UTF-8 encoding for file, errors='replace' for console
     logging.basicConfig(
         level=level,
         format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
-        handlers=[logging.StreamHandler(), logging.FileHandler(log_file_path)],
+        handlers=[
+            logging.StreamHandler(),  # Console output
+            logging.FileHandler(log_file_path, encoding='utf-8', errors='replace')  # File output
+        ],
     )
+    
+    # Set encoding options for the console handler to handle emojis gracefully
+    root_logger = logging.getLogger()
+    for handler in root_logger.handlers:
+        if isinstance(handler, logging.StreamHandler) and handler.stream.name == '<stderr>':
+            # For console output, set errors='replace' to handle emoji issues on Windows
+            if hasattr(handler.stream, 'reconfigure'):
+                try:
+                    handler.stream.reconfigure(errors='replace')
+                except Exception:
+                    pass
 
 
 logger = logging.getLogger(__name__)
@@ -310,7 +325,7 @@ def list(ctx, status, limit, task_type):
         tasks = asyncio.run(_list_tasks_async(work_queue, status, limit, task_type))
 
         if not tasks:
-            click.echo(f"📭 No {status if status != 'all' else ''} tasks found")
+            click.echo(f"No {status if status != 'all' else ''} tasks found")
             return
 
         # Count tasks by status for summary header

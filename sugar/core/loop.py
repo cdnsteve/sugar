@@ -279,7 +279,7 @@ class SugarLoop:
         if skipped_count > 0:
             logger.info(f"⏭️ Skipped {skipped_count} duplicate work items")
         if added_count == 0 and skipped_count == 0:
-            logger.info("📭 No new work discovered this cycle")
+            logger.info("No new work discovered this cycle")
 
     async def _execute_work(self, shutdown_event=None):
         """Execute the highest priority work item"""
@@ -293,7 +293,7 @@ class SugarLoop:
 
             work_item = await self.work_queue.get_next_work()
             if not work_item:
-                logger.info("📭 No work items ready for execution")
+                logger.info("No work items ready for execution")
                 break
 
             logger.info(f"⚡ Executing work [{work_item['id']}]: {work_item['title']}")
