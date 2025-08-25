@@ -11,7 +11,24 @@ sugar:
     timeout: 1800  # 30 minutes max per task
     context_file: "sugar_context.json"
     
-    # NEW: Context Persistence Settings
+    # Structured Claude Agent Integration System (Complete Implementation)
+    use_structured_requests: true  # Enable structured JSON communication
+    structured_input_file: ".sugar/claude_input.json"  # Temp file for complex inputs
+    
+    # Agent Selection & Discovery System
+    enable_agents: true        # Enable Claude agent mode selection
+    agent_fallback: true       # Fall back to basic Claude if agent fails
+    agent_selection:           # Map work types to specific agents
+      bug_fix: "tech-lead"           # Strategic analysis for bug fixes
+      feature: "general-purpose"     # General development for features
+      refactor: "code-reviewer"      # Code review expertise for refactoring
+      test: "general-purpose"        # General development for tests
+      documentation: "general-purpose"  # General development for docs
+    
+    # Dynamic Agent Discovery (supports any agents you have configured locally)
+    # available_agents: []       # Optional: specify which agents are available
+    
+    # Context Persistence Settings
     use_continuous: true              # Enable --continue flag support
     context_strategy: "project"       # project|task_type|session
     max_context_age_hours: 24         # Hours before starting fresh session

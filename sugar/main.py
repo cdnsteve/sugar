@@ -1211,11 +1211,11 @@ sugar:
     timeout: 1800       # 30 minutes max per task
     context_file: ".sugar/context.json"
     
-    # Structured Request System (Phase 1 of Agent Integration)
+    # Structured Claude Agent Integration System (Complete Implementation)
     use_structured_requests: true  # Enable structured JSON communication
     structured_input_file: ".sugar/claude_input.json"  # Temp file for complex inputs
     
-    # Agent Selection System (Phase 2 of Agent Integration)
+    # Agent Selection & Discovery System
     enable_agents: true        # Enable Claude agent mode selection
     agent_fallback: true       # Fall back to basic Claude if agent fails
     agent_selection:           # Map work types to specific agents
