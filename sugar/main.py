@@ -355,7 +355,7 @@ def view(ctx, task_id, output_format):
         
         # Display commit SHA if available
         if task.get('commit_sha'):
-            click.echo(f"🔗 Commit: {task['commit_sha'][:8]}...{task['commit_sha'][-8:]}")
+            click.echo(f"🔗 Commit: {task['commit_sha']}")
         
         if task.get('context'):
             click.echo(f"🔍 Context:")

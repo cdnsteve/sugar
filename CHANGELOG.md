@@ -5,6 +5,18 @@ All notable changes to the Sugar autonomous development system will be documente
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.3.1] - 2025-08-25
+
+### Fixed
+- **sugar view**: Display full commit SHA instead of truncated version (first 8...last 8)
+- **Configuration Comments**: Updated agent integration comments to reflect completed implementation
+- **Config Template**: Removed outdated "Phase 1" and "Phase 2" references from sugar init template
+
+### Changed
+- **Commit Display**: `🔗 Commit: 179a30c4...6ea6fa61` → `🔗 Commit: 179a30c4f1e2a3b4c5d6e7f8g9h0i1j2k3l4m5n6ea6fa61`
+
+---
+
 ## [1.3.0] - 2025-08-25
 
 ### 🎯 MAJOR RELEASE: Bidirectional Traceability & Enhanced User Experience
