@@ -19,9 +19,10 @@ class WorkflowType(Enum):
 class WorkflowOrchestrator:
     """Manages consistent workflows for all Sugar work items"""
     
-    def __init__(self, config: Dict[str, Any], git_ops=None):
+    def __init__(self, config: Dict[str, Any], git_ops=None, work_queue=None):
         self.config = config
         self.git_ops = git_ops
+        self.work_queue = work_queue
         self.workflow_config = self._load_workflow_config()
         
     def _load_workflow_config(self) -> Dict[str, Any]:
@@ -138,6 +139,7 @@ class WorkflowOrchestrator:
         """Format commit message according to workflow style"""
         template = workflow['commit_message_template']
         title = work_item.get('title', 'Unknown work')
+        work_id = work_item.get('id', 'unknown')
         
         if workflow['commit_style'] == 'conventional':
             # Use the template as-is (already conventional format)
@@ -146,9 +148,12 @@ class WorkflowOrchestrator:
             # Simple format
             message = title
             
+        # Add work item ID for traceability
+        message += f"\n\nWork ID: {work_id}"
+        
         # Add Sugar attribution
         from ..__version__ import get_version_info
-        message += f"\n\n🤖 Generated with {get_version_info()}"
+        message += f"\n🤖 Generated with {get_version_info()}"
         
         return message
         
@@ -200,6 +205,15 @@ class WorkflowOrchestrator:
             if not success:
                 logger.error("❌ Failed to commit changes")
                 return False
+            
+            # Capture commit SHA and store in database for traceability
+            if self.work_queue:
+                commit_sha = await self.git_ops.get_latest_commit_sha()
+                if commit_sha:
+                    work_id = work_item.get('id')
+                    if work_id:
+                        await self.work_queue.update_commit_sha(work_id, commit_sha)
+                        logger.debug(f"🔗 Linked commit {commit_sha[:8]} to work item {work_id}")
                 
             # Handle PR workflow
             if workflow['git_workflow'] == WorkflowType.PULL_REQUEST:

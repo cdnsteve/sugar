@@ -42,7 +42,7 @@ class SugarLoop:
         self.git_ops = GitOperations()
         
         # Initialize workflow orchestrator
-        self.workflow_orchestrator = WorkflowOrchestrator(self.config, self.git_ops)
+        self.workflow_orchestrator = WorkflowOrchestrator(self.config, self.git_ops, self.work_queue)
         
         # Initialize work discovery modules
         self.discovery_modules = []

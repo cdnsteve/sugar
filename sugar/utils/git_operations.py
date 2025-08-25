@@ -126,6 +126,21 @@ class GitOperations:
             logger.error(f"Error checking for uncommitted changes: {e}")
             return False
     
+    async def get_latest_commit_sha(self) -> Optional[str]:
+        """Get the SHA of the latest commit"""
+        try:
+            result = await self._run_git_command(['rev-parse', 'HEAD'])
+            
+            if result['returncode'] == 0:
+                return result['stdout'].strip()
+            else:
+                logger.error(f"Failed to get latest commit SHA: {result['stderr']}")
+                return None
+                
+        except Exception as e:
+            logger.error(f"Error getting latest commit SHA: {e}")
+            return None
+    
     def slugify_title(self, title: str) -> str:
         """Convert issue title to a slug suitable for branch names"""
         # Remove "Address GitHub issue: " prefix if present

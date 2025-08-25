@@ -338,6 +338,10 @@ def view(ctx, task_id):
         if task.get('started_at'):
             click.echo(f"🚀 Started: {task['started_at']}")
         
+        # Display commit SHA if available
+        if task.get('commit_sha'):
+            click.echo(f"🔗 Commit: {task['commit_sha'][:8]}...{task['commit_sha'][-8:]}")
+        
         if task.get('context'):
             click.echo(f"🔍 Context: {json.dumps(task['context'], indent=2)}")
         

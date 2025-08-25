@@ -45,7 +45,8 @@ class WorkQueue:
                     error_message TEXT,
                     total_execution_time REAL DEFAULT 0.0,
                     started_at TIMESTAMP,
-                    total_elapsed_time REAL DEFAULT 0.0
+                    total_elapsed_time REAL DEFAULT 0.0,
+                    commit_sha TEXT
                 )
             """)
             
@@ -86,6 +87,10 @@ class WorkQueue:
             if 'total_elapsed_time' not in column_names:
                 await db.execute("ALTER TABLE work_items ADD COLUMN total_elapsed_time REAL DEFAULT 0.0")
                 logger.info("Added total_elapsed_time column to existing database")
+                
+            if 'commit_sha' not in column_names:
+                await db.execute("ALTER TABLE work_items ADD COLUMN commit_sha TEXT")
+                logger.info("Added commit_sha column to existing database")
                 
         except Exception as e:
             logger.warning(f"Migration warning (non-critical): {e}")
@@ -396,7 +401,8 @@ class WorkQueue:
         async with aiosqlite.connect(self.db_path) as db:
             async with db.execute("""
                 SELECT id, type, title, description, priority, status, source, 
-                       context, created_at, updated_at, attempts, last_attempt_at, result
+                       context, created_at, updated_at, attempts, last_attempt_at, result,
+                       total_execution_time, started_at, total_elapsed_time, commit_sha
                 FROM work_items 
                 WHERE id = ?
             """, (work_id,)) as cursor:
@@ -416,7 +422,11 @@ class WorkQueue:
                         'updated_at': row[9],
                         'attempts': row[10],
                         'last_attempt_at': row[11],
-                        'result': json.loads(row[12]) if row[12] else None
+                        'result': json.loads(row[12]) if row[12] else None,
+                        'total_execution_time': row[13],
+                        'started_at': row[14],
+                        'total_elapsed_time': row[15],
+                        'commit_sha': row[16]
                     }
                 return None
     
@@ -444,12 +454,23 @@ class WorkQueue:
                 set_clauses.append(f"{key} = ?") 
                 values.append(value)
         
-        values.append(work_id)  # For WHERE clause
+        values.append(work_id)  # FOR WHERE clause
         
         query = f"UPDATE work_items SET {', '.join(set_clauses)} WHERE id = ?"
         
         async with aiosqlite.connect(self.db_path) as db:
             cursor = await db.execute(query, values)
+            await db.commit()
+            return cursor.rowcount > 0
+
+    async def update_commit_sha(self, work_id: str, commit_sha: str) -> bool:
+        """Update the commit SHA for a work item"""
+        async with aiosqlite.connect(self.db_path) as db:
+            cursor = await db.execute("""
+                UPDATE work_items 
+                SET commit_sha = ?, updated_at = CURRENT_TIMESTAMP
+                WHERE id = ?
+            """, (commit_sha, work_id))
             await db.commit()
             return cursor.rowcount > 0
 
