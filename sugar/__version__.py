@@ -4,16 +4,16 @@ import tomllib
 from pathlib import Path
 
 try:
-    from importlib.metadata import version
+    from importlib.metadata import version as get_package_version
 except ImportError:
-    from importlib_metadata import version
+    from importlib_metadata import version as get_package_version
 
 
-def _get_version():
+def _get_version() -> str:
     """Get version from package metadata or pyproject.toml"""
     try:
         # First try to get version from installed package metadata
-        return version("sugarai")
+        return get_package_version("sugarai")
     except Exception:
         pass
 
@@ -36,12 +36,12 @@ __author_email__ = "contact@roboticforce.io"
 __url__ = "https://github.com/cdnsteve/sugar"
 
 
-def get_version_info():
+def get_version_info() -> str:
     """Get formatted version information"""
     return f"{__title__} v{__version__}"
 
 
-def get_full_version_info():
+def get_full_version_info() -> str:
     """Get detailed version information"""
     return f"""
 {__title__} v{__version__}
