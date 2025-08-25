@@ -5,6 +5,49 @@ All notable changes to the Sugar autonomous development system will be documente
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.5.0] - 2025-08-25
+
+### 🎯 MINOR RELEASE: Enhanced Task List Interface
+
+This release improves the visibility and usability of Sugar's task management interface with smart summary headers and better defaults.
+
+### Added
+
+#### Task Status Summary Header
+- **Smart Status Breakdown**: `sugar list` now shows task count summary with emojis
+- **Visual Status Distribution**: See at a glance how many tasks are pending, active, completed, or failed
+- **Intelligent Display**: Only shows statuses that have tasks (no empty status clutter)
+- **Logical Ordering**: Status counts displayed in workflow order (pending → active → completed → failed)
+
+### Changed
+- **Default Task Limit**: Increased from 10 to 20 tasks to prevent completed work from being hidden
+- **List Header Format**: Enhanced from simple count to detailed status breakdown
+- **User Experience**: Better visibility into queue status and Sugar's productivity
+
+### Usage Examples
+```bash
+# Before:
+📋 10 Tasks (all statuses):
+
+# After:
+📋 20 Tasks (18 pending ⏳, 2 completed ✅):
+📋 15 Tasks (10 pending ⏳, 3 completed ✅, 1 active ⚡, 1 failed ❌):
+```
+
+### Technical Details
+- Status counts calculated from filtered task results
+- Maintains all existing filtering functionality (--status, --type, --limit)
+- Backward compatible - existing scripts and workflows unchanged
+- Empty statuses automatically omitted from summary
+
+### Benefits
+- **No More Hidden Work**: Higher default limit prevents completed tasks from disappearing
+- **Instant Queue Overview**: See Sugar's productivity at a glance
+- **Better User Experience**: Users can immediately see what Sugar has accomplished
+- **Improved Debugging**: Quickly identify if tasks are stuck or failing
+
+---
+
 ## [1.4.0] - 2025-08-25
 
 ### 🎯 MINOR RELEASE: Force Stop Capability

@@ -307,6 +307,7 @@ Sugar provides detailed analytics for agent performance:
 ```bash
 # View work with timing and agent information
 sugar list
+# 📋 20 Tasks (16 pending ⏳, 2 completed ✅, 1 active ⚡, 1 failed ❌):
 # ⏱️ 45.2s | 🕐 2m 15s | 🤖 tech-lead | Critical auth fix
 
 sugar view TASK_ID
@@ -477,7 +478,7 @@ sugar status
 # Monitor logs for current project
 tail -f .sugar/sugar.log
 
-# List recent work for current project
+# List recent work for current project (shows status summary)
 sugar list --status completed --limit 10
 
 # Background operation for current project
