@@ -163,7 +163,7 @@ class SugarLoop:
                     break
                 
                 # Phase 2: Execute highest priority work
-                await self._execute_work()
+                await self._execute_work(shutdown_event)
                 
                 # Check for shutdown after execution
                 if shutdown_event.is_set():
@@ -255,11 +255,16 @@ class SugarLoop:
         if added_count == 0 and skipped_count == 0:
             logger.info("📭 No new work discovered this cycle")
     
-    async def _execute_work(self):
+    async def _execute_work(self, shutdown_event=None):
         """Execute the highest priority work item"""
         max_concurrent = self.config['sugar']['max_concurrent_work']
         
         for _ in range(max_concurrent):
+            # Check for shutdown before starting new work
+            if shutdown_event and shutdown_event.is_set():
+                logger.info("🛑 Shutdown requested, not starting new work")
+                break
+                
             work_item = await self.work_queue.get_next_work()
             if not work_item:
                 logger.info("📭 No work items ready for execution")
