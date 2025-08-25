@@ -317,9 +317,13 @@ class TestSugarLoop:
             loop.work_queue.get_stats = AsyncMock(
                 return_value={"pending": 0, "completed": 5, "failed": 1}
             )
+
+            # Create feedback result that will be passed to update_priorities
+            feedback_result = {"recommendations": ["test recommendation"]}
+
             loop.feedback_processor = AsyncMock()
             loop.feedback_processor.process_feedback = AsyncMock(  # Correct method name
-                return_value={"recommendations": ["test recommendation"]}
+                return_value=feedback_result
             )
             loop.adaptive_scheduler = AsyncMock()
             loop.adaptive_scheduler.update_priorities = AsyncMock(return_value=0)
@@ -328,4 +332,7 @@ class TestSugarLoop:
 
             # Verify feedback processing was called
             loop.feedback_processor.process_feedback.assert_called_once()
-            loop.adaptive_scheduler.update_priorities.assert_called_once()
+            # Verify update_priorities was called with the feedback result
+            loop.adaptive_scheduler.update_priorities.assert_called_once_with(
+                feedback_result
+            )
