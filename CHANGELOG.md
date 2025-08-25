@@ -5,6 +5,42 @@ All notable changes to the Sugar autonomous development system will be documente
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.4.0] - 2025-08-25
+
+### 🎯 MINOR RELEASE: Force Stop Capability
+
+This release adds immediate termination capability to Sugar's stop command, giving users control over shutdown behavior.
+
+### Added
+
+#### Force Stop Feature
+- **--force/-f Flag**: New option for `sugar stop` command to force immediate termination
+- **Process Group Management**: Sugar now creates process group for comprehensive child process control
+- **SIGKILL Termination**: Force mode uses SIGKILL to immediately terminate all processes
+- **Child Process Coverage**: Terminates Sugar, Claude agents, and all spawned subprocesses
+- **Dual Stop Modes**: Choose between graceful shutdown (default) or immediate termination
+
+### Usage Examples
+```bash
+sugar stop          # Graceful shutdown - waits for current work to complete
+sugar stop --force  # Force immediate termination of all processes  
+sugar stop -f       # Short form of force stop
+```
+
+### Changed
+- **Startup Process**: Sugar now creates process group with `os.setpgrp()` for better process management
+- **Help Messages**: Updated startup messages to include force stop option
+- **Stop Command**: Enhanced with dual-mode operation (graceful vs force)
+
+### Technical Details
+- Added `--force/-f` flag following same pattern as other Sugar commands (`--follow/-f` in logs)
+- Uses `os.killpg()` to terminate entire process group including child processes
+- Includes fallback to individual process termination if process group fails
+- Immediate PID file cleanup for force termination
+- Maintains backward compatibility - graceful shutdown remains default behavior
+
+---
+
 ## [1.3.3] - 2025-08-25
 
 ### Fixed
