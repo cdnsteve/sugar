@@ -38,7 +38,7 @@ jobs:
         echo "## Installation" >> $GITHUB_OUTPUT
         echo "" >> $GITHUB_OUTPUT
         echo '```bash' >> $GITHUB_OUTPUT
-        echo "pip install sugar==${GITHUB_REF_NAME}" >> $GITHUB_OUTPUT
+        echo "pip install sugarai==${GITHUB_REF_NAME}" >> $GITHUB_OUTPUT
         echo '```' >> $GITHUB_OUTPUT
         echo "" >> $GITHUB_OUTPUT
         echo "Or from source:" >> $GITHUB_OUTPUT

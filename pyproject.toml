@@ -3,8 +3,8 @@ requires = ["setuptools>=45", "wheel"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "sugar"
-version = "1.5.1"
+name = "sugarai"
+version = "1.5.2"
 description = "Sugar - AI-powered autonomous development system for Claude Code CLI"
 readme = "README.md"
 requires-python = ">=3.11"
