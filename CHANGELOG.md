@@ -5,6 +5,21 @@ All notable changes to the Sugar autonomous development system will be documente
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.6.1] - 2025-08-25
+
+### 🔧 PATCH RELEASE: Version Display Fix
+
+This patch release fixes version detection when Sugar is installed from PyPI.
+
+### Fixed
+- **Version Display**: Fixed Sugar showing v0.1.0 instead of actual version when installed via PyPI
+- **Package Metadata**: Version now correctly reads from installed package metadata first, with pyproject.toml fallback for development
+
+### Technical Details
+- Updated `sugar/__version__.py` to use `importlib.metadata.version()` for PyPI-installed packages
+- Maintains backward compatibility with development installations using pyproject.toml
+- Proper version now displays in `sugar init` and `sugar run` commands
+
 ## [1.6.0] - 2025-08-25
 
 ### 🎯 MINOR RELEASE: Task Priority Management & PyPI Publishing
