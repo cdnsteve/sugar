@@ -1355,26 +1355,26 @@ def stop(ctx):
         # Send SIGTERM for graceful shutdown
         os.kill(pid, signal.SIGTERM)
         click.echo(f"✅ Sent shutdown signal to Sugar process (PID: {pid})")
+        click.echo("⏳ Sugar is shutting down...")
         
-        # Wait a moment and check if process stopped
-        import time
-        time.sleep(2)
-        
-        try:
-            # Check if process is still running
-            os.kill(pid, 0)  # This will raise exception if process doesn't exist
-            click.echo("⏳ Sugar is shutting down...")
-        except ProcessLookupError:
-            pidfile.unlink()  # Clean up pid file
-            click.echo("🏁 Sugar stopped successfully")
+        # Note: PID file cleanup is handled by the main Sugar process
             
     except (ValueError, ProcessLookupError):
-        pidfile.unlink()  # Clean up stale pid file
-        click.echo("❌ Stale PID file found and removed")
+        # Clean up stale pid file if it still exists
+        try:
+            if pidfile.exists():
+                pidfile.unlink()
+            click.echo("❌ Stale PID file found and removed")
+        except:
+            click.echo("❌ Stale PID file found (already cleaned up)")
     except PermissionError:
         click.echo("❌ Permission denied - cannot stop Sugar process")
     except Exception as e:
-        click.echo(f"❌ Error stopping Sugar: {e}")
+        # Handle race condition where PID file was cleaned up by main process
+        if "No such file or directory" in str(e) and "sugar.pid" in str(e):
+            click.echo("🏁 Sugar process stopped (PID file already cleaned up)")
+        else:
+            click.echo(f"❌ Error stopping Sugar: {e}")
 
 
 @cli.command()
