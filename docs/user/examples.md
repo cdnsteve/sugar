@@ -504,4 +504,53 @@ sugar add "Create automated test suite" --type test --priority 4
 # Shared GitHub integration prevents duplicate work
 ```
 
+## 🎯 Priority Management Examples
+
+### Dynamic Priority Adjustments
+
+```bash
+# Initial task setup with default priorities
+sugar add "Implement search feature" --type feature --priority 3
+sugar add "Fix login bug" --type bug_fix --priority 2
+sugar add "Update documentation" --type documentation --priority 4
+
+# Production incident - need to reprioritize immediately
+sugar priority search-task-id --urgent         # 🔥 Make search urgent
+sugar priority login-bug-id --high            # ⚡ Elevate login bug
+
+# After crisis - adjust back to normal workflow  
+sugar priority search-task-id --normal        # 📋 Back to normal priority
+sugar priority docs-task-id --low             # 📝 Lower priority for docs
+
+# View updated queue
+sugar list
+
+# Shows tasks now ordered by new priorities:
+# 🔥 P1 [bug_fix] Fix login bug
+# 📋 P3 [feature] Implement search feature  
+# 📝 P4 [documentation] Update documentation
+```
+
+### Sprint Planning Workflow
+
+```bash
+# Start of sprint - set priorities based on sprint goals
+sugar add "User profile page" --type feature
+sugar add "Payment integration" --type feature  
+sugar add "Database migration" --type refactor
+
+# Sprint planning meeting decisions
+sugar priority profile-id --high              # ⚡ Sprint priority
+sugar priority payment-id --urgent            # 🔥 Critical for release
+sugar priority migration-id --low             # 📝 Nice to have
+
+# Mid-sprint reprioritization due to customer feedback
+sugar priority profile-id --urgent            # 🔥 Customer requested
+sugar priority payment-id --normal            # 📋 Can wait
+
+# Shows visual feedback:
+# ✅ Priority changed: ⚡ high → 🔥 urgent
+#    Task: User profile page
+```
+
 These examples show Sugar's flexibility across different project types, team sizes, and development workflows. The key is configuring Sugar appropriately for your specific needs and gradually increasing automation as you gain confidence.

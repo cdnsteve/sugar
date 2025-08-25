@@ -5,6 +5,50 @@ All notable changes to the Sugar autonomous development system will be documente
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.6.0] - 2025-08-25
+
+### 🎯 MINOR RELEASE: Task Priority Management & PyPI Publishing
+
+This release introduces an intuitive task priority management system and completes PyPI publishing setup.
+
+### Added
+
+#### New `sugar priority` Command
+- **Intuitive Priority Shortcuts**: Change task priority with memorable flags
+  - `--urgent` (priority 1) with 🔥 indicator
+  - `--high` (priority 2) with ⚡ indicator  
+  - `--normal` (priority 3) with 📋 indicator
+  - `--low` (priority 4) with 📝 indicator
+  - `--minimal` (priority 5) with 💤 indicator
+- **Numeric Priority Option**: `--priority <1-5>` for direct numeric setting
+- **Visual Feedback**: Shows before/after priority change with emoji indicators
+- **Smart Error Handling**: Prevents conflicting options and validates inputs
+
+#### PyPI Package Publishing
+- **Package Available**: Sugar now published as `sugarai` on PyPI
+- **Automated Publishing**: GitHub Actions workflow publishes on git tag releases
+- **Trusted Publishing**: Uses PyPI's secure OIDC token authentication
+
+### Changed
+- **Installation Method**: Primary installation now `pip install sugarai`
+- **Documentation Updates**: All installation instructions updated across docs
+- **Package Name**: PyPI package named `sugarai` (command remains `sugar`)
+
+### Fixed
+- **Database Path Configuration**: Priority command now uses correct config database path
+- **GitHub Actions Workflow**: Updated to modern release action with proper permissions
+
+### Usage Examples
+```bash
+# Quick priority changes
+sugar priority abc123 --urgent
+sugar priority abc123 --low
+sugar priority abc123 --priority 2
+
+# Install from PyPI
+pip install sugarai
+```
+
 ## [1.5.0] - 2025-08-25
 
 ### 🎯 MINOR RELEASE: Enhanced Task List Interface

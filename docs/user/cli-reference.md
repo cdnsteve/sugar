@@ -194,6 +194,49 @@ sugar update task-abc123 --status completed
 
 ---
 
+### `sugar priority`
+
+Change the priority of a task with intuitive shortcuts or numeric values.
+
+```bash
+sugar priority TASK_ID [OPTIONS]
+```
+
+**Arguments:**
+- `TASK_ID` - Task ID to update priority (required)
+
+**Options:**
+- `--priority, -p INTEGER` - Set priority (1=highest, 5=lowest)
+- `--urgent` - Set priority to urgent (1) 🔥
+- `--high` - Set priority to high (2) ⚡
+- `--normal` - Set priority to normal (3) 📋
+- `--low` - Set priority to low (4) 📝
+- `--minimal` - Set priority to minimal (5) 💤
+
+**Examples:**
+```bash
+# Quick priority shortcuts
+sugar priority task-abc123 --urgent
+sugar priority task-abc123 --high
+sugar priority task-abc123 --normal
+
+# Numeric priority setting
+sugar priority task-abc123 --priority 1
+sugar priority task-abc123 -p 4
+
+# Shows visual feedback
+✅ Priority changed: 📋 normal → 🔥 urgent
+   Task: Implement user authentication
+```
+
+**Features:**
+- **Visual Indicators**: Shows before/after priority with emojis
+- **Error Prevention**: Validates inputs and prevents conflicting options
+- **Flexible Input**: Use memorable flags or numeric values
+- **Clear Feedback**: Displays task title and priority change
+
+---
+
 ### `sugar remove`
 
 Remove a task from the work queue.
