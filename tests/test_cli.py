@@ -6,7 +6,7 @@ import pytest
 import json
 import yaml
 from pathlib import Path
-from unittest.mock import patch, MagicMock
+from unittest.mock import patch, MagicMock, AsyncMock
 from click.testing import CliRunner
 
 from sugar.main import cli

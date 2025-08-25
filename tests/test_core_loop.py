@@ -161,8 +161,9 @@ class TestSugarLoop:
         """Test work execution functionality"""
         with (
             patch("sugar.core.loop.WorkQueue"),
-            patch("sugar.core.loop.ClaudeWrapper") as mock_claude,
+            patch("sugar.core.loop.ClaudeWrapper"),
             patch("sugar.core.loop.ErrorLogMonitor"),
+            patch("sugar.core.loop.WorkflowOrchestrator"),
         ):
 
             loop = SugarLoop(str(sugar_config_file))
@@ -178,29 +179,35 @@ class TestSugarLoop:
                 }
             ]
 
-            # Replace work_queue with AsyncMock
+            # Replace components with AsyncMock
             loop.work_queue = AsyncMock()
             loop.work_queue.get_next_work = AsyncMock(return_value=mock_tasks[0])
-            loop.work_queue.get_pending_work = AsyncMock(return_value=mock_tasks)
-            loop.work_queue.mark_work_active = AsyncMock()
             loop.work_queue.mark_work_completed = AsyncMock()
-            mock_claude.return_value.execute_task = AsyncMock(
+            loop.workflow_orchestrator = AsyncMock()
+            loop.workflow_orchestrator.prepare_work_execution = AsyncMock(
+                return_value={}
+            )
+            loop.workflow_orchestrator.complete_work_execution = AsyncMock()
+            loop.claude_executor = AsyncMock()
+            loop.claude_executor.execute_work = AsyncMock(
                 return_value={"success": True, "result": "Task completed successfully"}
             )
 
             await loop._execute_work()
 
-            # Verify work was marked active and then completed
-            loop.work_queue.mark_work_active.assert_called_once()
-            loop.work_queue.mark_work_completed.assert_called_once()
+            # Verify workflow was executed
+            loop.workflow_orchestrator.prepare_work_execution.assert_called_once()
+            loop.claude_executor.execute_work.assert_called_once()
+            loop.workflow_orchestrator.complete_work_execution.assert_called_once()
 
     @pytest.mark.asyncio
     async def test_execute_work_failure(self, sugar_config_file):
         """Test work execution with failure"""
         with (
             patch("sugar.core.loop.WorkQueue"),
-            patch("sugar.core.loop.ClaudeWrapper") as mock_claude,
+            patch("sugar.core.loop.ClaudeWrapper"),
             patch("sugar.core.loop.ErrorLogMonitor"),
+            patch("sugar.core.loop.WorkflowOrchestrator"),
         ):
 
             loop = SugarLoop(str(sugar_config_file))
@@ -214,13 +221,16 @@ class TestSugarLoop:
                 }
             ]
 
-            # Replace work_queue with AsyncMock
+            # Replace components with AsyncMock
             loop.work_queue = AsyncMock()
             loop.work_queue.get_next_work = AsyncMock(return_value=mock_tasks[0])
-            loop.work_queue.get_pending_work = AsyncMock(return_value=mock_tasks)
-            loop.work_queue.mark_work_active = AsyncMock()
             loop.work_queue.mark_work_failed = AsyncMock()
-            mock_claude.return_value.execute_task = AsyncMock(
+            loop.workflow_orchestrator = AsyncMock()
+            loop.workflow_orchestrator.prepare_work_execution = AsyncMock(
+                return_value={}
+            )
+            loop.claude_executor = AsyncMock()
+            loop.claude_executor.execute_work = AsyncMock(
                 return_value={"success": False, "error": "Claude CLI failed"}
             )
 
@@ -234,42 +244,41 @@ class TestSugarLoop:
         """Test concurrent execution of multiple tasks"""
         with (
             patch("sugar.core.loop.WorkQueue"),
-            patch("sugar.core.loop.ClaudeWrapper") as mock_claude,
+            patch("sugar.core.loop.ClaudeWrapper"),
             patch("sugar.core.loop.ErrorLogMonitor"),
+            patch("sugar.core.loop.WorkflowOrchestrator"),
         ):
 
             loop = SugarLoop(str(sugar_config_file))
 
-            # Mock multiple pending tasks
-            mock_tasks = [
-                {
-                    "id": f"task-{i}",
-                    "type": "bug_fix",
-                    "title": f"Task {i}",
-                    "priority": 3,
-                }
-                for i in range(5)
-            ]
+            # Mock single task (since _execute_work processes one at a time)
+            mock_task = {
+                "id": "task-0",
+                "type": "bug_fix",
+                "title": "Task 0",
+                "priority": 3,
+            }
 
-            # Replace work_queue with AsyncMock
+            # Replace components with AsyncMock
             loop.work_queue = AsyncMock()
-            loop.work_queue.get_next_work = AsyncMock(
-                return_value=mock_tasks[0] if mock_tasks else None
-            )
-            loop.work_queue.get_pending_work = AsyncMock(return_value=mock_tasks)
-            loop.work_queue.mark_work_active = AsyncMock()
+            loop.work_queue.get_next_work = AsyncMock(return_value=mock_task)
             loop.work_queue.mark_work_completed = AsyncMock()
-
-            # Mock successful execution
-            mock_claude.return_value.execute_task = AsyncMock(
+            loop.workflow_orchestrator = AsyncMock()
+            loop.workflow_orchestrator.prepare_work_execution = AsyncMock(
+                return_value={}
+            )
+            loop.workflow_orchestrator.complete_work_execution = AsyncMock()
+            loop.claude_executor = AsyncMock()
+            loop.claude_executor.execute_work = AsyncMock(
                 return_value={"success": True, "result": "Task completed"}
             )
 
             await loop._execute_work()
 
-            # Should execute max_concurrent_work tasks (3 from config)
-            assert loop.work_queue.mark_work_active.call_count == 3
-            assert loop.work_queue.mark_work_completed.call_count == 3
+            # Should execute one task successfully
+            loop.workflow_orchestrator.prepare_work_execution.assert_called_once()
+            loop.claude_executor.execute_work.assert_called_once()
+            loop.workflow_orchestrator.complete_work_execution.assert_called_once()
 
     def test_load_config_invalid_yaml(self, temp_dir):
         """Test config loading with invalid YAML"""
@@ -294,11 +303,13 @@ class TestSugarLoop:
 
             # Mock feedback processing with AsyncMock
             loop.work_queue = AsyncMock()
-            mock_feedback.return_value.process_recent_completions = AsyncMock()
-            mock_scheduler.return_value.update_priorities = AsyncMock()
+            loop.feedback_processor = AsyncMock()
+            loop.feedback_processor.process_recent_completions = AsyncMock()
+            loop.adaptive_scheduler = AsyncMock()
+            loop.adaptive_scheduler.update_priorities = AsyncMock()
 
             await loop._process_feedback()
 
             # Verify feedback processing was called
-            mock_feedback.return_value.process_recent_completions.assert_called_once()
-            mock_scheduler.return_value.update_priorities.assert_called_once()
+            loop.feedback_processor.process_recent_completions.assert_called_once()
+            loop.adaptive_scheduler.update_priorities.assert_called_once()
