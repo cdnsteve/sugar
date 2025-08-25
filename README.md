@@ -647,6 +647,6 @@ MIT License with additional disclaimers - see [LICENSE](LICENSE) and [TERMS.md](
 
 ---
 
-**Sugar v1.7.0** - Built for Claude Code CLI autonomous development across any project or codebase.
+**Sugar v1.7.2** - Built for Claude Code CLI autonomous development across any project or codebase.
 
 *Transform any project into an autonomous development environment with just `sugar init`.*
