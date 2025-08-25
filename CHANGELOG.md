@@ -5,6 +5,20 @@ All notable changes to the Sugar autonomous development system will be documente
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.3.2] - 2025-08-25
+
+### Fixed
+- **Shutdown Behavior**: Sugar no longer starts new work items after receiving shutdown signal
+- **Graceful Shutdown**: Current work item completes, but no additional work is processed
+- **Work Queue Processing**: Prevents continued execution after `sugar stop` command
+
+### Technical Details
+- Added `shutdown_event` parameter to `_execute_work()` method
+- Check for shutdown signal before starting each new work item in the execution loop
+- Maintains data integrity by allowing current work to finish gracefully
+
+---
+
 ## [1.3.1] - 2025-08-25
 
 ### Fixed
