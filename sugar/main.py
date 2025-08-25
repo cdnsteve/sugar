@@ -1329,7 +1329,19 @@ def stop(ctx):
     import pathlib
     
     config_file = ctx.obj['config']
-    config_dir = pathlib.Path(config_file).parent
+    
+    # Load config to get consistent path with PID file creation
+    import yaml
+    try:
+        with open(config_file, 'r') as f:
+            config = yaml.safe_load(f)
+        # Use same path logic as PID file creation
+        database_path = config.get('sugar', {}).get('storage', {}).get('database', '.sugar/sugar.db')
+        config_dir = pathlib.Path(database_path).parent
+    except:
+        # Fallback to config file directory
+        config_dir = pathlib.Path(config_file).parent
+        
     pidfile = config_dir / "sugar.pid"
     
     if not pidfile.exists():

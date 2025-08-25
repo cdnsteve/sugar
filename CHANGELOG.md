@@ -5,6 +5,23 @@ All notable changes to the Sugar autonomous development system will be documente
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.3.3] - 2025-08-25
+
+### Fixed
+- **sugar stop**: Fix PID file path inconsistency causing mixed success/error messages
+- **PID File Management**: Use consistent database path logic for both writing and reading PID file
+- **Stop Command**: Eliminate confusing error messages when shutdown signal is successfully sent
+
+### Technical Details  
+- Updated `sugar stop` to use same path resolution as PID file creation
+- Added config loading to determine correct `.sugar` directory location
+- Includes fallback to config file directory if config loading fails
+
+Before: `✅ Sent shutdown signal... ❌ Error stopping Sugar: No such file or directory`  
+After: Clean shutdown messages without PID file errors
+
+---
+
 ## [1.3.2] - 2025-08-25
 
 ### Fixed
