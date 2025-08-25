@@ -888,12 +888,16 @@ async def run_continuous(sugar_loop):
     pidfile = config_dir / "sugar.pid"
     
     try:
+        # Create a new process group so force kill can terminate all children
+        os.setpgrp()
+        
         with open(pidfile, 'w') as f:
             f.write(str(os.getpid()))
         
         logger.info(f"🚀 Starting {get_version_info()} in continuous mode...")
         logger.info("💡 Press Ctrl+C to stop Sugar gracefully")
-        logger.info(f"💡 Or run 'sugar stop' from another terminal")
+        logger.info("💡 Or run 'sugar stop' from another terminal")
+        logger.info("💡 Or run 'sugar stop --force' to force immediate termination")
         
         await sugar_loop.start_with_shutdown(shutdown_event)
     except KeyboardInterrupt:
@@ -1322,9 +1326,10 @@ sugar:
 """
 
 @cli.command()
+@click.option('--force', '-f', is_flag=True, help='Force immediate termination of Sugar and all child processes')
 @click.pass_context  
-def stop(ctx):
-    """Stop running Sugar instance gracefully"""
+def stop(ctx, force):
+    """Stop running Sugar instance gracefully or forcefully"""
     import os
     import pathlib
     
@@ -1352,12 +1357,31 @@ def stop(ctx):
         with open(pidfile, 'r') as f:
             pid = int(f.read().strip())
         
-        # Send SIGTERM for graceful shutdown
-        os.kill(pid, signal.SIGTERM)
-        click.echo(f"✅ Sent shutdown signal to Sugar process (PID: {pid})")
-        click.echo("⏳ Sugar is shutting down...")
-        
-        # Note: PID file cleanup is handled by the main Sugar process
+        if force:
+            # Force shutdown with SIGKILL - immediate termination
+            try:
+                # Kill the process group to terminate all child processes
+                os.killpg(os.getpgid(pid), signal.SIGKILL)
+                click.echo(f"💥 Force terminated Sugar process and all children (PID: {pid})")
+            except ProcessLookupError:
+                # Process group doesn't exist, try individual process
+                os.kill(pid, signal.SIGKILL)
+                click.echo(f"💥 Force terminated Sugar process (PID: {pid})")
+            
+            # Clean up PID file immediately since process was killed
+            try:
+                if pidfile.exists():
+                    pidfile.unlink()
+                click.echo("🏁 Sugar force stopped")
+            except:
+                click.echo("🏁 Sugar force stopped (PID file already cleaned up)")
+        else:
+            # Send SIGTERM for graceful shutdown
+            os.kill(pid, signal.SIGTERM)
+            click.echo(f"✅ Sent shutdown signal to Sugar process (PID: {pid})")
+            click.echo("⏳ Sugar is shutting down...")
+            
+            # Note: PID file cleanup is handled by the main Sugar process
             
     except (ValueError, ProcessLookupError):
         # Clean up stale pid file if it still exists
