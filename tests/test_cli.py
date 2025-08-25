@@ -259,7 +259,7 @@ class TestSugarRun:
         """Test run command in validate mode"""
         mock_loop = MagicMock()
         mock_loop.start = AsyncMock()
-        mock_loop.stop = AsyncMock() 
+        mock_loop.stop = AsyncMock()
         mock_loop.run_once = AsyncMock()
         mock_loop_class.return_value = mock_loop
 

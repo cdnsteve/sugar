@@ -61,7 +61,13 @@ class TestSugarLoop:
     @patch("sugar.core.loop.CodeQualityScanner")
     @patch("sugar.core.loop.TestCoverageAnalyzer")
     def test_discovery_modules_initialization(
-        self, mock_coverage, mock_quality, mock_error_monitor, mock_claude, mock_queue, sugar_config_file
+        self,
+        mock_coverage,
+        mock_quality,
+        mock_error_monitor,
+        mock_claude,
+        mock_queue,
+        sugar_config_file,
     ):
         """Test that discovery modules are initialized correctly"""
         loop = SugarLoop(str(sugar_config_file))
@@ -122,15 +128,25 @@ class TestSugarLoop:
             loop = SugarLoop(str(sugar_config_file))
 
             # Mock discovery results with AsyncMock
-            mock_error_monitor.return_value.discover_work = AsyncMock(return_value=[
-                {"type": "bug_fix", "title": "Fix error", "source": "error_log"}
-            ])
-            mock_quality.return_value.discover_work = AsyncMock(return_value=[
-                {"type": "refactor", "title": "Improve code", "source": "code_quality"}
-            ])
-            mock_coverage.return_value.discover_work = AsyncMock(return_value=[
-                {"type": "test", "title": "Add tests", "source": "test_coverage"}
-            ])
+            mock_error_monitor.return_value.discover_work = AsyncMock(
+                return_value=[
+                    {"type": "bug_fix", "title": "Fix error", "source": "error_log"}
+                ]
+            )
+            mock_quality.return_value.discover_work = AsyncMock(
+                return_value=[
+                    {
+                        "type": "refactor",
+                        "title": "Improve code",
+                        "source": "code_quality",
+                    }
+                ]
+            )
+            mock_coverage.return_value.discover_work = AsyncMock(
+                return_value=[
+                    {"type": "test", "title": "Add tests", "source": "test_coverage"}
+                ]
+            )
 
             loop.work_queue = AsyncMock()
             loop.work_queue.add_work = AsyncMock()
@@ -237,7 +253,9 @@ class TestSugarLoop:
 
             # Replace work_queue with AsyncMock
             loop.work_queue = AsyncMock()
-            loop.work_queue.get_next_work = AsyncMock(return_value=mock_tasks[0] if mock_tasks else None)
+            loop.work_queue.get_next_work = AsyncMock(
+                return_value=mock_tasks[0] if mock_tasks else None
+            )
             loop.work_queue.get_pending_work = AsyncMock(return_value=mock_tasks)
             loop.work_queue.mark_work_active = AsyncMock()
             loop.work_queue.mark_work_completed = AsyncMock()
