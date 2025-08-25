@@ -1,6 +1,7 @@
 """
 Pytest configuration and fixtures for Sugar tests
 """
+
 import pytest
 import tempfile
 import shutil
@@ -11,6 +12,7 @@ import yaml
 import json
 from click.testing import CliRunner
 
+
 @pytest.fixture
 def temp_dir():
     """Create a temporary directory for tests"""
@@ -18,22 +20,24 @@ def temp_dir():
     yield temp_path
     shutil.rmtree(temp_path)
 
+
 @pytest.fixture
 def mock_project_dir(temp_dir):
     """Create a mock project directory with typical structure"""
     project_dir = temp_dir / "test_project"
     project_dir.mkdir()
-    
+
     # Create typical project structure
     (project_dir / "src").mkdir()
     (project_dir / "tests").mkdir()
     (project_dir / "logs" / "errors").mkdir(parents=True)
-    
+
     # Create some sample files
     (project_dir / "src" / "main.py").write_text("# Sample Python file\nprint('hello')")
     (project_dir / "README.md").write_text("# Test Project")
-    
+
     return project_dir
+
 
 @pytest.fixture
 def sugar_config():
@@ -46,71 +50,67 @@ def sugar_config():
             "claude": {
                 "command": "/mock/path/to/claude",
                 "timeout": 300,
-                "context_file": ".sugar/context.json"
+                "context_file": ".sugar/context.json",
             },
             "discovery": {
                 "error_logs": {
                     "enabled": True,
                     "paths": ["logs/errors/"],
                     "patterns": ["*.json", "*.log"],
-                    "max_age_hours": 24
+                    "max_age_hours": 24,
                 },
-                "github": {
-                    "enabled": False
-                },
+                "github": {"enabled": False},
                 "code_quality": {
                     "enabled": True,
                     "root_path": ".",
                     "file_extensions": [".py"],
-                    "excluded_dirs": ["__pycache__", ".git"]
+                    "excluded_dirs": ["__pycache__", ".git"],
                 },
                 "test_coverage": {
                     "enabled": True,
                     "source_dirs": ["src"],
-                    "test_dirs": ["tests"]
-                }
+                    "test_dirs": ["tests"],
+                },
             },
-            "storage": {
-                "database": ".sugar/sugar.db",
-                "backup_interval": 3600
-            },
+            "storage": {"database": ".sugar/sugar.db", "backup_interval": 3600},
             "safety": {
                 "max_retries": 3,
-                "excluded_paths": ["/System", "/usr/bin", ".sugar"]
+                "excluded_paths": ["/System", "/usr/bin", ".sugar"],
             },
-            "logging": {
-                "level": "INFO",
-                "file": ".sugar/sugar.log"
-            }
+            "logging": {"level": "INFO", "file": ".sugar/sugar.log"},
         }
     }
+
 
 @pytest.fixture
 def sugar_config_file(mock_project_dir, sugar_config):
     """Create a Sugar config file in the mock project"""
     sugar_dir = mock_project_dir / ".sugar"
     sugar_dir.mkdir()
-    
+
     config_file = sugar_dir / "config.yaml"
-    with open(config_file, 'w') as f:
+    with open(config_file, "w") as f:
         yaml.dump(sugar_config, f)
-    
+
     return config_file
+
 
 @pytest.fixture
 def cli_runner():
     """Click CLI test runner"""
     return CliRunner()
 
+
 @pytest.fixture
 def mock_claude_cli():
     """Mock Claude CLI responses"""
-    with patch('subprocess.run') as mock_run:
+    with patch("subprocess.run") as mock_run:
         # Mock successful Claude CLI execution
         mock_run.return_value.returncode = 0
         mock_run.return_value.stdout = "Task completed successfully"
         mock_run.return_value.stderr = ""
         yield mock_run
+
 
 @pytest.fixture
 def sample_error_log(mock_project_dir):
@@ -122,13 +122,14 @@ def sample_error_log(mock_project_dir):
         "message": "object has no attribute 'method'",
         "file": "src/main.py",
         "line": 42,
-        "context": "User authentication module"
+        "context": "User authentication module",
     }
-    
-    with open(error_file, 'w') as f:
+
+    with open(error_file, "w") as f:
         json.dump(error_data, f)
-    
+
     return error_file
+
 
 @pytest.fixture
 def sample_tasks():
@@ -142,19 +143,20 @@ def sample_tasks():
             "priority": 5,
             "status": "pending",
             "source": "error_log",
-            "context": {"file": "src/auth.py", "line": 42}
+            "context": {"file": "src/auth.py", "line": 42},
         },
         {
-            "id": "task-2", 
+            "id": "task-2",
             "type": "feature",
             "title": "Add user registration",
             "description": "Implement user registration form",
             "priority": 3,
             "status": "completed",
             "source": "manual",
-            "context": {"component": "user_management"}
-        }
+            "context": {"component": "user_management"},
+        },
     ]
+
 
 @pytest.fixture(scope="session")
 def event_loop():
@@ -163,11 +165,12 @@ def event_loop():
     yield loop
     loop.close()
 
+
 @pytest.fixture
 async def mock_work_queue(temp_dir):
     """Create a mock work queue for testing"""
     from sugar.storage.work_queue import WorkQueue
-    
+
     db_path = temp_dir / "test.db"
     queue = WorkQueue(str(db_path))
     await queue.initialize()

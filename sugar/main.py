@@ -14,6 +14,7 @@ from datetime import datetime
 from .core.loop import SugarLoop
 from .__version__ import get_version_info, __version__
 
+
 def format_json_pretty(data, max_width=80):
     """Format JSON data for readable terminal display"""
     if isinstance(data, str):
@@ -21,33 +22,33 @@ def format_json_pretty(data, max_width=80):
             data = json.loads(data)
         except json.JSONDecodeError:
             return data
-    
+
     if not isinstance(data, (dict, list)):
         return str(data)
-    
+
     # Format with nice indentation - let json.dumps handle the structure
     return json.dumps(data, indent=2, ensure_ascii=False)
 
-def setup_logging(log_file_path='.sugar/sugar.log', debug=False):
+
+def setup_logging(log_file_path=".sugar/sugar.log", debug=False):
     """Setup logging with proper file path from configuration"""
     # Ensure log directory exists
     Path(log_file_path).parent.mkdir(parents=True, exist_ok=True)
-    
+
     level = logging.DEBUG if debug else logging.INFO
-    
+
     # Clear any existing handlers
     logging.getLogger().handlers.clear()
-    
+
     logging.basicConfig(
         level=level,
-        format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
-        handlers=[
-            logging.StreamHandler(),
-            logging.FileHandler(log_file_path)
-        ]
+        format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
+        handlers=[logging.StreamHandler(), logging.FileHandler(log_file_path)],
     )
 
+
 logger = logging.getLogger(__name__)
+
 
 def _format_duration(seconds: float) -> str:
     """Format duration in seconds to human-readable format"""
@@ -62,9 +63,11 @@ def _format_duration(seconds: float) -> str:
         remaining_minutes = int((seconds % 3600) / 60)
         return f"{hours}h {remaining_minutes}m"
 
+
 # Global variable to hold the loop instance
 sugar_loop = None
 shutdown_event = None
+
 
 def signal_handler(signum, frame):
     """Handle shutdown signals gracefully"""
@@ -75,61 +78,70 @@ def signal_handler(signum, frame):
     else:
         logger.warning("⚠️ Shutdown event not available")
 
+
 @click.group(invoke_without_command=True)
-@click.option('--config', default='.sugar/config.yaml', help='Configuration file path')
-@click.option('--debug', is_flag=True, help='Enable debug logging')
-@click.option('--version', is_flag=True, help='Show version information')
+@click.option("--config", default=".sugar/config.yaml", help="Configuration file path")
+@click.option("--debug", is_flag=True, help="Enable debug logging")
+@click.option("--version", is_flag=True, help="Show version information")
 @click.pass_context
 def cli(ctx, config, debug, version):
     """Sugar - AI-powered autonomous development system
-    
+
     A lightweight autonomous development system that works with Claude Code CLI
     """
     # Handle version request
     if version:
         click.echo(get_version_info())
         ctx.exit()
-    
+
     # If no command was given, show help
     if ctx.invoked_subcommand is None and not version:
         click.echo(ctx.get_help())
         return
-    
+
     # Setup logging with proper configuration
-    log_file_path = '.sugar/sugar.log'  # Default
+    log_file_path = ".sugar/sugar.log"  # Default
     if Path(config).exists():
         try:
             import yaml
-            with open(config, 'r') as f:
+
+            with open(config, "r") as f:
                 config_data = yaml.safe_load(f)
-            log_file_path = config_data.get('sugar', {}).get('logging', {}).get('file', '.sugar/sugar.log')
+            log_file_path = (
+                config_data.get("sugar", {})
+                .get("logging", {})
+                .get("file", ".sugar/sugar.log")
+            )
         except Exception:
             pass  # Use default if config can't be read
-    
+
     setup_logging(log_file_path, debug)
-    
+
     if debug:
         logger.debug("🐛 Debug logging enabled")
-    
+
     ctx.ensure_object(dict)
-    ctx.obj['config'] = config
+    ctx.obj["config"] = config
+
 
 @cli.command()
-@click.option('--project-dir', default='.', help='Project directory to initialize Sugar in')
+@click.option(
+    "--project-dir", default=".", help="Project directory to initialize Sugar in"
+)
 def init(project_dir):
     """Initialize Sugar in a project directory"""
     import shutil
     import json
-    
+
     project_path = Path(project_dir).resolve()
-    sugar_dir = project_path / '.sugar'
-    
+    sugar_dir = project_path / ".sugar"
+
     click.echo(f"🚀 Initializing {get_version_info()} in {project_path}")
-    
+
     try:
         # Create .sugar directory
         sugar_dir.mkdir(exist_ok=True)
-        
+
         # Find Claude CLI
         claude_cmd = _find_claude_cli()
         if not claude_cmd:
@@ -137,38 +149,44 @@ def init(project_dir):
             claude_cmd = "claude"
         else:
             click.echo(f"✅ Found Claude CLI: {claude_cmd}")
-        
+
         # Detect GitHub CLI and repository
         github_config = _detect_github_config(project_path)
-        if github_config['cli_available']:
+        if github_config["cli_available"]:
             click.echo(f"✅ Found GitHub CLI: {github_config['gh_command']}")
-            if github_config['repo']:
+            if github_config["repo"]:
                 click.echo(f"✅ Detected GitHub repository: {github_config['repo']}")
-            if not github_config['authenticated']:
-                click.echo("⚠️ GitHub CLI found but not authenticated. Run 'gh auth login' to enable GitHub integration.")
+            if not github_config["authenticated"]:
+                click.echo(
+                    "⚠️ GitHub CLI found but not authenticated. Run 'gh auth login' to enable GitHub integration."
+                )
         else:
-            click.echo("ℹ️ GitHub CLI not found. You can install it later for GitHub integration.")
-        
+            click.echo(
+                "ℹ️ GitHub CLI not found. You can install it later for GitHub integration."
+            )
+
         # Create default config
-        config_content = _generate_default_config(claude_cmd, str(project_path), github_config)
-        config_path = sugar_dir / 'config.yaml'
-        
-        with open(config_path, 'w') as f:
+        config_content = _generate_default_config(
+            claude_cmd, str(project_path), github_config
+        )
+        config_path = sugar_dir / "config.yaml"
+
+        with open(config_path, "w") as f:
             f.write(config_content)
-        
+
         # Create directories
-        (sugar_dir / 'logs').mkdir(exist_ok=True)
-        (sugar_dir / 'backups').mkdir(exist_ok=True)
-        
+        (sugar_dir / "logs").mkdir(exist_ok=True)
+        (sugar_dir / "backups").mkdir(exist_ok=True)
+
         # Create logs/errors directory structure (for user's actual error logs)
-        logs_dir = project_path / 'logs' / 'errors'  
+        logs_dir = project_path / "logs" / "errors"
         logs_dir.mkdir(parents=True, exist_ok=True)
-        
+
         # Create .gitkeep to preserve directory structure but don't create sample files
         # that would be discovered as work items
-        with open(logs_dir / '.gitkeep', 'w') as f:
-            f.write('# This directory is monitored by Sugar for error logs\n')
-        
+        with open(logs_dir / ".gitkeep", "w") as f:
+            f.write("# This directory is monitored by Sugar for error logs\n")
+
         click.echo(f"✅ {get_version_info()} initialized successfully!")
         click.echo(f"📁 Config: {config_path}")
         click.echo(f"📁 Database: {sugar_dir / 'sugar.db'}")
@@ -177,182 +195,229 @@ def init(project_dir):
         click.echo("1. Review and customize the config: .sugar/config.yaml")
         click.echo("2. Add tasks: sugar add 'Your first task'")
         click.echo("3. Start autonomous mode: sugar run")
-        click.echo("\n⚖️  By using Sugar, you agree to the Terms of Service (see TERMS.md)")
-        click.echo("   Software provided 'AS IS' - users responsible for reviewing AI-generated code.")
-        
+        click.echo(
+            "\n⚖️  By using Sugar, you agree to the Terms of Service (see TERMS.md)"
+        )
+        click.echo(
+            "   Software provided 'AS IS' - users responsible for reviewing AI-generated code."
+        )
+
     except Exception as e:
         click.echo(f"❌ Failed to initialize Sugar: {e}", err=True)
         sys.exit(1)
 
+
 @cli.command()
-@click.argument('title')
-@click.option('--type', 'task_type', default='feature', type=click.Choice(['bug_fix', 'feature', 'test', 'refactor', 'documentation']), help='Type of task')
-@click.option('--priority', default=3, type=click.IntRange(1, 5), help='Priority (1=low, 5=urgent)')
-@click.option('--description', help='Detailed description of the task')
-@click.option('--urgent', is_flag=True, help='Mark as urgent (priority 5)')
+@click.argument("title")
+@click.option(
+    "--type",
+    "task_type",
+    default="feature",
+    type=click.Choice(["bug_fix", "feature", "test", "refactor", "documentation"]),
+    help="Type of task",
+)
+@click.option(
+    "--priority",
+    default=3,
+    type=click.IntRange(1, 5),
+    help="Priority (1=low, 5=urgent)",
+)
+@click.option("--description", help="Detailed description of the task")
+@click.option("--urgent", is_flag=True, help="Mark as urgent (priority 5)")
 @click.pass_context
 def add(ctx, title, task_type, priority, description, urgent):
     """Add a new task to Sugar work queue"""
-    
+
     if urgent:
         priority = 5
-    
+
     if not description:
         description = f"Task: {title}"
-    
+
     # Import here to avoid circular imports
     from .storage.work_queue import WorkQueue
     import uuid
-    
+
     try:
-        config_file = ctx.obj['config']
+        config_file = ctx.obj["config"]
         # Load config to get database path
         import yaml
-        with open(config_file, 'r') as f:
+
+        with open(config_file, "r") as f:
             config = yaml.safe_load(f)
-        
+
         # Initialize work queue
-        work_queue = WorkQueue(config['sugar']['storage']['database'])
-        
+        work_queue = WorkQueue(config["sugar"]["storage"]["database"])
+
         # Create task data
         task_data = {
-            'id': str(uuid.uuid4()),
-            'type': task_type,
-            'title': title,
-            'description': description,
-            'priority': priority,
-            'status': 'pending',
-            'source': 'cli',
-            'context': {
-                'added_via': 'sugar_cli',
-                'timestamp': datetime.utcnow().isoformat()
-            }
+            "id": str(uuid.uuid4()),
+            "type": task_type,
+            "title": title,
+            "description": description,
+            "priority": priority,
+            "status": "pending",
+            "source": "cli",
+            "context": {
+                "added_via": "sugar_cli",
+                "timestamp": datetime.utcnow().isoformat(),
+            },
         }
-        
+
         # Add to queue
         asyncio.run(_add_task_async(work_queue, task_data))
-        
+
         urgency = "🚨 URGENT" if urgent else f"Priority {priority}"
         click.echo(f"✅ Added {task_type} task: '{title}' ({urgency})")
-        
+
     except Exception as e:
         click.echo(f"❌ Error adding task: {e}", err=True)
         sys.exit(1)
 
+
 @cli.command()
-@click.option('--status', type=click.Choice(['pending', 'active', 'completed', 'failed', 'all']), default='all', help='Filter by status')
-@click.option('--limit', default=20, help='Number of tasks to show')
-@click.option('--type', 'task_type', type=click.Choice(['bug_fix', 'feature', 'test', 'refactor', 'documentation', 'all']), default='all', help='Filter by type')
+@click.option(
+    "--status",
+    type=click.Choice(["pending", "active", "completed", "failed", "all"]),
+    default="all",
+    help="Filter by status",
+)
+@click.option("--limit", default=20, help="Number of tasks to show")
+@click.option(
+    "--type",
+    "task_type",
+    type=click.Choice(
+        ["bug_fix", "feature", "test", "refactor", "documentation", "all"]
+    ),
+    default="all",
+    help="Filter by type",
+)
 @click.pass_context
 def list(ctx, status, limit, task_type):
     """List tasks in Sugar work queue"""
-    
+
     from .storage.work_queue import WorkQueue
     import yaml
-    
+
     try:
-        config_file = ctx.obj['config']
-        with open(config_file, 'r') as f:
+        config_file = ctx.obj["config"]
+        with open(config_file, "r") as f:
             config = yaml.safe_load(f)
-        
-        work_queue = WorkQueue(config['sugar']['storage']['database'])
-        
+
+        work_queue = WorkQueue(config["sugar"]["storage"]["database"])
+
         # Get tasks
         tasks = asyncio.run(_list_tasks_async(work_queue, status, limit, task_type))
-        
+
         if not tasks:
             click.echo(f"📭 No {status if status != 'all' else ''} tasks found")
             return
-        
+
         # Count tasks by status for summary header
         status_counts = {}
         for task in tasks:
-            task_status = task['status']
+            task_status = task["status"]
             status_counts[task_status] = status_counts.get(task_status, 0) + 1
-        
+
         # Build summary parts
         summary_parts = []
-        status_order = ['pending', 'active', 'completed', 'failed']
+        status_order = ["pending", "active", "completed", "failed"]
         for status_type in status_order:
             count = status_counts.get(status_type, 0)
             if count > 0:
-                emoji = {'pending': '⏳', 'active': '⚡', 'completed': '✅', 'failed': '❌'}[status_type]
+                emoji = {
+                    "pending": "⏳",
+                    "active": "⚡",
+                    "completed": "✅",
+                    "failed": "❌",
+                }[status_type]
                 summary_parts.append(f"{count} {status_type} {emoji}")
-        
+
         summary_text = ", ".join(summary_parts) if summary_parts else "no tasks"
-        
+
         click.echo(f"\n📋 {len(tasks)} Tasks ({summary_text}):")
         click.echo("=" * 60)
-        
+
         for task in tasks:
             status_emoji = {
-                'pending': '⏳',
-                'active': '⚡',
-                'completed': '✅',
-                'failed': '❌'
-            }.get(task['status'], '📄')
-            
-            priority_str = "🚨" if task['priority'] == 5 else f"P{task['priority']}"
-            
-            click.echo(f"{status_emoji} {priority_str} [{task['type']}] {task['title']}")
-            if task.get('description') and len(task['description']) < 100:
+                "pending": "⏳",
+                "active": "⚡",
+                "completed": "✅",
+                "failed": "❌",
+            }.get(task["status"], "📄")
+
+            priority_str = "🚨" if task["priority"] == 5 else f"P{task['priority']}"
+
+            click.echo(
+                f"{status_emoji} {priority_str} [{task['type']}] {task['title']}"
+            )
+            if task.get("description") and len(task["description"]) < 100:
                 click.echo(f"   📝 {task['description']}")
-            
+
             # Build info line with timing for completed/failed tasks
             info_parts = [
                 f"🆔 {task['id']}",
                 f"📅 {task['created_at']}",
-                f"🔄 {task['attempts']} attempts"
+                f"🔄 {task['attempts']} attempts",
             ]
-            
+
             # Add timing information for completed/failed tasks
-            if task['status'] in ['completed', 'failed']:
-                if task.get('total_execution_time', 0) > 0:
+            if task["status"] in ["completed", "failed"]:
+                if task.get("total_execution_time", 0) > 0:
                     info_parts.append(f"⏱️ {task['total_execution_time']:.1f}s")
-                if task.get('total_elapsed_time', 0) > 0:
-                    info_parts.append(f"🕐 {_format_duration(task['total_elapsed_time'])}")
-            
+                if task.get("total_elapsed_time", 0) > 0:
+                    info_parts.append(
+                        f"🕐 {_format_duration(task['total_elapsed_time'])}"
+                    )
+
             click.echo(f"   {' | '.join(info_parts)}")
             click.echo()
-        
+
     except Exception as e:
         click.echo(f"❌ Error listing tasks: {e}", err=True)
         sys.exit(1)
 
+
 @cli.command()
-@click.argument('task_id')
-@click.option('--format', 'output_format', type=click.Choice(['pretty', 'compact']), default='pretty', help='JSON output format (default: pretty)')
+@click.argument("task_id")
+@click.option(
+    "--format",
+    "output_format",
+    type=click.Choice(["pretty", "compact"]),
+    default="pretty",
+    help="JSON output format (default: pretty)",
+)
 @click.pass_context
 def view(ctx, task_id, output_format):
     """View detailed information about a specific task"""
-    
+
     from .storage.work_queue import WorkQueue
     import yaml
-    
+
     try:
-        config_file = ctx.obj['config']
-        with open(config_file, 'r') as f:
+        config_file = ctx.obj["config"]
+        with open(config_file, "r") as f:
             config = yaml.safe_load(f)
-        
-        work_queue = WorkQueue(config['sugar']['storage']['database'])
-        
+
+        work_queue = WorkQueue(config["sugar"]["storage"]["database"])
+
         # Get specific task
         task = asyncio.run(_get_task_by_id_async(work_queue, task_id))
-        
+
         if not task:
             click.echo(f"❌ Task not found: {task_id}")
             return
-        
+
         # Display detailed task information
         status_emoji = {
-            'pending': '⏳',
-            'active': '⚡',
-            'completed': '✅',
-            'failed': '❌'
-        }.get(task['status'], '📄')
-        
-        priority_str = "🚨" if task['priority'] == 5 else f"P{task['priority']}"
-        
+            "pending": "⏳",
+            "active": "⚡",
+            "completed": "✅",
+            "failed": "❌",
+        }.get(task["status"], "📄")
+
+        priority_str = "🚨" if task["priority"] == 5 else f"P{task['priority']}"
+
         click.echo(f"\n📋 Task Details")
         click.echo("=" * 50)
         click.echo(f"{status_emoji} {priority_str} [{task['type']}] {task['title']}")
@@ -363,163 +428,199 @@ def view(ctx, task_id, output_format):
         click.echo(f"📊 Status: {task['status']}")
         click.echo(f"🎯 Priority: {task['priority']}/5")
         click.echo(f"🏷️  Source: {task.get('source', 'unknown')}")
-        
+
         # Display timing information
-        if task.get('total_execution_time', 0) > 0:
+        if task.get("total_execution_time", 0) > 0:
             click.echo(f"⏱️  Execution Time: {task['total_execution_time']:.1f}s")
-        if task.get('total_elapsed_time', 0) > 0:
-            click.echo(f"🕐 Total Elapsed: {_format_duration(task['total_elapsed_time'])}")
-        if task.get('started_at'):
+        if task.get("total_elapsed_time", 0) > 0:
+            click.echo(
+                f"🕐 Total Elapsed: {_format_duration(task['total_elapsed_time'])}"
+            )
+        if task.get("started_at"):
             click.echo(f"🚀 Started: {task['started_at']}")
-        
+
         # Display commit SHA if available
-        if task.get('commit_sha'):
+        if task.get("commit_sha"):
             click.echo(f"🔗 Commit: {task['commit_sha']}")
-        
-        if task.get('context'):
+
+        if task.get("context"):
             click.echo(f"🔍 Context:")
-            if output_format == 'pretty':
-                formatted_context = format_json_pretty(task['context'])
+            if output_format == "pretty":
+                formatted_context = format_json_pretty(task["context"])
                 click.echo(formatted_context)
             else:
-                click.echo(json.dumps(task['context']) if isinstance(task['context'], dict) else str(task['context']))
-        
-        if task.get('result'):
+                click.echo(
+                    json.dumps(task["context"])
+                    if isinstance(task["context"], dict)
+                    else str(task["context"])
+                )
+
+        if task.get("result"):
             click.echo(f"📋 Result:")
-            if output_format == 'pretty':
-                formatted_result = format_json_pretty(task['result'])
+            if output_format == "pretty":
+                formatted_result = format_json_pretty(task["result"])
                 click.echo(formatted_result)
             else:
-                click.echo(json.dumps(task['result']) if isinstance(task['result'], dict) else str(task['result']))
-            
+                click.echo(
+                    json.dumps(task["result"])
+                    if isinstance(task["result"], dict)
+                    else str(task["result"])
+                )
+
         click.echo()
-        
+
     except Exception as e:
         click.echo(f"❌ Error viewing task: {e}", err=True)
         sys.exit(1)
 
+
 @cli.command()
-@click.argument('task_id')
+@click.argument("task_id")
 @click.pass_context
 def remove(ctx, task_id):
     """Remove a task from the work queue"""
-    
+
     from .storage.work_queue import WorkQueue
     import yaml
-    
+
     try:
-        config_file = ctx.obj['config']
-        with open(config_file, 'r') as f:
+        config_file = ctx.obj["config"]
+        with open(config_file, "r") as f:
             config = yaml.safe_load(f)
-        
-        work_queue = WorkQueue(config['sugar']['storage']['database'])
-        
+
+        work_queue = WorkQueue(config["sugar"]["storage"]["database"])
+
         # Remove the task
         success = asyncio.run(_remove_task_async(work_queue, task_id))
-        
+
         if success:
             click.echo(f"✅ Removed task: {task_id}")
         else:
             click.echo(f"❌ Task not found: {task_id}")
             sys.exit(1)
-        
+
     except Exception as e:
         click.echo(f"❌ Error removing task: {e}", err=True)
         sys.exit(1)
 
+
 @cli.command()
-@click.argument('task_id')
-@click.option('--title', help='Update task title')
-@click.option('--description', help='Update task description')  
-@click.option('--priority', type=click.IntRange(1, 5), help='Update priority (1-5)')
-@click.option('--type', 'task_type', type=click.Choice(['bug_fix', 'feature', 'test', 'refactor', 'documentation']), help='Update task type')
-@click.option('--status', type=click.Choice(['pending', 'active', 'completed', 'failed']), help='Update task status')
+@click.argument("task_id")
+@click.option("--title", help="Update task title")
+@click.option("--description", help="Update task description")
+@click.option("--priority", type=click.IntRange(1, 5), help="Update priority (1-5)")
+@click.option(
+    "--type",
+    "task_type",
+    type=click.Choice(["bug_fix", "feature", "test", "refactor", "documentation"]),
+    help="Update task type",
+)
+@click.option(
+    "--status",
+    type=click.Choice(["pending", "active", "completed", "failed"]),
+    help="Update task status",
+)
 @click.pass_context
 def update(ctx, task_id, title, description, priority, task_type, status):
     """Update an existing task"""
-    
+
     from .storage.work_queue import WorkQueue
     import yaml
-    
+
     if not any([title, description, priority, task_type, status]):
         click.echo("❌ No updates specified. Use --help to see available options.")
         sys.exit(1)
-    
+
     try:
-        config_file = ctx.obj['config']
-        with open(config_file, 'r') as f:
+        config_file = ctx.obj["config"]
+        with open(config_file, "r") as f:
             config = yaml.safe_load(f)
-        
-        work_queue = WorkQueue(config['sugar']['storage']['database'])
-        
+
+        work_queue = WorkQueue(config["sugar"]["storage"]["database"])
+
         # Build updates dictionary
         updates = {}
         if title:
-            updates['title'] = title
+            updates["title"] = title
         if description:
-            updates['description'] = description
+            updates["description"] = description
         if priority:
-            updates['priority'] = priority
+            updates["priority"] = priority
         if task_type:
-            updates['type'] = task_type
+            updates["type"] = task_type
         if status:
-            updates['status'] = status
-            
-        updates['updated_at'] = datetime.utcnow().isoformat()
-        
+            updates["status"] = status
+
+        updates["updated_at"] = datetime.utcnow().isoformat()
+
         # Update the task
         success = asyncio.run(_update_task_async(work_queue, task_id, updates))
-        
+
         if success:
             click.echo(f"✅ Updated task: {task_id}")
             # Show updated task
             task = asyncio.run(_get_task_by_id_async(work_queue, task_id))
             if task:
                 status_emoji = {
-                    'pending': '⏳', 'active': '⚡', 'completed': '✅', 'failed': '❌'
-                }.get(task['status'], '📄')
-                priority_str = "🚨" if task['priority'] == 5 else f"P{task['priority']}"
-                click.echo(f"{status_emoji} {priority_str} [{task['type']}] {task['title']}")
+                    "pending": "⏳",
+                    "active": "⚡",
+                    "completed": "✅",
+                    "failed": "❌",
+                }.get(task["status"], "📄")
+                priority_str = "🚨" if task["priority"] == 5 else f"P{task['priority']}"
+                click.echo(
+                    f"{status_emoji} {priority_str} [{task['type']}] {task['title']}"
+                )
         else:
             click.echo(f"❌ Task not found: {task_id}")
             sys.exit(1)
-        
+
     except Exception as e:
         click.echo(f"❌ Error updating task: {e}", err=True)
         sys.exit(1)
 
+
 @cli.command()
-@click.argument('task_id')
-@click.option('--priority', '-p', type=click.IntRange(1, 5), help='Set priority (1=highest, 5=lowest)')
-@click.option('--urgent', is_flag=True, help='Set priority to urgent (1)')
-@click.option('--high', is_flag=True, help='Set priority to high (2)')
-@click.option('--normal', is_flag=True, help='Set priority to normal (3)')
-@click.option('--low', is_flag=True, help='Set priority to low (4)')
-@click.option('--minimal', is_flag=True, help='Set priority to minimal (5)')
+@click.argument("task_id")
+@click.option(
+    "--priority",
+    "-p",
+    type=click.IntRange(1, 5),
+    help="Set priority (1=highest, 5=lowest)",
+)
+@click.option("--urgent", is_flag=True, help="Set priority to urgent (1)")
+@click.option("--high", is_flag=True, help="Set priority to high (2)")
+@click.option("--normal", is_flag=True, help="Set priority to normal (3)")
+@click.option("--low", is_flag=True, help="Set priority to low (4)")
+@click.option("--minimal", is_flag=True, help="Set priority to minimal (5)")
 @click.pass_context
 def priority(ctx, task_id, priority, urgent, high, normal, low, minimal):
     """Change the priority of a task"""
-    
+
     from .storage.work_queue import WorkQueue
     import yaml
-    
+
     # Count how many priority options were specified
     priority_flags = [urgent, high, normal, low, minimal]
     flag_count = sum(priority_flags)
-    
+
     # Validate that only one priority method is specified
     if priority is not None and flag_count > 0:
-        click.echo("❌ Cannot specify both --priority and priority flags (--urgent, --high, etc.)")
+        click.echo(
+            "❌ Cannot specify both --priority and priority flags (--urgent, --high, etc.)"
+        )
         sys.exit(1)
-    
+
     if flag_count > 1:
         click.echo("❌ Can only specify one priority flag at a time")
         sys.exit(1)
-    
+
     if priority is None and flag_count == 0:
-        click.echo("❌ Must specify either --priority <1-5> or a priority flag (--urgent, --high, etc.)")
+        click.echo(
+            "❌ Must specify either --priority <1-5> or a priority flag (--urgent, --high, etc.)"
+        )
         sys.exit(1)
-    
+
     # Map priority flags to numeric values
     if urgent:
         new_priority = 1
@@ -540,96 +641,111 @@ def priority(ctx, task_id, priority, urgent, high, normal, low, minimal):
         new_priority = priority
         priority_names = {1: "urgent", 2: "high", 3: "normal", 4: "low", 5: "minimal"}
         priority_name = priority_names.get(new_priority, str(new_priority))
-    
+
     try:
-        config_file = ctx.obj['config']
-        with open(config_file, 'r') as f:
+        config_file = ctx.obj["config"]
+        with open(config_file, "r") as f:
             config = yaml.safe_load(f)
-        
-        work_queue = WorkQueue(config.get('storage', {}).get('database', '.sugar/sugar.db'))
-        
+
+        work_queue = WorkQueue(
+            config.get("storage", {}).get("database", ".sugar/sugar.db")
+        )
+
         async def change_priority():
             await work_queue.initialize()
-            
+
             # Get current task to show before/after
             current_task = await work_queue.get_work_by_id(task_id)
             if not current_task:
                 click.echo(f"❌ Task not found: {task_id}")
                 return False
-            
-            old_priority = current_task.get('priority', 3)
-            old_priority_names = {1: "urgent", 2: "high", 3: "normal", 4: "low", 5: "minimal"}
+
+            old_priority = current_task.get("priority", 3)
+            old_priority_names = {
+                1: "urgent",
+                2: "high",
+                3: "normal",
+                4: "low",
+                5: "minimal",
+            }
             old_priority_name = old_priority_names.get(old_priority, str(old_priority))
-            
+
             # Update the priority
-            success = await work_queue.update_work(
-                task_id, 
-                {'priority': new_priority}
-            )
-            
+            success = await work_queue.update_work(task_id, {"priority": new_priority})
+
             if success:
                 # Priority indicators for display
                 priority_indicators = {
                     1: "🔥",  # urgent
-                    2: "⚡",  # high  
+                    2: "⚡",  # high
                     3: "📋",  # normal
                     4: "📝",  # low
-                    5: "💤"   # minimal
+                    5: "💤",  # minimal
                 }
-                
+
                 old_indicator = priority_indicators.get(old_priority, "📋")
                 new_indicator = priority_indicators.get(new_priority, "📋")
-                
-                click.echo(f"✅ Priority changed: {old_indicator} {old_priority_name} → {new_indicator} {priority_name}")
+
+                click.echo(
+                    f"✅ Priority changed: {old_indicator} {old_priority_name} → {new_indicator} {priority_name}"
+                )
                 click.echo(f"   Task: {current_task['title']}")
                 return True
             else:
                 click.echo(f"❌ Failed to update task priority")
                 return False
-        
+
         import asyncio
+
         success = asyncio.run(change_priority())
         if not success:
             sys.exit(1)
-            
+
     except Exception as e:
         click.echo(f"❌ Error changing task priority: {e}", err=True)
         sys.exit(1)
 
+
 @cli.command()
-@click.option('--lines', '-n', default=50, help='Number of log lines to show')
-@click.option('--follow', '-f', is_flag=True, help='Follow log output (like tail -f)')
-@click.option('--level', type=click.Choice(['DEBUG', 'INFO', 'WARNING', 'ERROR']), help='Filter by log level')
+@click.option("--lines", "-n", default=50, help="Number of log lines to show")
+@click.option("--follow", "-f", is_flag=True, help="Follow log output (like tail -f)")
+@click.option(
+    "--level",
+    type=click.Choice(["DEBUG", "INFO", "WARNING", "ERROR"]),
+    help="Filter by log level",
+)
 @click.pass_context
 def logs(ctx, lines, follow, level):
     """Show Sugar logs with debugging information"""
     import yaml
-    
+
     try:
-        config_file = ctx.obj['config']
-        with open(config_file, 'r') as f:
+        config_file = ctx.obj["config"]
+        with open(config_file, "r") as f:
             config = yaml.safe_load(f)
-        
-        log_file = config.get('sugar', {}).get('logging', {}).get('file', '.sugar/sugar.log')
+
+        log_file = (
+            config.get("sugar", {}).get("logging", {}).get("file", ".sugar/sugar.log")
+        )
         log_path = Path(log_file)
-        
+
         if not log_path.exists():
             click.echo(f"❌ Log file not found: {log_path}")
             return
-        
+
         if follow:
             click.echo(f"📋 Following Sugar logs (Ctrl+C to stop): {log_path}")
             click.echo("=" * 60)
-            
+
             # Use tail -f equivalent
             import subprocess
             import sys
-            
-            cmd = ['tail', '-f']
+
+            cmd = ["tail", "-f"]
             if lines != 50:
-                cmd.extend(['-n', str(lines)])
+                cmd.extend(["-n", str(lines)])
             cmd.append(str(log_path))
-            
+
             try:
                 process = subprocess.Popen(cmd, stdout=sys.stdout, stderr=sys.stderr)
                 process.wait()
@@ -639,22 +755,23 @@ def logs(ctx, lines, follow, level):
         else:
             click.echo(f"📋 Last {lines} lines from Sugar logs: {log_path}")
             click.echo("=" * 60)
-            
+
             # Read last N lines
-            with open(log_path, 'r') as f:
+            with open(log_path, "r") as f:
                 log_lines = f.readlines()
-            
+
             # Filter by level if specified
             if level:
                 log_lines = [line for line in log_lines if f" - {level} - " in line]
-            
+
             # Show last N lines
             for line in log_lines[-lines:]:
                 click.echo(line.rstrip())
-    
+
     except Exception as e:
         click.echo(f"❌ Error reading logs: {e}", err=True)
         sys.exit(1)
+
 
 @cli.command()
 @click.pass_context
@@ -662,40 +779,50 @@ def debug(ctx):
     """Show debugging information about last Claude execution"""
     import yaml
     import os
-    
+
     try:
-        config_file = ctx.obj['config']
-        with open(config_file, 'r') as f:
+        config_file = ctx.obj["config"]
+        with open(config_file, "r") as f:
             config = yaml.safe_load(f)
-        
+
         # Check if session state exists
-        context_file = config.get('sugar', {}).get('claude', {}).get('context_file', '.sugar/context.json')
-        session_file = context_file.replace('.json', '_session.json')
-        
+        context_file = (
+            config.get("sugar", {})
+            .get("claude", {})
+            .get("context_file", ".sugar/context.json")
+        )
+        session_file = context_file.replace(".json", "_session.json")
+
         click.echo("🔍 Sugar Debug Information")
         click.echo("=" * 50)
-        
+
         # Show session state
         if Path(session_file).exists():
-            with open(session_file, 'r') as f:
+            with open(session_file, "r") as f:
                 session_state = json.load(f)
-            
+
             click.echo("📋 Last Session State:")
-            click.echo(f"   Last execution: {session_state.get('last_execution_time', 'unknown')}")
-            click.echo(f"   Task type: {session_state.get('last_task_type', 'unknown')}")
-            click.echo(f"   Context strategy: {session_state.get('context_strategy', 'unknown')}")
+            click.echo(
+                f"   Last execution: {session_state.get('last_execution_time', 'unknown')}"
+            )
+            click.echo(
+                f"   Task type: {session_state.get('last_task_type', 'unknown')}"
+            )
+            click.echo(
+                f"   Context strategy: {session_state.get('context_strategy', 'unknown')}"
+            )
             click.echo(f"   Execution count: {session_state.get('execution_count', 0)}")
             click.echo(f"   Simulated: {session_state.get('simulated', False)}")
             click.echo()
         else:
             click.echo("📋 No session state found (fresh start)")
             click.echo()
-        
+
         # Show current context file
         if Path(context_file).exists():
-            with open(context_file, 'r') as f:
+            with open(context_file, "r") as f:
                 context = json.load(f)
-            
+
             click.echo("📄 Current Context:")
             click.echo(f"   Continue session: {context.get('continue_session', False)}")
             click.echo(f"   Execution count: {context.get('execution_count', 0)}")
@@ -704,16 +831,18 @@ def debug(ctx):
         else:
             click.echo("📄 No context file found")
             click.echo()
-        
+
         # Show Claude CLI configuration
-        claude_config = config.get('sugar', {}).get('claude', {})
+        claude_config = config.get("sugar", {}).get("claude", {})
         click.echo("🤖 Claude Configuration:")
         click.echo(f"   Command: {claude_config.get('command', 'unknown')}")
         click.echo(f"   Timeout: {claude_config.get('timeout', 'unknown')}s")
         click.echo(f"   Use continuous: {claude_config.get('use_continuous', True)}")
-        click.echo(f"   Context strategy: {claude_config.get('context_strategy', 'project')}")
+        click.echo(
+            f"   Context strategy: {claude_config.get('context_strategy', 'project')}"
+        )
         click.echo()
-        
+
         # Show working directory and key files
         click.echo("📁 Environment:")
         click.echo(f"   Working directory: {os.getcwd()}")
@@ -721,13 +850,16 @@ def debug(ctx):
         click.echo(f"   Context file: {context_file}")
         click.echo(f"   Session file: {session_file}")
         click.echo()
-        
+
         # Test Claude CLI availability
-        claude_cmd = claude_config.get('command', 'claude')
+        claude_cmd = claude_config.get("command", "claude")
         click.echo("🧪 Claude CLI Test:")
         try:
             import subprocess
-            result = subprocess.run([claude_cmd, '--version'], capture_output=True, text=True, timeout=10)
+
+            result = subprocess.run(
+                [claude_cmd, "--version"], capture_output=True, text=True, timeout=10
+            )
             if result.returncode == 0:
                 click.echo(f"   ✅ Claude CLI working: {result.stdout.strip()}")
             else:
@@ -735,7 +867,7 @@ def debug(ctx):
         except Exception as e:
             click.echo(f"   ❌ Claude CLI not found: {e}")
         click.echo()
-        
+
         # Suggest next steps
         click.echo("💡 Debugging Tips:")
         click.echo("   • Use 'sugar logs -f' to follow live logs")
@@ -743,29 +875,30 @@ def debug(ctx):
         click.echo("   • Check if Claude CLI works: claude --version")
         click.echo("   • Try dry run mode first: set dry_run: true in config")
         click.echo("   • Use 'sugar run --once --dry-run' to test execution")
-        
+
     except Exception as e:
         click.echo(f"❌ Error getting debug info: {e}", err=True)
         sys.exit(1)
 
+
 @cli.command()
-@click.pass_context  
+@click.pass_context
 def status(ctx):
     """Show Sugar system status and queue statistics"""
-    
+
     from .storage.work_queue import WorkQueue
     import yaml
-    
+
     try:
-        config_file = ctx.obj['config']
-        with open(config_file, 'r') as f:
+        config_file = ctx.obj["config"]
+        with open(config_file, "r") as f:
             config = yaml.safe_load(f)
-        
-        work_queue = WorkQueue(config['sugar']['storage']['database'])
-        
+
+        work_queue = WorkQueue(config["sugar"]["storage"]["database"])
+
         # Get statistics
         stats = asyncio.run(_get_status_async(work_queue))
-        
+
         click.echo("\n🤖 Sugar System Status")
         click.echo("=" * 40)
         click.echo(f"📊 Total Tasks: {stats['total']}")
@@ -774,27 +907,29 @@ def status(ctx):
         click.echo(f"✅ Completed: {stats['completed']}")
         click.echo(f"❌ Failed: {stats['failed']}")
         click.echo(f"📈 Recent (24h): {stats['recent_24h']}")
-        
+
         # Show next few pending tasks
         next_tasks = asyncio.run(_get_next_tasks_async(work_queue, 3))
         if next_tasks:
             click.echo("\n🔜 Next Tasks:")
             click.echo("-" * 20)
             for task in next_tasks:
-                priority_str = "🚨" if task['priority'] == 5 else f"P{task['priority']}"
+                priority_str = "🚨" if task["priority"] == 5 else f"P{task['priority']}"
                 click.echo(f"{priority_str} [{task['type']}] {task['title']}")
-        
+
         click.echo()
-        
+
     except Exception as e:
         click.echo(f"❌ Error getting status: {e}", err=True)
         sys.exit(1)
 
-@cli.command()  
+
+@cli.command()
 def help():
     """Show comprehensive Sugar help and getting started guide"""
-    
-    click.echo("""
+
+    click.echo(
+        """
 🤖 Sugar - AI-Powered Autonomous Development System
 ================================================
 
@@ -903,149 +1038,166 @@ Complete documentation: docs/README.md
 • By using Sugar, you agree to these terms and conditions
 
 Ready to supercharge your development workflow? 🚀
-""")
+"""
+    )
+
 
 @cli.command()
-@click.option('--dry-run', is_flag=True, help='Run in simulation mode (override config)')
-@click.option('--once', is_flag=True, help='Run one cycle and exit')
-@click.option('--validate', is_flag=True, help='Validate configuration and exit')
+@click.option(
+    "--dry-run", is_flag=True, help="Run in simulation mode (override config)"
+)
+@click.option("--once", is_flag=True, help="Run one cycle and exit")
+@click.option("--validate", is_flag=True, help="Validate configuration and exit")
 @click.pass_context
 def run(ctx, dry_run, once, validate):
     """
     Start Sugar - AI-powered autonomous development system
-    
+
     A lightweight autonomous development system that:
     - Discovers work from error logs and feedback
     - Executes tasks using Claude Code CLI
     - Learns and adapts from results
     """
     global sugar_loop
-    
+
     try:
         # Initialize Sugar
-        config = ctx.obj['config']
+        config = ctx.obj["config"]
         sugar_loop = SugarLoop(config)
-        
+
         # Override dry_run if specified
         if dry_run:
-            sugar_loop.config['sugar']['dry_run'] = True
+            sugar_loop.config["sugar"]["dry_run"] = True
             logger.info("🧪 Dry run mode enabled via command line")
-        
+
         # Validation mode
         if validate:
             asyncio.run(validate_config(sugar_loop))
             return
-        
+
         # Set up signal handlers for graceful shutdown
         signal.signal(signal.SIGINT, signal_handler)
         signal.signal(signal.SIGTERM, signal_handler)
-        
+
         # Run Sugar
         if once:
             asyncio.run(run_once(sugar_loop))
         else:
             asyncio.run(run_continuous(sugar_loop))
-            
+
     except KeyboardInterrupt:
         logger.info("🛑 Shutdown requested by user")
     except Exception as e:
         logger.error(f"💥 Sugar crashed: {e}", exc_info=True)
         sys.exit(1)
 
+
 async def validate_config(sugar_loop):
     """Validate configuration and dependencies"""
     logger.info("🔍 Validating Sugar configuration...")
-    
+
     # Check config structure
     config = sugar_loop.config
-    required_sections = ['sugar']
-    
+    required_sections = ["sugar"]
+
     for section in required_sections:
         if section not in config:
             logger.error(f"❌ Missing required config section: {section}")
             sys.exit(1)
-    
+
     # Validate Claude CLI
     from .executor.claude_wrapper import ClaudeWrapper
-    claude_wrapper = ClaudeWrapper(config['sugar']['claude'])
-    
+
+    claude_wrapper = ClaudeWrapper(config["sugar"]["claude"])
+
     if await claude_wrapper.validate_claude_cli():
         logger.info("✅ Claude CLI validation passed")
     else:
         logger.warning("⚠️ Claude CLI validation failed - dry run mode recommended")
-    
+
     # Check discovery paths
     from .discovery.error_monitor import ErrorLogMonitor
-    if config['sugar']['discovery']['error_logs']['enabled']:
-        error_monitor = ErrorLogMonitor(config['sugar']['discovery']['error_logs'])
+
+    if config["sugar"]["discovery"]["error_logs"]["enabled"]:
+        error_monitor = ErrorLogMonitor(config["sugar"]["discovery"]["error_logs"])
         health = await error_monitor.health_check()
-        logger.info(f"📁 Discovery paths: {health['paths_accessible']}/{health['paths_configured']} accessible")
-    
+        logger.info(
+            f"📁 Discovery paths: {health['paths_accessible']}/{health['paths_configured']} accessible"
+        )
+
     # Initialize storage
     await sugar_loop.work_queue.initialize()
     queue_health = await sugar_loop.work_queue.health_check()
     logger.info(f"💾 Storage initialized: {queue_health['database_path']}")
-    
+
     logger.info("✅ Configuration validation completed")
+
 
 async def run_once(sugar_loop):
     """Run Sugar for one cycle and exit"""
     logger.info(f"🔄 Running {get_version_info()} for one cycle...")
-    
+
     # Initialize
     await sugar_loop.work_queue.initialize()
-    
+
     # Run discovery
     await sugar_loop._discover_work()
-    
+
     # Execute work
     await sugar_loop._execute_work()
-    
+
     # Process feedback
     await sugar_loop._process_feedback()
-    
+
     # Show final stats
     stats = await sugar_loop.work_queue.get_stats()
     logger.info(f"📊 Final stats: {stats}")
-    
+
     logger.info("✅ Single cycle completed")
+
 
 async def run_continuous(sugar_loop):
     """Run Sugar continuously"""
     global shutdown_event
     shutdown_event = asyncio.Event()
-    
+
     # Create PID file for stop command
     import pathlib
     import os
-    config_dir = pathlib.Path(sugar_loop.config.get('sugar', {}).get('storage', {}).get('database', '.sugar/sugar.db')).parent
+
+    config_dir = pathlib.Path(
+        sugar_loop.config.get("sugar", {})
+        .get("storage", {})
+        .get("database", ".sugar/sugar.db")
+    ).parent
     config_dir.mkdir(exist_ok=True)
     pidfile = config_dir / "sugar.pid"
-    
+
     try:
         # Create a new process group so force kill can terminate all children
         os.setpgrp()
-        
-        with open(pidfile, 'w') as f:
+
+        with open(pidfile, "w") as f:
             f.write(str(os.getpid()))
-        
+
         logger.info(f"🚀 Starting {get_version_info()} in continuous mode...")
         logger.info("💡 Press Ctrl+C to stop Sugar gracefully")
         logger.info("💡 Or run 'sugar stop' from another terminal")
         logger.info("💡 Or run 'sugar stop --force' to force immediate termination")
-        
+
         await sugar_loop.start_with_shutdown(shutdown_event)
     except KeyboardInterrupt:
         logger.info("🛑 Shutdown signal received")
     finally:
         logger.info("⏳ Stopping Sugar gracefully...")
         await sugar_loop.stop()
-        
+
         # Clean up PID file
         if pidfile.exists():
             pidfile.unlink()
-            
+
         logger.info("🏁 Sugar stopped")
+
 
 # Async helper functions for CLI commands
 async def _add_task_async(work_queue, task_data):
@@ -1054,135 +1206,157 @@ async def _add_task_async(work_queue, task_data):
     task_id = await work_queue.add_work(task_data)
     return task_id
 
+
 async def _list_tasks_async(work_queue, status_filter, limit, task_type_filter):
     """Helper to list tasks asynchronously"""
     await work_queue.initialize()
-    
-    if status_filter == 'all':
+
+    if status_filter == "all":
         status_filter = None
-    
+
     tasks = await work_queue.get_recent_work(limit=limit, status=status_filter)
-    
+
     # Filter by task type if specified
-    if task_type_filter != 'all':
-        tasks = [task for task in tasks if task['type'] == task_type_filter]
-    
+    if task_type_filter != "all":
+        tasks = [task for task in tasks if task["type"] == task_type_filter]
+
     return tasks
+
 
 async def _get_status_async(work_queue):
     """Helper to get status asynchronously"""
     await work_queue.initialize()
     return await work_queue.get_stats()
 
+
 async def _get_next_tasks_async(work_queue, limit):
     """Helper to get next pending tasks"""
     await work_queue.initialize()
-    return await work_queue.get_recent_work(limit=limit, status='pending')
+    return await work_queue.get_recent_work(limit=limit, status="pending")
+
 
 async def _get_task_by_id_async(work_queue, task_id):
     """Helper to get specific task by ID"""
     await work_queue.initialize()
     return await work_queue.get_work_by_id(task_id)
 
+
 async def _remove_task_async(work_queue, task_id):
     """Helper to remove task by ID"""
     await work_queue.initialize()
     return await work_queue.remove_work(task_id)
+
 
 async def _update_task_async(work_queue, task_id, updates):
     """Helper to update task by ID"""
     await work_queue.initialize()
     return await work_queue.update_work(task_id, updates)
 
+
 def _detect_github_config(project_path: Path) -> dict:
     """Detect GitHub CLI availability and current repository configuration"""
     import subprocess
     import os
-    
+
     github_config = {
-        'detected': True,  # Mark that detection was attempted
-        'cli_available': False,
-        'gh_available': False,  # Keep for backward compatibility
-        'gh_command': 'gh',
-        'authenticated': False,
-        'repo': '',
-        'auth_method': 'auto'
+        "detected": True,  # Mark that detection was attempted
+        "cli_available": False,
+        "gh_available": False,  # Keep for backward compatibility
+        "gh_command": "gh",
+        "authenticated": False,
+        "repo": "",
+        "auth_method": "auto",
     }
-    
+
     try:
         # Check if GitHub CLI is available
-        result = subprocess.run(['gh', '--version'], capture_output=True, text=True, timeout=10)
+        result = subprocess.run(
+            ["gh", "--version"], capture_output=True, text=True, timeout=10
+        )
         if result.returncode == 0:
-            github_config['cli_available'] = True
-            github_config['gh_available'] = True  # Keep for backward compatibility
-            
+            github_config["cli_available"] = True
+            github_config["gh_available"] = True  # Keep for backward compatibility
+
             # Check if authenticated
-            auth_result = subprocess.run(['gh', 'auth', 'status'], capture_output=True, text=True, timeout=10)
-            github_config['authenticated'] = auth_result.returncode == 0
-            
+            auth_result = subprocess.run(
+                ["gh", "auth", "status"], capture_output=True, text=True, timeout=10
+            )
+            github_config["authenticated"] = auth_result.returncode == 0
+
             # Try to detect current repository
             try:
                 # Change to project directory for repo detection
                 original_cwd = os.getcwd()
                 os.chdir(project_path)
-                
-                repo_result = subprocess.run(['gh', 'repo', 'view', '--json', 'nameWithOwner'], 
-                                           capture_output=True, text=True, timeout=10)
+
+                repo_result = subprocess.run(
+                    ["gh", "repo", "view", "--json", "nameWithOwner"],
+                    capture_output=True,
+                    text=True,
+                    timeout=10,
+                )
                 if repo_result.returncode == 0:
                     import json
+
                     repo_data = json.loads(repo_result.stdout)
-                    github_config['repo'] = repo_data.get('nameWithOwner', '')
-                
+                    github_config["repo"] = repo_data.get("nameWithOwner", "")
+
                 # Restore original directory
                 os.chdir(original_cwd)
-                
+
             except Exception:
                 # If repo detection fails, try git remote
                 try:
                     os.chdir(project_path)
-                    git_result = subprocess.run(['git', 'remote', 'get-url', 'origin'], 
-                                              capture_output=True, text=True, timeout=5)
+                    git_result = subprocess.run(
+                        ["git", "remote", "get-url", "origin"],
+                        capture_output=True,
+                        text=True,
+                        timeout=5,
+                    )
                     if git_result.returncode == 0:
                         remote_url = git_result.stdout.strip()
                         # Parse GitHub repository from remote URL
                         repo = _parse_github_repo_from_url(remote_url)
                         if repo:
-                            github_config['repo'] = repo
+                            github_config["repo"] = repo
                     os.chdir(original_cwd)
                 except Exception:
                     os.chdir(original_cwd)
                     pass
-                    
+
             # Set auth method based on availability
-            if github_config['authenticated']:
-                github_config['auth_method'] = 'gh_cli'
+            if github_config["authenticated"]:
+                github_config["auth_method"] = "gh_cli"
             else:
-                github_config['auth_method'] = 'auto'
-                
+                github_config["auth_method"] = "auto"
+
     except (subprocess.TimeoutExpired, FileNotFoundError, Exception):
         pass
-    
+
     return github_config
+
 
 def _parse_github_repo_from_url(url: str) -> str:
     """Parse GitHub repository name from remote URL"""
     import re
-    
+
     # Handle both HTTPS and SSH URLs
     # HTTPS: https://github.com/owner/repo.git
     # SSH: git@github.com:owner/repo.git
-    
+
     patterns = [
-        r'github\.com[:/]([^/]+/[^/]+?)(?:\.git)?/?$',
-        r'github\.com/([^/]+/[^/]+?)(?:\.git)?/?$'
+        r"github\.com[:/]([^/]+/[^/]+?)(?:\.git)?/?$",
+        r"github\.com/([^/]+/[^/]+?)(?:\.git)?/?$",
     ]
-    
+
     for pattern in patterns:
         match = re.search(pattern, url)
         if match:
             return match.group(1)
-    
-    return ''
+
+    return ""
+
 
 def _find_claude_cli():
     """Find Claude CLI in standard locations"""
@@ -1192,20 +1366,23 @@ def _find_claude_cli():
         "/usr/local/bin/claude",
         "/opt/homebrew/bin/claude",
         Path.home() / ".claude" / "local" / "claude",
-        Path.home() / ".local" / "bin" / "claude"
+        Path.home() / ".local" / "bin" / "claude",
     ]
-    
+
     for path in possible_paths:
         try:
             import subprocess
-            result = subprocess.run([str(path), "--version"], 
-                                  capture_output=True, text=True, timeout=5)
+
+            result = subprocess.run(
+                [str(path), "--version"], capture_output=True, text=True, timeout=5
+            )
             if result.returncode == 0:
                 return str(path)
         except (FileNotFoundError, subprocess.TimeoutExpired, PermissionError):
             continue
-    
+
     return None
+
 
 def _get_workflow_config_section() -> str:
     """Generate GitHub workflow configuration section"""
@@ -1253,9 +1430,10 @@ def _get_workflow_config_section() -> str:
           # Auto-commit changes after completing work
           auto_commit: true"""
 
+
 def _get_github_config_section(github_config: dict = None) -> str:
     """Generate GitHub configuration section based on detection results"""
-    if not github_config or not github_config.get('detected'):
+    if not github_config or not github_config.get("detected"):
         # Default GitHub section when no detection attempted
         return f"""
       enabled: false  # Set to true and configure to enable
@@ -1275,8 +1453,8 @@ def _get_github_config_section(github_config: dict = None) -> str:
       # Discovery settings  
       issue_labels: []  # No filtering - work on ALL open issues
       check_interval_minutes: 30{_get_workflow_config_section()}"""
-    
-    if github_config.get('authenticated') and github_config.get('repo'):
+
+    if github_config.get("authenticated") and github_config.get("repo"):
         # GitHub CLI detected, authenticated, and repo found
         return f"""
       enabled: true  # GitHub CLI detected and authenticated
@@ -1293,11 +1471,17 @@ def _get_github_config_section(github_config: dict = None) -> str:
       # Discovery settings  
       issue_labels: []  # No filtering - work on ALL open issues
       check_interval_minutes: 30{_get_workflow_config_section()}"""
-    
-    elif github_config.get('cli_available'):
-        repo_comment = f'# Auto-detected: "{github_config["repo"]}"' if github_config.get('repo') else '# Set to "owner/repository" format'
-        auth_status = "# GitHub CLI detected but not authenticated - run 'gh auth login'"
-        
+
+    elif github_config.get("cli_available"):
+        repo_comment = (
+            f'# Auto-detected: "{github_config["repo"]}"'
+            if github_config.get("repo")
+            else '# Set to "owner/repository" format'
+        )
+        auth_status = (
+            "# GitHub CLI detected but not authenticated - run 'gh auth login'"
+        )
+
         return f"""
       enabled: false  {auth_status}
       repo: "{github_config.get('repo', '')}"  {repo_comment}
@@ -1313,7 +1497,7 @@ def _get_github_config_section(github_config: dict = None) -> str:
       # Discovery settings  
       issue_labels: []  # No filtering - work on ALL open issues
       check_interval_minutes: 30{_get_workflow_config_section()}"""
-    
+
     else:
         # GitHub CLI not detected
         return f"""
@@ -1335,7 +1519,10 @@ def _get_github_config_section(github_config: dict = None) -> str:
       issue_labels: []  # No filtering - work on ALL open issues
       check_interval_minutes: 30{_get_workflow_config_section()}"""
 
-def _generate_default_config(claude_cmd: str, project_root: str, github_config: dict = None) -> str:
+
+def _generate_default_config(
+    claude_cmd: str, project_root: str, github_config: dict = None
+) -> str:
     """Generate default Sugar configuration"""
     return f"""# Sugar Configuration for {Path(project_root).name}
 sugar:
@@ -1460,49 +1647,62 @@ sugar:
     #     handle_internally: true         # Keep test/quality improvements internal
 """
 
+
 @cli.command()
-@click.option('--force', '-f', is_flag=True, help='Force immediate termination of Sugar and all child processes')
-@click.pass_context  
+@click.option(
+    "--force",
+    "-f",
+    is_flag=True,
+    help="Force immediate termination of Sugar and all child processes",
+)
+@click.pass_context
 def stop(ctx, force):
     """Stop running Sugar instance gracefully or forcefully"""
     import os
     import pathlib
-    
-    config_file = ctx.obj['config']
-    
+
+    config_file = ctx.obj["config"]
+
     # Load config to get consistent path with PID file creation
     import yaml
+
     try:
-        with open(config_file, 'r') as f:
+        with open(config_file, "r") as f:
             config = yaml.safe_load(f)
         # Use same path logic as PID file creation
-        database_path = config.get('sugar', {}).get('storage', {}).get('database', '.sugar/sugar.db')
+        database_path = (
+            config.get("sugar", {})
+            .get("storage", {})
+            .get("database", ".sugar/sugar.db")
+        )
         config_dir = pathlib.Path(database_path).parent
     except:
         # Fallback to config file directory
         config_dir = pathlib.Path(config_file).parent
-        
+
     pidfile = config_dir / "sugar.pid"
-    
+
     if not pidfile.exists():
         click.echo("❌ No running Sugar instance found")
         return
-    
+
     try:
-        with open(pidfile, 'r') as f:
+        with open(pidfile, "r") as f:
             pid = int(f.read().strip())
-        
+
         if force:
             # Force shutdown with SIGKILL - immediate termination
             try:
                 # Kill the process group to terminate all child processes
                 os.killpg(os.getpgid(pid), signal.SIGKILL)
-                click.echo(f"💥 Force terminated Sugar process and all children (PID: {pid})")
+                click.echo(
+                    f"💥 Force terminated Sugar process and all children (PID: {pid})"
+                )
             except ProcessLookupError:
                 # Process group doesn't exist, try individual process
                 os.kill(pid, signal.SIGKILL)
                 click.echo(f"💥 Force terminated Sugar process (PID: {pid})")
-            
+
             # Clean up PID file immediately since process was killed
             try:
                 if pidfile.exists():
@@ -1515,9 +1715,9 @@ def stop(ctx, force):
             os.kill(pid, signal.SIGTERM)
             click.echo(f"✅ Sent shutdown signal to Sugar process (PID: {pid})")
             click.echo("⏳ Sugar is shutting down...")
-            
+
             # Note: PID file cleanup is handled by the main Sugar process
-            
+
     except (ValueError, ProcessLookupError):
         # Clean up stale pid file if it still exists
         try:
@@ -1537,25 +1737,30 @@ def stop(ctx, force):
 
 
 @cli.command()
-@click.option('--dry-run', is_flag=True, help='Show what would be removed without actually removing')
+@click.option(
+    "--dry-run",
+    is_flag=True,
+    help="Show what would be removed without actually removing",
+)
 @click.pass_context
 def dedupe(ctx, dry_run):
     """Remove duplicate work items based on source_file"""
     import aiosqlite
     from .storage.work_queue import WorkQueue
     import yaml
-    
+
     async def _dedupe_work():
-        config_file = ctx.obj['config']
-        with open(config_file, 'r') as f:
+        config_file = ctx.obj["config"]
+        with open(config_file, "r") as f:
             config = yaml.safe_load(f)
-            
-        work_queue = WorkQueue(config['sugar']['storage']['database'])
+
+        work_queue = WorkQueue(config["sugar"]["storage"]["database"])
         await work_queue.initialize()
-        
+
         async with aiosqlite.connect(work_queue.db_path) as db:
             # Find duplicates - keep the earliest created one for each source_file
-            cursor = await db.execute("""
+            cursor = await db.execute(
+                """
                 WITH ranked_items AS (
                     SELECT id, source_file, title, created_at,
                            ROW_NUMBER() OVER (PARTITION BY source_file ORDER BY created_at ASC) as rn
@@ -1566,39 +1771,40 @@ def dedupe(ctx, dry_run):
                 FROM ranked_items 
                 WHERE rn > 1
                 ORDER BY source_file, created_at
-            """)
-            
+            """
+            )
+
             duplicates = await cursor.fetchall()
-            
+
             if not duplicates:
                 click.echo("✅ No duplicate work items found")
                 return
-            
+
             click.echo(f"Found {len(duplicates)} duplicate work items:")
             click.echo("=" * 60)
-            
+
             for work_id, source_file, title, created_at in duplicates:
                 click.echo(f"🗑️  {work_id[:8]}... - {title}")
                 click.echo(f"    Source: {source_file}")
                 click.echo(f"    Created: {created_at}")
                 click.echo()
-            
+
             if dry_run:
                 click.echo("🔍 Dry run mode - no items were removed")
                 return
-            
+
             # Remove duplicates
             if click.confirm(f"Remove {len(duplicates)} duplicate work items?"):
                 duplicate_ids = [row[0] for row in duplicates]
-                
+
                 for work_id in duplicate_ids:
                     await db.execute("DELETE FROM work_items WHERE id = ?", (work_id,))
-                
+
                 await db.commit()
                 click.echo(f"✅ Removed {len(duplicates)} duplicate work items")
             else:
                 click.echo("❌ Operation cancelled")
-    
+
     try:
         asyncio.run(_dedupe_work())
     except Exception as e:
@@ -1607,22 +1813,26 @@ def dedupe(ctx, dry_run):
 
 
 @cli.command()
-@click.option('--dry-run', is_flag=True, help='Show what would be removed without actually removing')
+@click.option(
+    "--dry-run",
+    is_flag=True,
+    help="Show what would be removed without actually removing",
+)
 @click.pass_context
 def cleanup(ctx, dry_run):
     """Remove bogus work items (Sugar initialization tests, venv files, etc.)"""
     import aiosqlite
     from .storage.work_queue import WorkQueue
     import yaml
-    
+
     async def _cleanup_bogus_work():
         # Load configuration
-        config_file = ctx.obj['config']
-        with open(config_file, 'r') as f:
+        config_file = ctx.obj["config"]
+        with open(config_file, "r") as f:
             config = yaml.safe_load(f)
-        
+
         # Connect to database
-        db_path = config['sugar']['storage']['database']
+        db_path = config["sugar"]["storage"]["database"]
         async with aiosqlite.connect(db_path) as db:
             # Find bogus work items
             bogus_patterns = [
@@ -1634,9 +1844,9 @@ def cleanup(ctx, dry_run):
                 "/venv/site-packages/",
                 "/.venv/lib/",
                 "/node_modules/",
-                "/__pycache__/"
+                "/__pycache__/",
             ]
-            
+
             bogus_items = []
             for pattern in bogus_patterns:
                 # Check title, description, and source_file
@@ -1649,56 +1859,65 @@ def cleanup(ctx, dry_run):
                     ORDER BY created_at DESC
                 """
                 like_pattern = f"%{pattern}%"
-                async with db.execute(query, (like_pattern, like_pattern, like_pattern)) as cursor:
+                async with db.execute(
+                    query, (like_pattern, like_pattern, like_pattern)
+                ) as cursor:
                     rows = await cursor.fetchall()
                     bogus_items.extend(rows)
-            
+
             # Remove duplicates (same ID)
             unique_bogus = {}
             for item in bogus_items:
                 unique_bogus[item[0]] = item
             bogus_items = list(unique_bogus.values())
-            
+
             if not bogus_items:
                 click.echo("✅ No bogus work items found")
                 return
-            
+
             click.echo(f"Found {len(bogus_items)} potentially bogus work items:")
             click.echo("=" * 80)
-            
+
             for work_id, title, source_file, created_at, status in bogus_items:
-                status_icon = "⚡" if status == "active" else "✅" if status == "completed" else "⏳"
+                status_icon = (
+                    "⚡"
+                    if status == "active"
+                    else "✅" if status == "completed" else "⏳"
+                )
                 click.echo(f"{status_icon} {work_id[:8]}... - {title}")
                 if source_file:
                     click.echo(f"    Source: {source_file}")
                 click.echo(f"    Created: {created_at} | Status: {status}")
                 click.echo()
-            
+
             if dry_run:
                 click.echo("🔍 Dry run mode - no items were removed")
                 return
-            
+
             # Remove bogus items
-            if click.confirm(f"Remove {len(bogus_items)} potentially bogus work items?"):
+            if click.confirm(
+                f"Remove {len(bogus_items)} potentially bogus work items?"
+            ):
                 bogus_ids = [row[0] for row in bogus_items]
-                
+
                 for work_id in bogus_ids:
                     await db.execute("DELETE FROM work_items WHERE id = ?", (work_id,))
-                
+
                 await db.commit()
                 click.echo(f"✅ Removed {len(bogus_items)} bogus work items")
-                
+
                 # Also clean up the old init_test.json if it exists
                 import pathlib
+
                 project_path = pathlib.Path.cwd()
-                old_test_file = project_path / 'logs' / 'errors' / 'init_test.json'
+                old_test_file = project_path / "logs" / "errors" / "init_test.json"
                 if old_test_file.exists():
                     old_test_file.unlink()
                     click.echo("🗑️  Removed old init_test.json file")
-                    
+
             else:
                 click.echo("❌ Operation cancelled")
-    
+
     try:
         asyncio.run(_cleanup_bogus_work())
     except Exception as e:

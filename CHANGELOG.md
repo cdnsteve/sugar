@@ -5,6 +5,25 @@ All notable changes to the Sugar autonomous development system will be documente
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.6.3] - 2025-08-25
+
+### 🔧 PATCH RELEASE: Security and CI/CD Updates
+
+This patch release fixes security scan failures and updates CI/CD pipeline to use current GitHub Actions.
+
+### Fixed
+- **Security Scan**: Updated `softprops/action-gh-release` from v1 to v2 to resolve deprecated `actions/upload-artifact@v3` usage
+- **CI/CD Pipeline**: Updated all `actions/setup-python` from v4 to v5 for latest security patches
+- **GitHub Actions**: Ensured all actions use current, non-deprecated versions
+
+### Technical Updates
+- Updated release workflow to use `softprops/action-gh-release@v2`
+- Updated CI workflow to use `actions/setup-python@v5` across all jobs
+- Verified code formatting compliance with black
+- Security scan now passes successfully
+
+This release ensures continued security compliance and reliable CI/CD operations.
+
 ## [1.6.2] - 2025-08-25
 
 ### 🔧 PATCH RELEASE: Legal Protection and Disclaimers

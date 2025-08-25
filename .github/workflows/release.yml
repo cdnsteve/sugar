@@ -57,7 +57,7 @@ jobs:
         echo "EOF" >> $GITHUB_OUTPUT
     
     - name: Create Release
-      uses: softprops/action-gh-release@v1
+      uses: softprops/action-gh-release@v2
       with:
         body: ${{ steps.changelog.outputs.changes }}
         draft: false
@@ -73,7 +73,7 @@ jobs:
     - uses: actions/checkout@v4
     
     - name: Set up Python
-      uses: actions/setup-python@v4
+      uses: actions/setup-python@v5
       with:
         python-version: '3.11'
     
