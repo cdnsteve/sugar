@@ -46,18 +46,23 @@ def setup_logging(log_file_path=".sugar/sugar.log", debug=False):
         format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
         handlers=[
             logging.StreamHandler(),  # Console output
-            logging.FileHandler(log_file_path, encoding='utf-8', errors='replace')  # File output
+            logging.FileHandler(
+                log_file_path, encoding="utf-8", errors="replace"
+            ),  # File output
         ],
     )
-    
+
     # Set encoding options for the console handler to handle emojis gracefully
     root_logger = logging.getLogger()
     for handler in root_logger.handlers:
-        if isinstance(handler, logging.StreamHandler) and handler.stream.name == '<stderr>':
+        if (
+            isinstance(handler, logging.StreamHandler)
+            and handler.stream.name == "<stderr>"
+        ):
             # For console output, set errors='replace' to handle emoji issues on Windows
-            if hasattr(handler.stream, 'reconfigure'):
+            if hasattr(handler.stream, "reconfigure"):
                 try:
-                    handler.stream.reconfigure(errors='replace')
+                    handler.stream.reconfigure(errors="replace")
                 except Exception:
                     pass
 
