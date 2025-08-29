@@ -17,8 +17,10 @@ RUN apt-get update && apt-get install -y \
 RUN curl -fsSL https://deb.nodesource.com/setup_18.x | bash - \
     && apt-get install -y nodejs
 
-# Install Claude CLI
-RUN npm install -g @anthropic-ai/claude-code-cli
+# Install Claude CLI with retry logic and cache clearing
+RUN npm cache clean --force && \
+    npm install -g @anthropic-ai/claude-code --no-cache || \
+    (sleep 5 && npm install -g @anthropic-ai/claude-code --registry https://registry.npmjs.org/)
 
 # Create app directory
 WORKDIR /app
@@ -73,5 +75,5 @@ LABEL org.opencontainers.image.title="Sugar" \
       org.opencontainers.image.description="AI-powered autonomous development system with Claude agent integration" \
       org.opencontainers.image.url="https://github.com/cdnsteve/sugar" \
       org.opencontainers.image.source="https://github.com/cdnsteve/sugar" \
-      org.opencontainers.image.version="1.7.2" \
+      org.opencontainers.image.version="1.7.3" \
       org.opencontainers.image.authors="Steven Leggett <contact@roboticforce.io>"
