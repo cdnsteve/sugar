@@ -8,6 +8,11 @@ on:
   release:
     types: [ published ]
 
+permissions:
+  contents: read
+  packages: write
+  id-token: write
+
 jobs:
   test:
     name: Test Suite
@@ -231,8 +236,8 @@ jobs:
         build-args: |
           VERSION=${{ steps.version.outputs.version }}
         tags: |
-          ghcr.io/${{ github.repository }}:latest
-          ghcr.io/${{ github.repository }}:v${{ steps.version.outputs.version }}
-          ${{ github.ref == 'refs/heads/main' && format('ghcr.io/{0}:main', github.repository) || '' }}
+          ghcr.io/${{ github.repository_owner }}/sugar:latest
+          ghcr.io/${{ github.repository_owner }}/sugar:v${{ steps.version.outputs.version }}
+          ${{ github.ref == 'refs/heads/main' && format('ghcr.io/{0}/sugar:main', github.repository_owner) || '' }}
         cache-from: type=gha
         cache-to: type=gha,mode=max
