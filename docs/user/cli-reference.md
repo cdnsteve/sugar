@@ -82,13 +82,18 @@ sugar add TITLE [OPTIONS]
 **Arguments:**
 - `TITLE` - Task title (required)
 
-**Options:**
+**Standard Options:**
 - `--type TYPE` - Task type: `bug_fix`, `feature`, `test`, `refactor`, `documentation` (default: `feature`)
 - `--priority INTEGER` - Priority level 1-5 (1=low, 5=urgent, default: 3)
 - `--description TEXT` - Detailed task description
 - `--urgent` - Mark as urgent (sets priority to 5)
 
-**Examples:**
+**Complex Data Input Options:**
+- `--input-file PATH` - JSON file containing task data
+- `--stdin` - Read task data from stdin (JSON format)
+- `--json` - Parse description as JSON and store in context
+
+**Standard Examples:**
 ```bash
 # Basic task
 sugar add "Implement user login"
@@ -102,6 +107,79 @@ sugar add "Fix authentication crash" --type bug_fix --urgent
 # With detailed description
 sugar add "Refactor API endpoints" --type refactor --priority 3 --description "Clean up REST API structure and improve error handling"
 ```
+
+**Complex Data Examples:**
+
+**1. JSON File Input** (best for Claude Code integration):
+```bash
+# Create a task from a JSON file
+sugar add "API Task" --input-file /path/to/task.json
+```
+
+Example `task.json`:
+```json
+{
+  "title": "Implement OAuth2",
+  "type": "feature",
+  "priority": 4,
+  "description": "Add OAuth2 authentication system",
+  "context": {
+    "requirements": ["JWT tokens", "refresh logic", "user session management"],
+    "complexity": "high",
+    "estimated_hours": 12,
+    "dependencies": ["auth library", "database migration"],
+    "acceptance_criteria": [
+      "Users can login with OAuth2",
+      "Tokens are properly refreshed",
+      "Session state is maintained"
+    ]
+  }
+}
+```
+
+**2. Stdin Input** (perfect for programmatic integration):
+```bash
+# From Claude Code slash commands or scripts
+echo '{
+  "title": "Fix authentication bug",
+  "type": "bug_fix",
+  "priority": 5,
+  "description": "Users cannot log in after password reset",
+  "context": {
+    "source": "claude_code",
+    "error_logs": ["/var/log/auth.log"],
+    "affected_users": 150,
+    "urgency_reason": "blocking user access"
+  }
+}' | sugar add "Critical Auth Fix" --stdin
+
+# Pipe complex data from scripts
+task_generator.py | sugar add "Generated Task" --stdin
+```
+
+**3. JSON Description Parsing** (structured descriptions):
+```bash
+# Parse description as JSON for rich context
+sugar add "Database Migration" --json --description '{
+  "tables": ["users", "sessions", "tokens"],
+  "migration_type": "schema_update",
+  "rollback_strategy": "backup_first",
+  "estimated_downtime": "5 minutes"
+}'
+```
+
+**Use Cases for Complex Input:**
+
+- **🤖 Claude Code Integration**: Slash commands can send rich task data without shell escaping issues
+- **📊 Automated Task Creation**: Scripts can create tasks with full context and metadata
+- **🔗 External Tool Integration**: CI/CD systems, monitoring tools, and issue trackers can create detailed tasks
+- **📝 Rich Task Context**: Store requirements, dependencies, acceptance criteria, and other structured data
+
+**Benefits:**
+- **No Shell Escaping**: JSON data doesn't break with complex strings, quotes, or special characters
+- **Full Data Preservation**: Arrays, objects, and nested data maintain their structure
+- **Extensible Context**: Add any custom fields needed for your workflow
+- **Tool Integration**: Perfect for external tools that need to pass complex data structures
 
 ---
 

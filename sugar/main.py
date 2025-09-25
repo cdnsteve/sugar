@@ -244,13 +244,58 @@ def init(project_dir):
 )
 @click.option("--description", help="Detailed description of the task")
 @click.option("--urgent", is_flag=True, help="Mark as urgent (priority 5)")
+@click.option("--input-file", help="JSON file containing task data")
+@click.option("--stdin", is_flag=True, help="Read task data from stdin (JSON format)")
+@click.option("--json", "parse_json", is_flag=True, help="Parse description as JSON")
 @click.pass_context
-def add(ctx, title, task_type, priority, description, urgent):
-    """Add a new task to Sugar work queue"""
+def add(ctx, title, task_type, priority, description, urgent, input_file, stdin, parse_json):
+    """Add a new task to Sugar work queue
+
+    Supports multiple input methods for complex data:
+    - Standard CLI flags (--description, --type, etc.)
+    - JSON file input (--input-file path/to/task.json)
+    - Stdin input (--stdin with JSON data)
+    - JSON description parsing (--json with --description containing JSON)
+    """
 
     if urgent:
         priority = 5
 
+    # Handle different input methods
+    task_data_override = None
+
+    try:
+        # Method 1: JSON file input
+        if input_file:
+            with open(input_file, 'r') as f:
+                task_data_override = json.load(f)
+
+        # Method 2: Stdin input
+        elif stdin:
+            import sys
+            stdin_data = sys.stdin.read().strip()
+            if stdin_data:
+                task_data_override = json.loads(stdin_data)
+
+        # Method 3: JSON description parsing
+        elif parse_json and description:
+            parsed_description = json.loads(description)
+            # Keep the original description as text, but add parsed JSON to context
+            task_data_override = {
+                "context": {
+                    "parsed_description": parsed_description,
+                    "description_format": "json"
+                }
+            }
+
+    except json.JSONDecodeError as e:
+        click.echo(f"❌ Invalid JSON input: {e}", err=True)
+        sys.exit(1)
+    except FileNotFoundError:
+        click.echo(f"❌ Input file not found: {input_file}", err=True)
+        sys.exit(1)
+
+    # Set default description if none provided
     if not description:
         description = f"Task: {title}"
 
@@ -269,7 +314,7 @@ def add(ctx, title, task_type, priority, description, urgent):
         # Initialize work queue
         work_queue = WorkQueue(config["sugar"]["storage"]["database"])
 
-        # Create task data
+        # Create base task data
         task_data = {
             "id": str(uuid.uuid4()),
             "type": task_type,
@@ -284,11 +329,33 @@ def add(ctx, title, task_type, priority, description, urgent):
             },
         }
 
+        # Override/merge with complex input data
+        if task_data_override:
+            # Handle context merging specially to preserve base context
+            if "context" in task_data_override:
+                task_data["context"].update(task_data_override["context"])
+                del task_data_override["context"]
+
+            # Override other fields
+            task_data.update(task_data_override)
+
+            # Ensure required fields are still present
+            if "id" not in task_data or not task_data["id"]:
+                task_data["id"] = str(uuid.uuid4())
+
         # Add to queue
         asyncio.run(_add_task_async(work_queue, task_data))
 
-        urgency = "🚨 URGENT" if urgent else f"Priority {priority}"
-        click.echo(f"✅ Added {task_type} task: '{title}' ({urgency})")
+        urgency = "🚨 URGENT" if task_data.get("priority", priority) == 5 else f"Priority {task_data.get('priority', priority)}"
+        input_method = ""
+        if input_file:
+            input_method = f" (from {input_file})"
+        elif stdin:
+            input_method = " (from stdin)"
+        elif parse_json:
+            input_method = " (JSON parsed)"
+
+        click.echo(f"✅ Added {task_data.get('type', task_type)} task: '{task_data.get('title', title)}' ({urgency}){input_method}")
 
     except Exception as e:
         click.echo(f"❌ Error adding task: {e}", err=True)
