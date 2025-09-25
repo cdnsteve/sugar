@@ -248,7 +248,9 @@ def init(project_dir):
 @click.option("--stdin", is_flag=True, help="Read task data from stdin (JSON format)")
 @click.option("--json", "parse_json", is_flag=True, help="Parse description as JSON")
 @click.pass_context
-def add(ctx, title, task_type, priority, description, urgent, input_file, stdin, parse_json):
+def add(
+    ctx, title, task_type, priority, description, urgent, input_file, stdin, parse_json
+):
     """Add a new task to Sugar work queue
 
     Supports multiple input methods for complex data:
@@ -267,12 +269,13 @@ def add(ctx, title, task_type, priority, description, urgent, input_file, stdin,
     try:
         # Method 1: JSON file input
         if input_file:
-            with open(input_file, 'r') as f:
+            with open(input_file, "r") as f:
                 task_data_override = json.load(f)
 
         # Method 2: Stdin input
         elif stdin:
             import sys
+
             stdin_data = sys.stdin.read().strip()
             if stdin_data:
                 task_data_override = json.loads(stdin_data)
@@ -284,7 +287,7 @@ def add(ctx, title, task_type, priority, description, urgent, input_file, stdin,
             task_data_override = {
                 "context": {
                     "parsed_description": parsed_description,
-                    "description_format": "json"
+                    "description_format": "json",
                 }
             }
 
@@ -346,7 +349,11 @@ def add(ctx, title, task_type, priority, description, urgent, input_file, stdin,
         # Add to queue
         asyncio.run(_add_task_async(work_queue, task_data))
 
-        urgency = "🚨 URGENT" if task_data.get("priority", priority) == 5 else f"Priority {task_data.get('priority', priority)}"
+        urgency = (
+            "🚨 URGENT"
+            if task_data.get("priority", priority) == 5
+            else f"Priority {task_data.get('priority', priority)}"
+        )
         input_method = ""
         if input_file:
             input_method = f" (from {input_file})"
@@ -355,7 +362,9 @@ def add(ctx, title, task_type, priority, description, urgent, input_file, stdin,
         elif parse_json:
             input_method = " (JSON parsed)"
 
-        click.echo(f"✅ Added {task_data.get('type', task_type)} task: '{task_data.get('title', title)}' ({urgency}){input_method}")
+        click.echo(
+            f"✅ Added {task_data.get('type', task_type)} task: '{task_data.get('title', title)}' ({urgency}){input_method}"
+        )
 
     except Exception as e:
         click.echo(f"❌ Error adding task: {e}", err=True)
