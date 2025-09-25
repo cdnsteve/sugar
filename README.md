@@ -363,7 +363,7 @@ sugar remove TASK_ID
 sugar status
 ```
 
-### 🆕 Complex Data Input (v1.7.5+)
+### 🆕 Complex Data Input (v1.7.6+)
 
 Sugar now supports **rich JSON task data** for seamless Claude Code integration:
 
@@ -670,6 +670,6 @@ MIT License with additional disclaimers - see [LICENSE](LICENSE) and [TERMS.md](
 
 ---
 
-**Sugar v1.7.5** - Built for Claude Code CLI autonomous development across any project or codebase.
+**Sugar v1.7.6** - Built for Claude Code CLI autonomous development across any project or codebase.
 
 *Transform any project into an autonomous development environment with just `sugar init`.*
