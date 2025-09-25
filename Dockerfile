@@ -71,9 +71,13 @@ HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
 CMD ["bash"]
 
 # Labels
+# Get version dynamically from pyproject.toml during build
+ARG VERSION
+ENV SUGAR_VERSION=${VERSION}
+
 LABEL org.opencontainers.image.title="Sugar" \
       org.opencontainers.image.description="AI-powered autonomous development system with Claude agent integration" \
       org.opencontainers.image.url="https://github.com/cdnsteve/sugar" \
       org.opencontainers.image.source="https://github.com/cdnsteve/sugar" \
-      org.opencontainers.image.version="1.7.3" \
+      org.opencontainers.image.version="${VERSION}" \
       org.opencontainers.image.authors="Steven Leggett <contact@roboticforce.io>"
