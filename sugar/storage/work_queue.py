@@ -176,12 +176,12 @@ class WorkQueue:
         async with aiosqlite.connect(self.db_path) as db:
             db.row_factory = aiosqlite.Row
 
-            # Get highest priority pending work item
+            # Get highest priority pending work item (exclude hold status)
             cursor = await db.execute(
                 """
-                SELECT * FROM work_items 
-                WHERE status = 'pending' 
-                ORDER BY priority DESC, created_at ASC 
+                SELECT * FROM work_items
+                WHERE status = 'pending'
+                ORDER BY priority DESC, created_at ASC
                 LIMIT 1
             """
             )
@@ -424,7 +424,7 @@ class WorkQueue:
                 stats[row[0]] = row[1]
 
             # Set defaults for missing statuses
-            for status in ["pending", "active", "completed", "failed"]:
+            for status in ["pending", "hold", "active", "completed", "failed"]:
                 stats.setdefault(status, 0)
 
             # Total items
@@ -539,7 +539,7 @@ class WorkQueue:
         async with aiosqlite.connect(self.db_path) as db:
             cursor = await db.execute(
                 """
-                UPDATE work_items 
+                UPDATE work_items
                 SET commit_sha = ?, updated_at = CURRENT_TIMESTAMP
                 WHERE id = ?
             """,
@@ -547,6 +547,52 @@ class WorkQueue:
             )
             await db.commit()
             return cursor.rowcount > 0
+
+    async def hold_work(self, work_id: str, reason: str = None) -> bool:
+        """Put a work item on hold"""
+        updates = {"status": "hold", "updated_at": "CURRENT_TIMESTAMP"}
+        if reason:
+            # Store hold reason in context
+            work_item = await self.get_work_item(work_id)
+            if work_item:
+                context = work_item.get("context", {})
+                context["hold_reason"] = reason
+                context["held_at"] = datetime.now().isoformat()
+                updates["context"] = context
+
+        success = await self.update_work(work_id, updates)
+        if success:
+            logger.info(f"⏸️ Work item put on hold: {work_id}")
+        return success
+
+    async def release_work(self, work_id: str) -> bool:
+        """Release a work item from hold to pending status"""
+        work_item = await self.get_work_item(work_id)
+        if not work_item:
+            return False
+
+        if work_item["status"] != "hold":
+            logger.warning(
+                f"Work item {work_id} is not on hold (status: {work_item['status']})"
+            )
+            return False
+
+        # Clear hold-related context data
+        context = work_item.get("context", {})
+        context.pop("hold_reason", None)
+        context.pop("held_at", None)
+        context["released_at"] = datetime.now().isoformat()
+
+        updates = {
+            "status": "pending",
+            "context": context,
+            "updated_at": "CURRENT_TIMESTAMP",
+        }
+
+        success = await self.update_work(work_id, updates)
+        if success:
+            logger.info(f"▶️ Work item released from hold: {work_id}")
+        return success
 
     async def health_check(self) -> dict:
         """Return health status of the work queue"""

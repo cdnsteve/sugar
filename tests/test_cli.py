@@ -202,6 +202,7 @@ class TestSugarStatus:
             return_value={
                 "total": 10,
                 "pending": 3,
+                "hold": 0,
                 "active": 1,
                 "completed": 5,
                 "failed": 1,
@@ -225,6 +226,7 @@ class TestSugarStatus:
             assert "🤖 Sugar System Status" in result.output
             assert "📊 Total Tasks: 10" in result.output
             assert "⏳ Pending: 3" in result.output
+            assert "⏸️ On Hold: 0" in result.output
             assert "⚡ Active: 1" in result.output
             assert "✅ Completed: 5" in result.output
             assert "❌ Failed: 1" in result.output

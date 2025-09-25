@@ -244,12 +244,27 @@ def init(project_dir):
 )
 @click.option("--description", help="Detailed description of the task")
 @click.option("--urgent", is_flag=True, help="Mark as urgent (priority 5)")
+@click.option(
+    "--status",
+    type=click.Choice(["pending", "hold"]),
+    default="pending",
+    help="Initial task status",
+)
 @click.option("--input-file", help="JSON file containing task data")
 @click.option("--stdin", is_flag=True, help="Read task data from stdin (JSON format)")
 @click.option("--json", "parse_json", is_flag=True, help="Parse description as JSON")
 @click.pass_context
 def add(
-    ctx, title, task_type, priority, description, urgent, input_file, stdin, parse_json
+    ctx,
+    title,
+    task_type,
+    priority,
+    description,
+    urgent,
+    status,
+    input_file,
+    stdin,
+    parse_json,
 ):
     """Add a new task to Sugar work queue
 
@@ -324,7 +339,7 @@ def add(
             "title": title,
             "description": description,
             "priority": priority,
-            "status": "pending",
+            "status": status,
             "source": "cli",
             "context": {
                 "added_via": "sugar_cli",
@@ -374,7 +389,7 @@ def add(
 @cli.command()
 @click.option(
     "--status",
-    type=click.Choice(["pending", "active", "completed", "failed", "all"]),
+    type=click.Choice(["pending", "hold", "active", "completed", "failed", "all"]),
     default="all",
     help="Filter by status",
 )
@@ -388,8 +403,15 @@ def add(
     default="all",
     help="Filter by type",
 )
+@click.option(
+    "--format",
+    "output_format",
+    type=click.Choice(["pretty", "text", "json"]),
+    default="pretty",
+    help="Output format",
+)
 @click.pass_context
-def list(ctx, status, limit, task_type):
+def list(ctx, status, limit, task_type, output_format):
     """List tasks in Sugar work queue"""
 
     from .storage.work_queue import WorkQueue
@@ -415,58 +437,87 @@ def list(ctx, status, limit, task_type):
             task_status = task["status"]
             status_counts[task_status] = status_counts.get(task_status, 0) + 1
 
+        # Handle different output formats
+        if output_format == "json":
+            import json
+
+            click.echo(json.dumps(tasks, indent=2, default=str))
+            return
+
         # Build summary parts
         summary_parts = []
-        status_order = ["pending", "active", "completed", "failed"]
+        status_order = ["pending", "hold", "active", "completed", "failed"]
+        emoji_map = {
+            "pending": "⏳",
+            "hold": "⏸️",
+            "active": "⚡",
+            "completed": "✅",
+            "failed": "❌",
+        }
+
         for status_type in status_order:
             count = status_counts.get(status_type, 0)
             if count > 0:
-                emoji = {
-                    "pending": "⏳",
-                    "active": "⚡",
-                    "completed": "✅",
-                    "failed": "❌",
-                }[status_type]
-                summary_parts.append(f"{count} {status_type} {emoji}")
+                emoji = emoji_map[status_type]
+                if output_format == "text":
+                    summary_parts.append(f"{count} {status_type}")
+                else:  # pretty format
+                    summary_parts.append(f"{count} {status_type} {emoji}")
 
         summary_text = ", ".join(summary_parts) if summary_parts else "no tasks"
 
-        click.echo(f"\n📋 {len(tasks)} Tasks ({summary_text}):")
-        click.echo("=" * 60)
+        if output_format == "text":
+            click.echo(f"\n{len(tasks)} Tasks ({summary_text}):")
+            click.echo("-" * 40)
+        else:
+            click.echo(f"\n📋 {len(tasks)} Tasks ({summary_text}):")
+            click.echo("=" * 60)
 
         for task in tasks:
-            status_emoji = {
-                "pending": "⏳",
-                "active": "⚡",
-                "completed": "✅",
-                "failed": "❌",
-            }.get(task["status"], "📄")
+            status = task["status"]
 
-            priority_str = "🚨" if task["priority"] == 5 else f"P{task['priority']}"
+            # Handle hold reason display
+            hold_reason = ""
+            if status == "hold" and task.get("context", {}).get("hold_reason"):
+                hold_reason = f" - {task['context']['hold_reason']}"
 
-            click.echo(
-                f"{status_emoji} {priority_str} [{task['type']}] {task['title']}"
-            )
-            if task.get("description") and len(task["description"]) < 100:
-                click.echo(f"   📝 {task['description']}")
+            if output_format == "text":
+                priority_str = f"P{task['priority']}"
+                click.echo(
+                    f"[{status.upper()}] {priority_str} [{task['type']}] {task['title']}{hold_reason}"
+                )
+                if task.get("description") and len(task["description"]) < 100:
+                    click.echo(f"  Description: {task['description']}")
+                click.echo(
+                    f"  ID: {task['id']} | Created: {task['created_at']} | Attempts: {task['attempts']}"
+                )
+            else:  # pretty format
+                status_emoji = emoji_map.get(status, "📄")
+                priority_str = "🚨" if task["priority"] == 5 else f"P{task['priority']}"
 
-            # Build info line with timing for completed/failed tasks
-            info_parts = [
-                f"🆔 {task['id']}",
-                f"📅 {task['created_at']}",
-                f"🔄 {task['attempts']} attempts",
-            ]
+                click.echo(
+                    f"{status_emoji} {priority_str} [{task['type']}] {task['title']}{hold_reason}"
+                )
+                if task.get("description") and len(task["description"]) < 100:
+                    click.echo(f"   📝 {task['description']}")
 
-            # Add timing information for completed/failed tasks
-            if task["status"] in ["completed", "failed"]:
-                if task.get("total_execution_time", 0) > 0:
-                    info_parts.append(f"⏱️ {task['total_execution_time']:.1f}s")
-                if task.get("total_elapsed_time", 0) > 0:
-                    info_parts.append(
-                        f"🕐 {_format_duration(task['total_elapsed_time'])}"
-                    )
+                # Build info line with timing for completed/failed tasks
+                info_parts = [
+                    f"🆔 {task['id']}",
+                    f"📅 {task['created_at']}",
+                    f"🔄 {task['attempts']} attempts",
+                ]
 
-            click.echo(f"   {' | '.join(info_parts)}")
+                # Add timing information for completed/failed tasks
+                if task["status"] in ["completed", "failed"]:
+                    if task.get("total_execution_time", 0) > 0:
+                        info_parts.append(f"⏱️ {task['total_execution_time']:.1f}s")
+                    if task.get("total_elapsed_time", 0) > 0:
+                        info_parts.append(
+                            f"🕐 {_format_duration(task['total_elapsed_time'])}"
+                        )
+
+                click.echo(f"   {' | '.join(info_parts)}")
             click.echo()
 
     except Exception as e:
@@ -505,12 +556,14 @@ def view(ctx, task_id, output_format):
             return
 
         # Display detailed task information
-        status_emoji = {
+        status_emoji_map = {
             "pending": "⏳",
+            "hold": "⏸️",
             "active": "⚡",
             "completed": "✅",
             "failed": "❌",
-        }.get(task["status"], "📄")
+        }
+        status_emoji = status_emoji_map.get(task["status"], "📄")
 
         priority_str = "🚨" if task["priority"] == 5 else f"P{task['priority']}"
 
@@ -522,6 +575,13 @@ def view(ctx, task_id, output_format):
         click.echo(f"📅 Created: {task['created_at']}")
         click.echo(f"🔄 Attempts: {task['attempts']}")
         click.echo(f"📊 Status: {task['status']}")
+
+        # Show hold reason if task is on hold
+        if task["status"] == "hold" and task.get("context", {}).get("hold_reason"):
+            click.echo(f"⏸️  Hold Reason: {task['context']['hold_reason']}")
+            if task.get("context", {}).get("held_at"):
+                click.echo(f"⏸️  Held Since: {task['context']['held_at']}")
+
         click.echo(f"🎯 Priority: {task['priority']}/5")
         click.echo(f"🏷️  Source: {task.get('source', 'unknown')}")
 
@@ -602,6 +662,74 @@ def remove(ctx, task_id):
 
 @cli.command()
 @click.argument("task_id")
+@click.option("--reason", help="Reason for putting task on hold")
+@click.pass_context
+def hold(ctx, task_id, reason):
+    """Put a task on hold"""
+    from .storage.work_queue import WorkQueue
+    import yaml
+
+    try:
+        config_file = ctx.obj["config"]
+        with open(config_file, "r") as f:
+            config = yaml.safe_load(f)
+
+        work_queue = WorkQueue(config["sugar"]["storage"]["database"])
+
+        async def _hold_task_async():
+            await work_queue.initialize()
+            success = await work_queue.hold_work(task_id, reason)
+            return success
+
+        success = asyncio.run(_hold_task_async())
+
+        if success:
+            reason_text = f" - {reason}" if reason else ""
+            click.echo(f"⏸️ Task put on hold: {task_id}{reason_text}")
+        else:
+            click.echo(f"❌ Task not found: {task_id}")
+            sys.exit(1)
+
+    except Exception as e:
+        click.echo(f"❌ Error putting task on hold: {e}", err=True)
+        sys.exit(1)
+
+
+@cli.command()
+@click.argument("task_id")
+@click.pass_context
+def release(ctx, task_id):
+    """Release a task from hold"""
+    from .storage.work_queue import WorkQueue
+    import yaml
+
+    try:
+        config_file = ctx.obj["config"]
+        with open(config_file, "r") as f:
+            config = yaml.safe_load(f)
+
+        work_queue = WorkQueue(config["sugar"]["storage"]["database"])
+
+        async def _release_task_async():
+            await work_queue.initialize()
+            success = await work_queue.release_work(task_id)
+            return success
+
+        success = asyncio.run(_release_task_async())
+
+        if success:
+            click.echo(f"▶️ Task released from hold: {task_id}")
+        else:
+            click.echo(f"❌ Task not found or not on hold: {task_id}")
+            sys.exit(1)
+
+    except Exception as e:
+        click.echo(f"❌ Error releasing task: {e}", err=True)
+        sys.exit(1)
+
+
+@cli.command()
+@click.argument("task_id")
 @click.option("--title", help="Update task title")
 @click.option("--description", help="Update task description")
 @click.option("--priority", type=click.IntRange(1, 5), help="Update priority (1-5)")
@@ -613,7 +741,7 @@ def remove(ctx, task_id):
 )
 @click.option(
     "--status",
-    type=click.Choice(["pending", "active", "completed", "failed"]),
+    type=click.Choice(["pending", "hold", "active", "completed", "failed"]),
     help="Update task status",
 )
 @click.pass_context
@@ -999,6 +1127,7 @@ def status(ctx):
         click.echo("=" * 40)
         click.echo(f"📊 Total Tasks: {stats['total']}")
         click.echo(f"⏳ Pending: {stats['pending']}")
+        click.echo(f"⏸️ On Hold: {stats['hold']}")
         click.echo(f"⚡ Active: {stats['active']}")
         click.echo(f"✅ Completed: {stats['completed']}")
         click.echo(f"❌ Failed: {stats['failed']}")
@@ -1063,10 +1192,12 @@ Sugar operates in TWO modes:
 📚 CORE COMMANDS
 ----------------
 sugar init              Initialize Sugar in current project
-sugar add TITLE         Add new task to work queue
-sugar list              List tasks (--status, --type, --limit options)
+sugar add TITLE         Add new task to work queue (--status hold available)
+sugar list              List tasks (--status, --type, --limit, --format options)
 sugar view TASK_ID      Show detailed task information
 sugar update TASK_ID    Update existing task (--title, --priority, etc.)
+sugar hold TASK_ID      Put task on hold (--reason for context)
+sugar release TASK_ID   Release task from hold
 sugar remove TASK_ID    Remove task from queue
 sugar status            Show system status and queue statistics
 sugar run               Start autonomous development system

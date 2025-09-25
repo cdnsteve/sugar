@@ -5,6 +5,38 @@ All notable changes to the Sugar autonomous development system will be documente
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.8.0] - 2025-09-25
+
+### 🚀 MINOR RELEASE: Task Hold/Release Management & Enhanced Output Formats
+
+This minor release introduces task hold/release functionality and enhanced output formatting options for better Claude Code compatibility.
+
+### Added
+- **Task Hold/Release**: New `sugar hold` and `sugar release` commands for task management
+  - Put tasks on hold with optional reason: `sugar hold <task-id> --reason "waiting for review"`
+  - Release tasks from hold back to pending status: `sugar release <task-id>`
+  - Hold status preserved with timestamps and reason tracking
+- **Enhanced Output Formats**: Added `--format` flag to `sugar list` command
+  - `--format=pretty` (default): Emoji-rich human-friendly display
+  - `--format=text`: Plain text output optimized for LLM parsing
+  - `--format=json`: Structured JSON output for programmatic access
+- **Hold Status Support**: New "hold" status added throughout the system
+  - Tasks with hold status are skipped during `get_next_work()` processing
+  - Hold status included in queue statistics and status displays
+  - Hold reason and timestamps tracked in task context
+
+### Enhanced
+- **Task Creation**: Added `--status` option to `sugar add` command supporting `pending` and `hold`
+- **Status Display**: Updated `sugar status` command to show hold counts
+- **Task Filtering**: Added `--status=hold` filtering option to `sugar list`
+- **Task Details**: Enhanced `sugar view` to display hold reason and timestamps
+
+### Technical
+- Extended WorkQueue class with `hold_work()` and `release_work()` methods
+- Comprehensive test coverage for hold functionality (11 new test cases)
+- Maintained backwards compatibility with existing task statuses
+- Updated CLI help text and command documentation
+
 ## [1.7.2] - 2025-08-25
 
 ### 🔧 PATCH RELEASE: CI/CD Pipeline Fixes
