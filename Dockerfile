@@ -75,8 +75,8 @@ CMD ["bash"]
 ARG VERSION
 ENV SUGAR_VERSION=${VERSION}
 
-LABEL org.opencontainers.image.title="Sugar" \
-      org.opencontainers.image.description="AI-powered autonomous development system with Claude agent integration" \
+LABEL org.opencontainers.image.title="Sugar 🍰" \
+      org.opencontainers.image.description="Sugar 🍰 - AI-powered autonomous development system with Claude agent integration" \
       org.opencontainers.image.url="https://github.com/cdnsteve/sugar" \
       org.opencontainers.image.source="https://github.com/cdnsteve/sugar" \
       org.opencontainers.image.version="${VERSION}" \

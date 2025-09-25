@@ -29,7 +29,7 @@ def _get_version() -> str:
 
 
 __version__ = _get_version()
-__title__ = "Sugar - AI-powered autonomous development system"
+__title__ = "Sugar 🍰 - AI-powered autonomous development system"
 __description__ = "Autonomous development assistant for Claude Code CLI"
 __author__ = "Steven Leggett"
 __author_email__ = "contact@roboticforce.io"

@@ -105,7 +105,7 @@ def signal_handler(signum, frame):
 @click.option("--version", is_flag=True, help="Show version information")
 @click.pass_context
 def cli(ctx, config, debug, version):
-    """Sugar - AI-powered autonomous development system
+    """Sugar 🍰 - AI-powered autonomous development system
 
     A lightweight autonomous development system that works with Claude Code CLI
     """
@@ -207,7 +207,7 @@ def init(project_dir):
         with open(logs_dir / ".gitkeep", "w") as f:
             f.write("# This directory is monitored by Sugar for error logs\n")
 
-        click.echo(f"✅ {get_version_info()} initialized successfully!")
+        click.echo(f"✅ {get_version_info()} initialized successfully! 🍰")
         click.echo(f"📁 Config: {config_path}")
         click.echo(f"📁 Database: {sugar_dir / 'sugar.db'}")
         click.echo(f"📁 Logs: {sugar_dir / 'logs'}")
@@ -1026,10 +1026,10 @@ def help():
 
     click.echo(
         """
-🤖 Sugar - AI-Powered Autonomous Development System
+🍰 Sugar - AI-Powered Autonomous Development System
 ================================================
 
-Sugar is an autonomous development system that works with Claude Code CLI to 
+Sugar 🍰 is an autonomous development system that works with Claude Code CLI to
 provide 24/7 development assistance through task discovery and execution.
 
 📋 QUICK START
