@@ -363,6 +363,29 @@ sugar remove TASK_ID
 sugar status
 ```
 
+### 🆕 Complex Data Input (v1.7.5+)
+
+Sugar now supports **rich JSON task data** for seamless Claude Code integration:
+
+```bash
+# 📁 JSON file input - perfect for complex tasks
+sugar add "API Implementation" --input-file /path/to/task.json
+
+# 📥 Stdin input - ideal for Claude Code slash commands
+echo '{"priority": 5, "context": {"complexity": "high"}}' | sugar add "Critical Fix" --stdin
+
+# 🔧 JSON description parsing - structured task descriptions
+sugar add "Database Migration" --json --description '{"tables": ["users"], "rollback": true}'
+```
+
+**Benefits for external tool integration:**
+- 🚫 **No shell escaping issues** - complex strings, quotes, and special characters work perfectly
+- 📊 **Full data preservation** - nested objects, arrays, and metadata maintain structure
+- 🤖 **Claude Code ready** - slash commands can pass rich task data without fragility
+- 🔗 **Programmatic integration** - scripts and tools can create detailed tasks effortlessly
+
+📖 **Complete examples and documentation:** [CLI Reference - Complex Data Input](docs/user/cli-reference.md#complex-data-examples)
+
 ### System Operation
 ```bash
 # Initialize Sugar in current directory
@@ -647,6 +670,6 @@ MIT License with additional disclaimers - see [LICENSE](LICENSE) and [TERMS.md](
 
 ---
 
-**Sugar v1.7.4** - Built for Claude Code CLI autonomous development across any project or codebase.
+**Sugar v1.7.5** - Built for Claude Code CLI autonomous development across any project or codebase.
 
 *Transform any project into an autonomous development environment with just `sugar init`.*
