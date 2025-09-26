@@ -75,14 +75,7 @@ async def _init_database(db_path):
     """Helper to initialize database with default task types"""
     work_queue = WorkQueue(db_path)
     await work_queue.initialize()
-    # Ensure task_types table is created by adding a dummy task (triggers migration)
-    dummy_task = {
-        "type": "test",
-        "title": "Test initialization",
-        "priority": 1,
-        "source": "test",
-    }
-    await work_queue.add_work(dummy_task)
+    # The initialize() method will create the task_types table and populate defaults
 
 
 class TestTaskTypeManager:
@@ -557,7 +550,7 @@ sugar:
             asyncio.run(_init_database(".sugar/sugar.db"))
 
             # Add custom task type
-            runner.invoke(
+            type_result = runner.invoke(
                 cli,
                 [
                     "--config",
@@ -571,6 +564,9 @@ sugar:
                     "general-purpose",
                 ],
             )
+            assert (
+                type_result.exit_code == 0
+            ), f"Task type creation failed: {type_result.output}"
 
             # Use it in sugar add command
             result = runner.invoke(
@@ -587,13 +583,11 @@ sugar:
                 ],
             )
 
-            assert result.exit_code == 0
+            assert result.exit_code == 0, f"Task creation failed: {result.output}"
             assert "✅ Added integration_test task" in result.output
 
             # Verify task was created with correct type
-            result = runner.invoke(
-                cli, ["--config", ".sugar/config.yaml", "list", "--limit", "1"]
-            )
+            result = runner.invoke(cli, ["--config", ".sugar/config.yaml", "list"])
             assert result.exit_code == 0
             assert "[integration_test]" in result.output
             assert "Test integration workflow" in result.output
