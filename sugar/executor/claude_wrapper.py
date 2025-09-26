@@ -19,6 +19,7 @@ from .structured_request import (
     AgentType,
     DynamicAgentType,
 )
+from ..storage.task_type_manager import TaskTypeManager
 
 logger = logging.getLogger(__name__)
 
@@ -51,16 +52,19 @@ class ClaudeWrapper:
         # Agent configuration
         self.enable_agents = config.get("enable_agents", True)
         self.agent_fallback = config.get("agent_fallback", True)
-        self.agent_selection = config.get(
-            "agent_selection",
-            {
-                "bug_fix": "tech-lead",
-                "feature": "general-purpose",
-                "refactor": "code-reviewer",
-                "test": "general-purpose",
-                "documentation": "general-purpose",
-            },
-        )
+        # Keep fallback mapping for backwards compatibility
+        self.agent_selection_fallback = {
+            "bug_fix": "tech-lead",
+            "feature": "general-purpose",
+            "refactor": "code-reviewer",
+            "test": "general-purpose",
+            "documentation": "general-purpose",
+        }
+        self.agent_selection = config.get("agent_selection", self.agent_selection_fallback)
+
+        # Initialize TaskTypeManager if database path is available
+        self.db_path = config.get("database_path")
+        self.task_type_manager = TaskTypeManager(self.db_path) if self.db_path else None
 
         # Dynamic agent discovery
         self.available_agents = config.get(
@@ -821,8 +825,17 @@ Please implement this task by:
         title = work_item.get("title", "").lower()
         description = work_item.get("description", "").lower()
 
-        # First check user's configured mapping for this task type
-        selected_agent_name = self.agent_selection.get(task_type)
+        # First check TaskTypeManager for agent configuration
+        selected_agent_name = None
+        if self.task_type_manager:
+            try:
+                selected_agent_name = asyncio.run(self.task_type_manager.get_agent_for_type(task_type))
+            except Exception as e:
+                logger.debug(f"Could not get agent from TaskTypeManager: {e}")
+
+        # Fallback to static configuration
+        if not selected_agent_name:
+            selected_agent_name = self.agent_selection.get(task_type)
 
         # If no configured mapping, use intelligent keyword-based selection
         if not selected_agent_name:

@@ -34,6 +34,7 @@ class SugarLoop:
         # Pass the full config so ClaudeWrapper can access dry_run setting
         claude_config = self.config["sugar"]["claude"].copy()
         claude_config["dry_run"] = self.config["sugar"]["dry_run"]
+        claude_config["database_path"] = self.config["sugar"]["storage"]["database"]
         self.claude_executor = ClaudeWrapper(claude_config)
 
         # Initialize learning components

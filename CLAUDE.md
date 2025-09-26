@@ -1,0 +1,2 @@
+- Always run python from the venv, this includes pip install commands
+- Make sure to run BLack formatting tests before commiting work.

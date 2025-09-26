@@ -15,6 +15,52 @@ from .core.loop import SugarLoop
 from .__version__ import get_version_info, __version__
 
 
+def validate_task_type(ctx, param, value):
+    """Custom validation function for task types"""
+    if not value:
+        return value
+
+    try:
+        import yaml
+        from .storage.task_type_manager import TaskTypeManager
+        import asyncio
+
+        # Get config file path from context
+        config_file = ctx.obj.get('config', '.sugar/config.yaml') if ctx.obj else '.sugar/config.yaml'
+
+        async def get_types():
+            with open(config_file, "r") as f:
+                config = yaml.safe_load(f)
+            db_path = config["sugar"]["storage"]["database"]
+            manager = TaskTypeManager(db_path)
+            return await manager.get_task_type_ids()
+
+        # Get available task types
+        valid_choices = asyncio.run(get_types())
+
+        if value in valid_choices:
+            return value
+
+        # If not found, raise error with available choices
+        choices_str = ", ".join(valid_choices)
+        raise click.BadParameter(f"Invalid choice: {value}. (choose from {choices_str})")
+
+    except Exception as e:
+        # Fallback validation to default types
+        fallback_choices = ["bug_fix", "feature", "test", "refactor", "documentation"]
+        if value in fallback_choices:
+            return value
+        choices_str = ", ".join(fallback_choices)
+        raise click.BadParameter(f"Invalid choice: {value}. (choose from {choices_str})")
+
+
+def validate_task_type_with_all(ctx, param, value):
+    """Custom validation function for task types including 'all' option"""
+    if not value or value == "all":
+        return value
+    return validate_task_type(ctx, param, value)
+
+
 def format_json_pretty(data, max_width=80):
     """Format JSON data for readable terminal display"""
     if isinstance(data, str):
@@ -233,7 +279,7 @@ def init(project_dir):
     "--type",
     "task_type",
     default="feature",
-    type=click.Choice(["bug_fix", "feature", "test", "refactor", "documentation"]),
+    callback=validate_task_type,
     help="Type of task",
 )
 @click.option(
@@ -397,10 +443,8 @@ def add(
 @click.option(
     "--type",
     "task_type",
-    type=click.Choice(
-        ["bug_fix", "feature", "test", "refactor", "documentation", "all"]
-    ),
     default="all",
+    callback=validate_task_type_with_all,
     help="Filter by type",
 )
 @click.option(
@@ -736,7 +780,7 @@ def release(ctx, task_id):
 @click.option(
     "--type",
     "task_type",
-    type=click.Choice(["bug_fix", "feature", "test", "refactor", "documentation"]),
+    callback=validate_task_type,
     help="Update task type",
 )
 @click.option(
@@ -2444,6 +2488,333 @@ def cleanup(ctx, dry_run):
         asyncio.run(_cleanup_bogus_work())
     except Exception as e:
         click.echo(f"❌ Error cleaning up bogus work items: {e}", err=True)
+        sys.exit(1)
+
+
+# Task Type Management Commands
+@cli.group()
+@click.pass_context
+def task_type(ctx):
+    """Manage task types - add, edit, remove, and list custom task types"""
+    pass
+
+
+@task_type.command("list")
+@click.option(
+    "--format",
+    type=click.Choice(["table", "json"]),
+    default="table",
+    help="Output format",
+)
+@click.pass_context
+def list_task_types(ctx, format):
+    """List all task types"""
+    import yaml
+    from .storage.task_type_manager import TaskTypeManager
+
+    async def _list_task_types():
+        # Load configuration
+        config_file = ctx.obj["config"]
+        with open(config_file, "r") as f:
+            config = yaml.safe_load(f)
+
+        # Initialize TaskTypeManager
+        db_path = config["sugar"]["storage"]["database"]
+        manager = TaskTypeManager(db_path)
+
+        # Get all task types
+        task_types = await manager.get_all_task_types()
+
+        if format == "json":
+            click.echo(json.dumps(task_types, indent=2))
+        else:
+            if not task_types:
+                click.echo("No task types found.")
+                return
+
+            # Table format
+            click.echo("Task Types:")
+            click.echo("-" * 80)
+            for task_type in task_types:
+                default_marker = " (default)" if task_type["is_default"] else ""
+                emoji = task_type.get("emoji", "")
+                click.echo(f"{emoji} {task_type['id']}{default_marker}")
+                click.echo(f"   Name: {task_type['name']}")
+                if task_type.get("description"):
+                    click.echo(f"   Description: {task_type['description']}")
+                click.echo(f"   Agent: {task_type.get('agent', 'general-purpose')}")
+                if task_type.get("commit_template"):
+                    click.echo(f"   Commit: {task_type['commit_template']}")
+                click.echo()
+
+    try:
+        asyncio.run(_list_task_types())
+    except Exception as e:
+        click.echo(f"❌ Error listing task types: {e}", err=True)
+        sys.exit(1)
+
+
+@task_type.command("add")
+@click.argument("type_id")
+@click.option("--name", help="Display name for the task type")
+@click.option("--description", help="Description of the task type")
+@click.option(
+    "--agent", default="general-purpose", help="Claude agent to use for this type"
+)
+@click.option("--commit-template", help="Git commit template (e.g., 'feat: {title}')")
+@click.option("--emoji", help="Emoji for the task type")
+@click.pass_context
+def add_task_type(ctx, type_id, name, description, agent, commit_template, emoji):
+    """Add a new task type"""
+    import yaml
+    from .storage.task_type_manager import TaskTypeManager
+
+    async def _add_task_type():
+        # Load configuration
+        config_file = ctx.obj["config"]
+        with open(config_file, "r") as f:
+            config = yaml.safe_load(f)
+
+        # Initialize TaskTypeManager
+        db_path = config["sugar"]["storage"]["database"]
+        manager = TaskTypeManager(db_path)
+
+        # Use type_id as display_name if name not provided
+        display_name = name if name else type_id.replace("_", " ").title()
+
+        success = await manager.add_task_type(
+            type_id, display_name, description, agent, commit_template, emoji
+        )
+
+        if success:
+            emoji_display = f"{emoji} " if emoji else ""
+            click.echo(f"✅ Added task type: {emoji_display}{type_id}")
+        else:
+            click.echo(f"❌ Failed to add task type '{type_id}' (may already exist)", err=True)
+            sys.exit(1)
+
+    try:
+        asyncio.run(_add_task_type())
+    except Exception as e:
+        click.echo(f"❌ Error adding task type: {e}", err=True)
+        sys.exit(1)
+
+
+@task_type.command("edit")
+@click.argument("type_id")
+@click.option("--name", help="Display name for the task type")
+@click.option("--description", help="Description of the task type")
+@click.option("--agent", help="Claude agent to use for this type")
+@click.option("--commit-template", help="Git commit template (e.g., 'feat: {title}')")
+@click.option("--emoji", help="Emoji for the task type")
+@click.pass_context
+def edit_task_type(ctx, type_id, name, description, agent, commit_template, emoji):
+    """Edit an existing task type"""
+    import yaml
+    from .storage.task_type_manager import TaskTypeManager
+
+    async def _edit_task_type():
+        # Load configuration
+        config_file = ctx.obj["config"]
+        with open(config_file, "r") as f:
+            config = yaml.safe_load(f)
+
+        # Initialize TaskTypeManager
+        db_path = config["sugar"]["storage"]["database"]
+        manager = TaskTypeManager(db_path)
+
+        success = await manager.update_task_type(
+            type_id, name, description, agent, commit_template, emoji
+        )
+
+        if success:
+            click.echo(f"✅ Updated task type: {type_id}")
+        else:
+            click.echo(f"❌ Failed to update task type '{type_id}' (not found?)", err=True)
+            sys.exit(1)
+
+    try:
+        asyncio.run(_edit_task_type())
+    except Exception as e:
+        click.echo(f"❌ Error editing task type: {e}", err=True)
+        sys.exit(1)
+
+
+@task_type.command("remove")
+@click.argument("type_id")
+@click.option("--force", is_flag=True, help="Skip confirmation prompt")
+@click.pass_context
+def remove_task_type(ctx, type_id, force):
+    """Remove a custom task type (cannot remove defaults)"""
+    import yaml
+    from .storage.task_type_manager import TaskTypeManager
+
+    async def _remove_task_type():
+        # Load configuration
+        config_file = ctx.obj["config"]
+        with open(config_file, "r") as f:
+            config = yaml.safe_load(f)
+
+        # Initialize TaskTypeManager
+        db_path = config["sugar"]["storage"]["database"]
+        manager = TaskTypeManager(db_path)
+
+        # Check if task type exists
+        task_type = await manager.get_task_type(type_id)
+        if not task_type:
+            click.echo(f"❌ Task type '{type_id}' not found", err=True)
+            sys.exit(1)
+
+        if task_type["is_default"]:
+            click.echo(f"❌ Cannot remove default task type '{type_id}'", err=True)
+            sys.exit(1)
+
+        # Confirmation prompt unless --force
+        if not force:
+            if not click.confirm(f"Remove task type '{type_id}'?"):
+                click.echo("Operation cancelled")
+                return
+
+        success = await manager.remove_task_type(type_id)
+
+        if success:
+            click.echo(f"✅ Removed task type: {type_id}")
+        else:
+            click.echo(f"❌ Failed to remove task type '{type_id}' (active tasks?)", err=True)
+            sys.exit(1)
+
+    try:
+        asyncio.run(_remove_task_type())
+    except Exception as e:
+        click.echo(f"❌ Error removing task type: {e}", err=True)
+        sys.exit(1)
+
+
+@task_type.command("show")
+@click.argument("type_id")
+@click.pass_context
+def show_task_type(ctx, type_id):
+    """Show details of a specific task type"""
+    import yaml
+    from .storage.task_type_manager import TaskTypeManager
+
+    async def _show_task_type():
+        # Load configuration
+        config_file = ctx.obj["config"]
+        with open(config_file, "r") as f:
+            config = yaml.safe_load(f)
+
+        # Initialize TaskTypeManager
+        db_path = config["sugar"]["storage"]["database"]
+        manager = TaskTypeManager(db_path)
+
+        task_type = await manager.get_task_type(type_id)
+
+        if not task_type:
+            click.echo(f"❌ Task type '{type_id}' not found", err=True)
+            sys.exit(1)
+
+        # Display details
+        default_marker = " (default)" if task_type["is_default"] else ""
+        emoji = task_type.get("emoji", "")
+
+        click.echo(f"{emoji} {task_type['name']}{default_marker}")
+        click.echo(f"ID: {task_type['id']}")
+        if task_type.get("description"):
+            click.echo(f"Description: {task_type['description']}")
+        click.echo(f"Agent: {task_type.get('agent', 'general-purpose')}")
+        if task_type.get("commit_template"):
+            click.echo(f"Commit Template: {task_type['commit_template']}")
+        if task_type.get("file_patterns"):
+            click.echo(f"File Patterns: {', '.join(task_type['file_patterns'])}")
+        click.echo(f"Created: {task_type['created_at']}")
+        if task_type['updated_at'] != task_type['created_at']:
+            click.echo(f"Updated: {task_type['updated_at']}")
+
+    try:
+        asyncio.run(_show_task_type())
+    except Exception as e:
+        click.echo(f"❌ Error showing task type: {e}", err=True)
+        sys.exit(1)
+
+
+@task_type.command("export")
+@click.option("--file", help="Export to file (default: stdout)")
+@click.pass_context
+def export_task_types(ctx, file):
+    """Export custom task types to JSON for version control"""
+    import yaml
+    from .storage.task_type_manager import TaskTypeManager
+
+    async def _export_task_types():
+        # Load configuration
+        config_file = ctx.obj["config"]
+        with open(config_file, "r") as f:
+            config = yaml.safe_load(f)
+
+        # Initialize TaskTypeManager
+        db_path = config["sugar"]["storage"]["database"]
+        manager = TaskTypeManager(db_path)
+
+        task_types = await manager.export_task_types()
+
+        export_data = {
+            "task_types": task_types,
+            "exported_at": datetime.now().isoformat(),
+            "sugar_version": __version__
+        }
+
+        output = json.dumps(export_data, indent=2)
+
+        if file:
+            with open(file, "w") as f:
+                f.write(output)
+            click.echo(f"✅ Exported {len(task_types)} custom task types to {file}")
+        else:
+            click.echo(output)
+
+    try:
+        asyncio.run(_export_task_types())
+    except Exception as e:
+        click.echo(f"❌ Error exporting task types: {e}", err=True)
+        sys.exit(1)
+
+
+@task_type.command("import")
+@click.argument("file", type=click.File('r'))
+@click.option("--overwrite", is_flag=True, help="Overwrite existing task types")
+@click.pass_context
+def import_task_types(ctx, file, overwrite):
+    """Import task types from JSON file"""
+    import yaml
+    from .storage.task_type_manager import TaskTypeManager
+
+    async def _import_task_types():
+        # Load configuration
+        config_file = ctx.obj["config"]
+        with open(config_file, "r") as f:
+            config = yaml.safe_load(f)
+
+        # Initialize TaskTypeManager
+        db_path = config["sugar"]["storage"]["database"]
+        manager = TaskTypeManager(db_path)
+
+        # Parse import file
+        try:
+            import_data = json.load(file)
+            task_types = import_data.get("task_types", [])
+        except json.JSONDecodeError as e:
+            click.echo(f"❌ Invalid JSON file: {e}", err=True)
+            sys.exit(1)
+
+        imported_count = await manager.import_task_types(task_types, overwrite)
+
+        click.echo(f"✅ Imported {imported_count}/{len(task_types)} task types")
+
+    try:
+        asyncio.run(_import_task_types())
+    except Exception as e:
+        click.echo(f"❌ Error importing task types: {e}", err=True)
         sys.exit(1)
 
 

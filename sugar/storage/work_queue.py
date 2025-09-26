@@ -68,8 +68,9 @@ class WorkQueue:
             """
             )
 
-            # Migrate existing databases to add timing columns
+            # Migrate existing databases to add timing columns and task types table
             await self._migrate_timing_columns(db)
+            await self._migrate_task_types_table(db)
 
             await db.commit()
 
@@ -108,6 +109,114 @@ class WorkQueue:
 
         except Exception as e:
             logger.warning(f"Migration warning (non-critical): {e}")
+
+    async def _migrate_task_types_table(self, db):
+        """Create task_types table and populate with defaults if it doesn't exist"""
+        try:
+            # Check if task_types table exists
+            cursor = await db.execute(
+                "SELECT name FROM sqlite_master WHERE type='table' AND name='task_types'"
+            )
+            table_exists = await cursor.fetchone()
+
+            if not table_exists:
+                # Create task_types table
+                await db.execute(
+                    """
+                    CREATE TABLE task_types (
+                        id TEXT PRIMARY KEY,
+                        name TEXT NOT NULL,
+                        description TEXT,
+                        agent TEXT,
+                        commit_template TEXT,
+                        emoji TEXT,
+                        file_patterns TEXT,
+                        is_default BOOLEAN DEFAULT 0,
+                        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                    )
+                """
+                )
+
+                # Insert default task types
+                default_types = [
+                    {
+                        "id": "bug_fix",
+                        "name": "Bug Fix",
+                        "description": "Fix existing issues or bugs",
+                        "agent": "tech-lead",
+                        "commit_template": "fix: {title}",
+                        "emoji": "🐛",
+                        "file_patterns": '["src/components/buggy_component.py", "tests/test_fix.py"]',
+                        "is_default": 1,
+                    },
+                    {
+                        "id": "feature",
+                        "name": "Feature",
+                        "description": "Add new functionality",
+                        "agent": "general-purpose",
+                        "commit_template": "feat: {title}",
+                        "emoji": "✨",
+                        "file_patterns": '["src/features/new_feature.py", "src/api/feature_endpoint.py"]',
+                        "is_default": 1,
+                    },
+                    {
+                        "id": "test",
+                        "name": "Test",
+                        "description": "Add or update tests",
+                        "agent": "general-purpose",
+                        "commit_template": "test: {title}",
+                        "emoji": "🧪",
+                        "file_patterns": '["tests/test_*.py", "spec/*.spec.js"]',
+                        "is_default": 1,
+                    },
+                    {
+                        "id": "refactor",
+                        "name": "Refactor",
+                        "description": "Code refactoring without changing functionality",
+                        "agent": "code-reviewer",
+                        "commit_template": "refactor: {title}",
+                        "emoji": "♻️",
+                        "file_patterns": '["src/legacy_code.py", "src/improved_code.py"]',
+                        "is_default": 1,
+                    },
+                    {
+                        "id": "documentation",
+                        "name": "Documentation",
+                        "description": "Documentation updates and improvements",
+                        "agent": "general-purpose",
+                        "commit_template": "docs: {title}",
+                        "emoji": "📝",
+                        "file_patterns": '["README.md", "docs/api_documentation.md"]',
+                        "is_default": 1,
+                    },
+                ]
+
+                for task_type in default_types:
+                    await db.execute(
+                        """
+                        INSERT INTO task_types
+                        (id, name, description, agent, commit_template, emoji, file_patterns, is_default)
+                        VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+                    """,
+                        (
+                            task_type["id"],
+                            task_type["name"],
+                            task_type["description"],
+                            task_type["agent"],
+                            task_type["commit_template"],
+                            task_type["emoji"],
+                            task_type["file_patterns"],
+                            task_type["is_default"],
+                        ),
+                    )
+
+                logger.info("Created task_types table and populated with default types")
+
+        except Exception as e:
+            logger.error(f"Error migrating task_types table: {e}")
+            # Continue without task_types table
+
         logger.debug(f"✅ Work queue initialized: {self.db_path}")
 
     async def close(self):

@@ -9,6 +9,7 @@ Sugar 🍰 is a lightweight autonomous development system specifically designed 
 - 🤖 **Truly Autonomous**: Runs 24/7 discovering and fixing issues without human intervention
 - 🧠 **Advanced Agent Integration**: Intelligently selects optimal Claude agents for each task type
 - 🚀 **Dynamic Agent Discovery**: Works with **any** Claude agents you have configured locally
+- 🎯 **Configurable Task Types**: Create custom task types beyond defaults (security_audit, deployment, etc.)
 - 🔍 **Smart Discovery**: Automatically finds work from GitHub issues, error logs, and code analysis
 - 🎯 **Project-Focused**: Each project gets isolated Sugar instance with custom configuration
 - 🔧 **Battle-Tested**: Handles real development workflows with git, GitHub, testing, and deployment
@@ -344,7 +345,8 @@ Existing Sugar installations automatically get agent support with **zero breakin
 # Add tasks with different types and priorities
 sugar add "Task title" [--type TYPE] [--priority 1-5] [--urgent] [--description DESC]
 
-# Types: bug_fix, feature, test, refactor, documentation
+# Default Types: bug_fix, feature, test, refactor, documentation
+# Custom types can be added - see Task Type Management section below
 # Priority: 1 (low) to 5 (urgent)
 
 # List tasks
@@ -362,6 +364,46 @@ sugar remove TASK_ID
 # Check system status
 sugar status
 ```
+
+### 🎯 Task Type Management (v1.8.0+)
+
+Sugar now supports **custom configurable task types**! Create your own types beyond the defaults:
+
+```bash
+# List all task types (default + custom)
+sugar task-type list
+
+# Add custom task type
+sugar task-type add database_migration \
+  --name "Database Migration" \
+  --description "Schema and data migration tasks" \
+  --agent "tech-lead" \
+  --commit-template "migrate: {title}" \
+  --emoji "🗃️"
+
+# Show task type details
+sugar task-type show database_migration
+
+# Edit existing task type
+sugar task-type edit database_migration --emoji "🗄️"
+
+# Use custom type in tasks
+sugar add "Migrate user schema" --type database_migration --priority 4
+
+# Export/import for version control
+sugar task-type export > my-task-types.json
+sugar task-type import < my-task-types.json
+
+# Remove custom types (safety: can't delete defaults or types with active tasks)
+sugar task-type remove database_migration --force
+```
+
+**Popular Custom Task Types:**
+- `security_audit` - Security vulnerability scanning
+- `hotfix` - Critical production fixes
+- `deployment` - Deployment and infrastructure tasks
+- `performance` - Performance optimization work
+- `maintenance` - System maintenance and cleanup
 
 ### 🆕 Complex Data Input (v1.7.6+)
 
@@ -632,19 +674,62 @@ sugar run --once
 ## 🔮 Roadmap
 
 - ✅ **Phase 1**: Core loop, error discovery, basic execution
-- ✅ **Phase 2**: Smart discovery (GitHub, code quality, test coverage)  
+- ✅ **Phase 2**: Smart discovery (GitHub, code quality, test coverage)
 - ✅ **Phase 3**: Learning and adaptation system
-- 🚧 **Phase 4**: PyPI package distribution
+- ✅ **Phase 4**: PyPI package distribution (available as `sugarai`)
 - 📋 **Phase 5**: Enhanced integrations (Slack, Jira, monitoring systems)
 - 📋 **Phase 6**: Team coordination and conflict resolution
 
 ## 🤝 Contributing
 
-1. Test changes with `--dry-run` and `--once`
-2. Validate configuration with `--validate`
-3. Check logs in `.sugar/sugar.log`
-4. Follow existing code patterns
-5. Update documentation for new features
+### 🧪 Testing & Quality Assurance
+
+Sugar has comprehensive test suites to ensure reliability:
+
+```bash
+# Install development dependencies
+pip install pytest pytest-asyncio pytest-cov
+
+# Run all tests
+pytest tests/ -v
+
+# Run specific test suites
+pytest tests/test_task_types.py -v              # Task type system tests
+pytest tests/test_cli.py -v                     # CLI command tests
+pytest tests/test_storage.py -v                 # Database tests
+
+# Run with coverage
+pytest tests/ --cov=sugar --cov-report=html
+
+# Performance and integration tests
+pytest tests/ -m "not slow"                     # Skip slow tests
+pytest tests/test_task_types.py::TestTaskTypeCLI -v  # CLI integration tests
+```
+
+**Test Categories:**
+- **Unit Tests**: Core functionality and business logic
+- **Integration Tests**: CLI commands and database operations
+- **Migration Tests**: Database schema changes and backwards compatibility
+- **Performance Tests**: CLI response times and memory usage
+- **End-to-End Tests**: Full workflow validation
+
+### 📝 Development Guidelines
+
+1. **Functional Testing**: Test changes with `--dry-run` and `--once`
+2. **Configuration**: Validate configuration with `--validate`
+3. **Debugging**: Check logs in `.sugar/sugar.log`
+4. **Code Style**: Follow existing patterns and run Black formatting
+5. **Test Coverage**: Write tests for new features (aim for >80% coverage)
+6. **Documentation**: Update docs and examples for new features
+7. **CI Validation**: All tests must pass before merging
+
+### 🚀 Continuous Integration
+
+Sugar uses GitHub Actions for automated testing:
+- **Multi-platform**: Tests on Ubuntu, macOS, Windows
+- **Python versions**: 3.8, 3.9, 3.10, 3.11, 3.12
+- **CLI Regression Tests**: Smoke tests for critical workflows
+- **Performance Monitoring**: Track command response times
 
 ## ⚖️ Legal and Disclaimers
 
