@@ -28,10 +28,12 @@ def temp_sugar_env():
 
         # Create minimal config
         config_path = sugar_dir / "config.yaml"
+        # Use forward slashes for cross-platform compatibility in YAML
+        db_path_str = str(sugar_dir / 'sugar.db').replace('\\', '/')
         config_content = f"""
 sugar:
   storage:
-    database: "{sugar_dir / 'sugar.db'}"
+    database: "{db_path_str}"
   claude:
     command: "echo"  # Mock Claude CLI
     timeout: 1800
@@ -242,10 +244,11 @@ class TestTaskTypeCLI:
         with runner.isolated_filesystem():
             # Copy config to current directory
             os.makedirs(".sugar", exist_ok=True)
+            config_content = temp_sugar_env["config_path"].read_text()
             with open(".sugar/config.yaml", "w") as f:
-                f.write(temp_sugar_env["config_path"].read_text())
+                f.write(config_content)
 
-            # Initialize database
+            # Initialize database using the same path as in the config
             asyncio.run(_init_database(".sugar/sugar.db"))
 
             # Test list command with proper context
