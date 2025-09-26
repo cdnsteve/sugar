@@ -29,7 +29,7 @@ def temp_sugar_env():
         # Create minimal config
         config_path = sugar_dir / "config.yaml"
         # Use forward slashes for cross-platform compatibility in YAML
-        db_path_str = str(sugar_dir / 'sugar.db').replace('\\', '/')
+        db_path_str = str(sugar_dir / "sugar.db").replace("\\", "/")
         config_content = f"""
 sugar:
   storage:
@@ -242,9 +242,20 @@ class TestTaskTypeCLI:
         runner = CliRunner()
 
         with runner.isolated_filesystem():
-            # Copy config to current directory
+            # Create config with correct local path
             os.makedirs(".sugar", exist_ok=True)
-            config_content = temp_sugar_env["config_path"].read_text()
+            config_content = """
+sugar:
+  storage:
+    database: ".sugar/sugar.db"
+  claude:
+    command: "echo"  # Mock Claude CLI
+    timeout: 1800
+    context_file: "context.json"
+  dry_run: true
+  loop_interval: 300
+  max_concurrent_work: 1
+"""
             with open(".sugar/config.yaml", "w") as f:
                 f.write(config_content)
 
@@ -271,8 +282,20 @@ class TestTaskTypeCLI:
         with runner.isolated_filesystem():
             # Setup
             os.makedirs(".sugar", exist_ok=True)
+            config_content = """
+sugar:
+  storage:
+    database: ".sugar/sugar.db"
+  claude:
+    command: "echo"  # Mock Claude CLI
+    timeout: 1800
+    context_file: "context.json"
+  dry_run: true
+  loop_interval: 300
+  max_concurrent_work: 1
+"""
             with open(".sugar/config.yaml", "w") as f:
-                f.write(temp_sugar_env["config_path"].read_text())
+                f.write(config_content)
 
             asyncio.run(_init_database(".sugar/sugar.db"))
 
@@ -314,8 +337,20 @@ class TestTaskTypeCLI:
         with runner.isolated_filesystem():
             # Setup
             os.makedirs(".sugar", exist_ok=True)
+            config_content = """
+sugar:
+  storage:
+    database: ".sugar/sugar.db"
+  claude:
+    command: "echo"  # Mock Claude CLI
+    timeout: 1800
+    context_file: "context.json"
+  dry_run: true
+  loop_interval: 300
+  max_concurrent_work: 1
+"""
             with open(".sugar/config.yaml", "w") as f:
-                f.write(temp_sugar_env["config_path"].read_text())
+                f.write(config_content)
 
             asyncio.run(_init_database(".sugar/sugar.db"))
 
@@ -335,8 +370,20 @@ class TestTaskTypeCLI:
         with runner.isolated_filesystem():
             # Setup
             os.makedirs(".sugar", exist_ok=True)
+            config_content = """
+sugar:
+  storage:
+    database: ".sugar/sugar.db"
+  claude:
+    command: "echo"  # Mock Claude CLI
+    timeout: 1800
+    context_file: "context.json"
+  dry_run: true
+  loop_interval: 300
+  max_concurrent_work: 1
+"""
             with open(".sugar/config.yaml", "w") as f:
-                f.write(temp_sugar_env["config_path"].read_text())
+                f.write(config_content)
 
             asyncio.run(_init_database(".sugar/sugar.db"))
 
@@ -386,8 +433,20 @@ class TestTaskTypeCLI:
         with runner.isolated_filesystem():
             # Setup
             os.makedirs(".sugar", exist_ok=True)
+            config_content = """
+sugar:
+  storage:
+    database: ".sugar/sugar.db"
+  claude:
+    command: "echo"  # Mock Claude CLI
+    timeout: 1800
+    context_file: "context.json"
+  dry_run: true
+  loop_interval: 300
+  max_concurrent_work: 1
+"""
             with open(".sugar/config.yaml", "w") as f:
-                f.write(temp_sugar_env["config_path"].read_text())
+                f.write(config_content)
 
             asyncio.run(_init_database(".sugar/sugar.db"))
 
@@ -436,8 +495,20 @@ class TestTaskTypeCLI:
         with runner.isolated_filesystem():
             # Setup
             os.makedirs(".sugar", exist_ok=True)
+            config_content = """
+sugar:
+  storage:
+    database: ".sugar/sugar.db"
+  claude:
+    command: "echo"  # Mock Claude CLI
+    timeout: 1800
+    context_file: "context.json"
+  dry_run: true
+  loop_interval: 300
+  max_concurrent_work: 1
+"""
             with open(".sugar/config.yaml", "w") as f:
-                f.write(temp_sugar_env["config_path"].read_text())
+                f.write(config_content)
 
             asyncio.run(_init_database(".sugar/sugar.db"))
 
@@ -468,8 +539,20 @@ class TestTaskTypeIntegration:
         with runner.isolated_filesystem():
             # Setup
             os.makedirs(".sugar", exist_ok=True)
+            config_content = """
+sugar:
+  storage:
+    database: ".sugar/sugar.db"
+  claude:
+    command: "echo"  # Mock Claude CLI
+    timeout: 1800
+    context_file: "context.json"
+  dry_run: true
+  loop_interval: 300
+  max_concurrent_work: 1
+"""
             with open(".sugar/config.yaml", "w") as f:
-                f.write(temp_sugar_env["config_path"].read_text())
+                f.write(config_content)
 
             asyncio.run(_init_database(".sugar/sugar.db"))
 
@@ -522,8 +605,20 @@ class TestTaskTypeIntegration:
         with runner.isolated_filesystem():
             # Setup
             os.makedirs(".sugar", exist_ok=True)
+            config_content = """
+sugar:
+  storage:
+    database: ".sugar/sugar.db"
+  claude:
+    command: "echo"  # Mock Claude CLI
+    timeout: 1800
+    context_file: "context.json"
+  dry_run: true
+  loop_interval: 300
+  max_concurrent_work: 1
+"""
             with open(".sugar/config.yaml", "w") as f:
-                f.write(temp_sugar_env["config_path"].read_text())
+                f.write(config_content)
 
             asyncio.run(_init_database(".sugar/sugar.db"))
 
@@ -551,8 +646,20 @@ class TestTaskTypeIntegration:
         with runner.isolated_filesystem():
             # Setup
             os.makedirs(".sugar", exist_ok=True)
+            config_content = """
+sugar:
+  storage:
+    database: ".sugar/sugar.db"
+  claude:
+    command: "echo"  # Mock Claude CLI
+    timeout: 1800
+    context_file: "context.json"
+  dry_run: true
+  loop_interval: 300
+  max_concurrent_work: 1
+"""
             with open(".sugar/config.yaml", "w") as f:
-                f.write(temp_sugar_env["config_path"].read_text())
+                f.write(config_content)
 
             asyncio.run(_init_database(".sugar/sugar.db"))
 
