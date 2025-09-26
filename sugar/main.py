@@ -26,7 +26,11 @@ def validate_task_type(ctx, param, value):
         import asyncio
 
         # Get config file path from context
-        config_file = ctx.obj.get('config', '.sugar/config.yaml') if ctx.obj else '.sugar/config.yaml'
+        config_file = (
+            ctx.obj.get("config", ".sugar/config.yaml")
+            if ctx.obj
+            else ".sugar/config.yaml"
+        )
 
         async def get_types():
             with open(config_file, "r") as f:
@@ -43,7 +47,9 @@ def validate_task_type(ctx, param, value):
 
         # If not found, raise error with available choices
         choices_str = ", ".join(valid_choices)
-        raise click.BadParameter(f"Invalid choice: {value}. (choose from {choices_str})")
+        raise click.BadParameter(
+            f"Invalid choice: {value}. (choose from {choices_str})"
+        )
 
     except Exception as e:
         # Fallback validation to default types
@@ -51,7 +57,9 @@ def validate_task_type(ctx, param, value):
         if value in fallback_choices:
             return value
         choices_str = ", ".join(fallback_choices)
-        raise click.BadParameter(f"Invalid choice: {value}. (choose from {choices_str})")
+        raise click.BadParameter(
+            f"Invalid choice: {value}. (choose from {choices_str})"
+        )
 
 
 def validate_task_type_with_all(ctx, param, value):
@@ -2590,7 +2598,9 @@ def add_task_type(ctx, type_id, name, description, agent, commit_template, emoji
             emoji_display = f"{emoji} " if emoji else ""
             click.echo(f"✅ Added task type: {emoji_display}{type_id}")
         else:
-            click.echo(f"❌ Failed to add task type '{type_id}' (may already exist)", err=True)
+            click.echo(
+                f"❌ Failed to add task type '{type_id}' (may already exist)", err=True
+            )
             sys.exit(1)
 
     try:
@@ -2630,7 +2640,9 @@ def edit_task_type(ctx, type_id, name, description, agent, commit_template, emoj
         if success:
             click.echo(f"✅ Updated task type: {type_id}")
         else:
-            click.echo(f"❌ Failed to update task type '{type_id}' (not found?)", err=True)
+            click.echo(
+                f"❌ Failed to update task type '{type_id}' (not found?)", err=True
+            )
             sys.exit(1)
 
     try:
@@ -2680,7 +2692,9 @@ def remove_task_type(ctx, type_id, force):
         if success:
             click.echo(f"✅ Removed task type: {type_id}")
         else:
-            click.echo(f"❌ Failed to remove task type '{type_id}' (active tasks?)", err=True)
+            click.echo(
+                f"❌ Failed to remove task type '{type_id}' (active tasks?)", err=True
+            )
             sys.exit(1)
 
     try:
@@ -2728,7 +2742,7 @@ def show_task_type(ctx, type_id):
         if task_type.get("file_patterns"):
             click.echo(f"File Patterns: {', '.join(task_type['file_patterns'])}")
         click.echo(f"Created: {task_type['created_at']}")
-        if task_type['updated_at'] != task_type['created_at']:
+        if task_type["updated_at"] != task_type["created_at"]:
             click.echo(f"Updated: {task_type['updated_at']}")
 
     try:
@@ -2761,7 +2775,7 @@ def export_task_types(ctx, file):
         export_data = {
             "task_types": task_types,
             "exported_at": datetime.now().isoformat(),
-            "sugar_version": __version__
+            "sugar_version": __version__,
         }
 
         output = json.dumps(export_data, indent=2)
@@ -2781,7 +2795,7 @@ def export_task_types(ctx, file):
 
 
 @task_type.command("import")
-@click.argument("file", type=click.File('r'))
+@click.argument("file", type=click.File("r"))
 @click.option("--overwrite", is_flag=True, help="Overwrite existing task types")
 @click.pass_context
 def import_task_types(ctx, file, overwrite):

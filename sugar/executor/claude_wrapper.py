@@ -60,7 +60,9 @@ class ClaudeWrapper:
             "test": "general-purpose",
             "documentation": "general-purpose",
         }
-        self.agent_selection = config.get("agent_selection", self.agent_selection_fallback)
+        self.agent_selection = config.get(
+            "agent_selection", self.agent_selection_fallback
+        )
 
         # Initialize TaskTypeManager if database path is available
         self.db_path = config.get("database_path")
@@ -829,7 +831,9 @@ Please implement this task by:
         selected_agent_name = None
         if self.task_type_manager:
             try:
-                selected_agent_name = asyncio.run(self.task_type_manager.get_agent_for_type(task_type))
+                selected_agent_name = asyncio.run(
+                    self.task_type_manager.get_agent_for_type(task_type)
+                )
             except Exception as e:
                 logger.debug(f"Could not get agent from TaskTypeManager: {e}")
 
