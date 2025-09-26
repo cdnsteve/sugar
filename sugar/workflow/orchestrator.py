@@ -160,7 +160,7 @@ class WorkflowOrchestrator:
         # Add Sugar attribution
         from ..__version__ import get_version_info
 
-        message += f"\n🤖 Generated with {get_version_info()}"
+        message += f"\nGenerated with {get_version_info()}"
 
         return message
 

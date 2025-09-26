@@ -29,8 +29,8 @@ def _get_version() -> str:
 
 
 __version__ = _get_version()
-__title__ = "Sugar 🍰 - AI-powered autonomous development system"
-__description__ = "Autonomous development assistant for Claude Code CLI"
+__title__ = "Sugar ✨ 🍰 ✨ "
+__description__ = "Autonomous development assistant"
 __author__ = "Steven Leggett"
 __author_email__ = "contact@roboticforce.io"
 __url__ = "https://github.com/cdnsteve/sugar"
@@ -38,7 +38,7 @@ __url__ = "https://github.com/cdnsteve/sugar"
 
 def get_version_info() -> str:
     """Get formatted version information"""
-    return f"{__title__} v{__version__}"
+    return f"{__title__} {__description__} v{__version__}"
 
 
 def get_full_version_info() -> str:
