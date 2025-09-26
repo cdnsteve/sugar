@@ -1,20 +1,74 @@
 # Sugar 🍰 - AI-Powered Autonomous Development System
 
-**An intelligent autonomous development assistant that works 24/7 to improve your codebase using Claude AI.**
+**Think of it as having an AI development team that works independently on substantial features while you focus on planning and strategic decisions.**
 
-Sugar 🍰 is a lightweight autonomous development system specifically designed for Claude Code CLI integration that can be installed as a library in any project. It continuously discovers work from GitHub issues, error logs, and code quality analysis, then automatically implements fixes and improvements using Claude's advanced reasoning capabilities.
+## Overview
 
-## ✨ What Makes Sugar 🍰 Special
+Sugar is an autonomous AI development system that integrates with Claude Code to handle complex, multi-step development tasks. Instead of manually implementing every feature and fix, you create comprehensive task specifications, and Sugar executes them autonomously using specialized AI agents.
 
-- 🤖 **Truly Autonomous**: Runs 24/7 discovering and fixing issues without human intervention
-- 🧠 **Advanced Agent Integration**: Intelligently selects optimal Claude agents for each task type
-- 🚀 **Dynamic Agent Discovery**: Works with **any** Claude agents you have configured locally
-- 🎯 **Configurable Task Types**: Create custom task types beyond defaults (security_audit, deployment, etc.)
-- 🔍 **Smart Discovery**: Automatically finds work from GitHub issues, error logs, and code analysis
-- 🎯 **Project-Focused**: Each project gets isolated Sugar instance with custom configuration
-- 🔧 **Battle-Tested**: Handles real development workflows with git, GitHub, testing, and deployment
-- 📊 **Quality Tracking**: Monitors agent performance with detailed analytics and confidence scoring
-- 📈 **Learning System**: Adapts and improves based on success/failure patterns
+## How It Works
+
+**Claude Code → Sugar Workflow:**
+
+1. **User identifies need** → 2. **Claude analyzes & plans** → 3. **Claude creates Sugar task** → 4. **Sugar executes autonomously** → 5. **Results delivered**
+
+## Task Creation Strategy
+
+Sugar works best with **rich task context** that includes comprehensive metadata:
+
+```bash
+./venv/bin/sugar add "Feature Title" --json --description '{
+  "priority": 1-5,
+  "type": "feature|bug_fix|test|refactor",
+  "context": "Detailed description of what needs to be done and why",
+  "business_context": "Strategic importance and business value",
+  "technical_requirements": ["specific technical constraints"],
+  "agent_assignments": {
+    "ux_design_specialist": "UI/UX design leadership",
+    "backend_developer": "Server architecture",
+    "qa_test_engineer": "Testing and validation"
+  },
+  "success_criteria": ["measurable outcomes"],
+  "requirements": ["specific deliverables"]
+}'
+```
+
+## Specialized Agent Assignments
+
+Sugar leverages different Claude agents for different aspects of complex development work:
+
+- **ux-design-specialist** → UI/UX design, customer experience
+- **backend-developer** → Server architecture, database design
+- **frontend-developer** → User-facing applications, customer portals
+- **qa-test-engineer** → Testing, quality assurance, validation
+- **tech-lead** → Architecture decisions, strategic analysis
+
+## Why This Approach Works
+
+1. **Comprehensive Planning** - Rich context ensures Sugar understands business and technical requirements
+2. **Agent Specialization** - Different experts handle different aspects (UX, backend, QA)
+3. **Quality Assurance** - Every task includes mandatory testing and code review
+4. **Strategic Focus** - Handle enterprise-level features while maintaining professional quality
+
+## Benefits
+
+**For Development Teams:**
+- **Autonomous Execution** - Sugar handles complex implementation while you focus on strategy
+- **Consistent Quality** - QA agents ensure comprehensive testing
+- **Specialized Expertise** - UX, backend, frontend agents provide domain expertise
+
+**For Complex Projects:**
+- **Multi-step Features** - Handle substantial development work across weeks
+- **Professional Polish** - Specialized agents ensure production-ready quality
+- **Enterprise Capabilities** - Support complex business requirements and technical constraints
+
+## Key Features
+
+- 🧠 **Rich Task Context** - Business and technical requirements with success criteria
+- 🎯 **Agent Specialization** - UX, backend, frontend, QA experts for different aspects
+- 🤖 **Autonomous Execution** - Handles complex, multi-step development work
+- 📊 **Quality Assurance** - Built-in testing and code review workflows
+- 🔧 **Enterprise Ready** - Production-quality results for substantial features
 
 ## 🚀 Quick Start
 
@@ -29,7 +83,7 @@ Sugar 🍰 is a lightweight autonomous development system specifically designed 
 
 2. **Ensure Claude CLI is in your PATH** or note its location for configuration
 
-⚠️ **Important:** Sugar is designed to run **outside** of Claude Code sessions. Run Sugar directly in your terminal/shell, not within a Claude Code session. Sugar will call Claude Code CLI as needed to execute tasks.
+⚠️ **Important:** Sugar task management (add, list, view) works perfectly **within** Claude Code sessions. However, the autonomous execution (`sugar run`) should be started separately in your terminal, not from within Claude Code.
 
 ### Installation
 
@@ -38,8 +92,6 @@ Sugar 🍰 is a lightweight autonomous development system specifically designed 
 ```bash
 pip install sugarai
 ```
-
-> ⚠️ **IMPORTANT DISCLAIMER**: By installing and using Sugar, you agree to the [Terms of Service and Disclaimer](TERMS.md). Sugar is provided "AS IS" without warranty. Users are solely responsible for reviewing AI-generated code and ensuring appropriate safeguards. Sugar is not affiliated with or endorsed by Anthropic, Inc. "Claude" and "Claude Code" are trademarks of Anthropic, Inc.
 
 **Or install from source for latest development version:**
 
@@ -64,12 +116,29 @@ sugar init
 
 **Note:** Sugar will auto-detect your Claude CLI installation. If it's not in your PATH, you can specify the location in `.sugar/config.yaml` after initialization.
 
-### Add Some Work
+### Create Tasks
 
+**Simple tasks:**
 ```bash
 sugar add "Implement user authentication" --type feature --priority 4
 sugar add "Fix memory leak in auth module" --type bug_fix --urgent
-sugar add "Add unit tests for payments" --type test --priority 3
+```
+
+**Complex features with rich context:**
+```bash
+sugar add "User Dashboard Redesign" --json --description '{
+  "priority": 5,
+  "type": "feature",
+  "context": "Complete overhaul of user dashboard for better UX",
+  "business_context": "Improve user engagement and reduce support tickets",
+  "technical_requirements": ["responsive design", "accessibility compliance"],
+  "agent_assignments": {
+    "ux_design_specialist": "UI/UX design leadership",
+    "frontend_developer": "Implementation and optimization",
+    "qa_test_engineer": "Testing and validation"
+  },
+  "success_criteria": ["mobile responsive", "passes accessibility audit"]
+}'
 ```
 
 ### Get Help Anytime
@@ -93,27 +162,19 @@ sugar run --dry-run --once
 sugar run
 ```
 
-## 🎯 What Sugar Does
+## What Sugar Does
 
-Sugar operates in **two modes**:
+**Manual Task Creation (Primary Use):**
+- Create comprehensive tasks with business context and technical requirements
+- Assign specialized agents for different aspects (UX, backend, QA)
+- Define success criteria and deliverables
+- Execute complex, multi-step development work autonomously
 
-### 🤖 Autonomous Discovery
-Sugar continuously:
-- 🔍 **Discovers work** from error logs, feedback, and GitHub issues
-- 📊 **Analyzes code quality** and identifies improvements  
-- 🧪 **Detects missing tests** and coverage gaps
-- ⚡ **Executes tasks** using Claude Code CLI with full context
-- 🌿 **Creates branches & PRs** or commits directly to main (configurable)
-- 💬 **Updates GitHub issues** with detailed progress and completion status
-- 🧠 **Learns and adapts** from results to improve future performance
-- 🔄 **Repeats autonomously** 24/7 without human intervention
-
-### 👤 Manual Task Management
-You can also directly add tasks:
-- 📝 **Add specific tasks** via `sugar add "task description"`
-- 🎯 **Set priorities** and task types (bug_fix, feature, test, etc.)
-- 📋 **Manage work queue** with full CLI control
-- 🔄 **Combined workflow** - manual tasks + autonomous discovery
+**Autonomous Discovery (Secondary):**
+- Discover work from GitHub issues and error logs
+- Analyze code quality and identify improvements
+- Create and execute tasks automatically
+- Update GitHub issues with progress and completion status
 
 ## 📁 Clean Project Structure 
 
@@ -755,6 +816,10 @@ MIT License with additional disclaimers - see [LICENSE](LICENSE) and [TERMS.md](
 
 ---
 
-**Sugar 🍰 v1.7.6** - Built for Claude Code CLI autonomous development across any project or codebase.
+**Sugar 🍰 v1.9.1** - Built for Claude Code CLI autonomous development across any project or codebase.
 
 *Transform any project into an autonomous development environment with just `sugar init`. ✨ 🍰 ✨*
+
+---
+
+> ⚠️ **IMPORTANT DISCLAIMER**: By installing and using Sugar, you agree to the [Terms of Service and Disclaimer](TERMS.md). Sugar is provided "AS IS" without warranty. Users are solely responsible for reviewing AI-generated code and ensuring appropriate safeguards. Sugar is not affiliated with or endorsed by Anthropic, Inc. "Claude" and "Claude Code" are trademarks of Anthropic, Inc.
