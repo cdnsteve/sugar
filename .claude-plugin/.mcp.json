@@ -1,0 +1,241 @@
+{
+  "mcpServers": {
+    "sugar": {
+      "command": "node",
+      "args": ["./.claude-plugin/mcp-server/sugar-mcp.js"],
+      "env": {
+        "SUGAR_PROJECT_ROOT": "${workspaceFolder}",
+        "SUGAR_DEBUG": "false"
+      },
+      "description": "Sugar autonomous development system MCP server",
+      "schema": {
+        "methods": {
+          "createTask": {
+            "description": "Create a new Sugar task with rich context",
+            "params": {
+              "type": "object",
+              "properties": {
+                "title": {
+                  "type": "string",
+                  "description": "Task title (required)"
+                },
+                "type": {
+                  "type": "string",
+                  "enum": ["bug_fix", "feature", "test", "refactor", "documentation"],
+                  "description": "Task type",
+                  "default": "feature"
+                },
+                "priority": {
+                  "type": "number",
+                  "minimum": 1,
+                  "maximum": 5,
+                  "description": "Priority level (1=low, 5=urgent)",
+                  "default": 3
+                },
+                "urgent": {
+                  "type": "boolean",
+                  "description": "Mark as urgent (sets priority to 5)",
+                  "default": false
+                },
+                "description": {
+                  "type": "string",
+                  "description": "Task description"
+                },
+                "json_data": {
+                  "type": "object",
+                  "description": "Rich JSON context including business_context, technical_requirements, agent_assignments, success_criteria",
+                  "properties": {
+                    "context": {"type": "string"},
+                    "business_context": {"type": "string"},
+                    "technical_requirements": {"type": "array", "items": {"type": "string"}},
+                    "agent_assignments": {"type": "object"},
+                    "success_criteria": {"type": "array", "items": {"type": "string"}}
+                  }
+                }
+              },
+              "required": ["title"]
+            },
+            "returns": {
+              "type": "object",
+              "properties": {
+                "success": {"type": "boolean"},
+                "taskId": {"type": "string"},
+                "message": {"type": "string"},
+                "output": {"type": "string"},
+                "error": {"type": "string"}
+              }
+            }
+          },
+          "listTasks": {
+            "description": "List Sugar tasks with optional filtering",
+            "params": {
+              "type": "object",
+              "properties": {
+                "status": {
+                  "type": "string",
+                  "enum": ["pending", "active", "completed", "failed"],
+                  "description": "Filter by status"
+                },
+                "type": {
+                  "type": "string",
+                  "description": "Filter by task type"
+                },
+                "priority": {
+                  "type": "number",
+                  "minimum": 1,
+                  "maximum": 5,
+                  "description": "Filter by priority"
+                },
+                "limit": {
+                  "type": "number",
+                  "description": "Maximum number of tasks to return",
+                  "default": 20
+                }
+              }
+            },
+            "returns": {
+              "type": "object",
+              "properties": {
+                "success": {"type": "boolean"},
+                "tasks": {"type": "array"},
+                "output": {"type": "string"},
+                "error": {"type": "string"}
+              }
+            }
+          },
+          "viewTask": {
+            "description": "View detailed information about a specific task",
+            "params": {
+              "type": "object",
+              "properties": {
+                "taskId": {
+                  "type": "string",
+                  "description": "Task ID to view (required)"
+                }
+              },
+              "required": ["taskId"]
+            },
+            "returns": {
+              "type": "object",
+              "properties": {
+                "success": {"type": "boolean"},
+                "task": {"type": "object"},
+                "output": {"type": "string"},
+                "error": {"type": "string"}
+              }
+            }
+          },
+          "updateTask": {
+            "description": "Update an existing Sugar task",
+            "params": {
+              "type": "object",
+              "properties": {
+                "taskId": {
+                  "type": "string",
+                  "description": "Task ID to update (required)"
+                },
+                "title": {
+                  "type": "string",
+                  "description": "New task title"
+                },
+                "type": {
+                  "type": "string",
+                  "description": "New task type"
+                },
+                "priority": {
+                  "type": "number",
+                  "minimum": 1,
+                  "maximum": 5,
+                  "description": "New priority"
+                },
+                "status": {
+                  "type": "string",
+                  "enum": ["pending", "active", "completed", "failed"],
+                  "description": "New status"
+                },
+                "description": {
+                  "type": "string",
+                  "description": "New description"
+                }
+              },
+              "required": ["taskId"]
+            },
+            "returns": {
+              "type": "object",
+              "properties": {
+                "success": {"type": "boolean"},
+                "message": {"type": "string"},
+                "output": {"type": "string"},
+                "error": {"type": "string"}
+              }
+            }
+          },
+          "removeTask": {
+            "description": "Remove a task from the queue",
+            "params": {
+              "type": "object",
+              "properties": {
+                "taskId": {
+                  "type": "string",
+                  "description": "Task ID to remove (required)"
+                }
+              },
+              "required": ["taskId"]
+            },
+            "returns": {
+              "type": "object",
+              "properties": {
+                "success": {"type": "boolean"},
+                "message": {"type": "string"},
+                "output": {"type": "string"},
+                "error": {"type": "string"}
+              }
+            }
+          },
+          "getStatus": {
+            "description": "Get Sugar system status and metrics",
+            "params": {
+              "type": "object",
+              "properties": {}
+            },
+            "returns": {
+              "type": "object",
+              "properties": {
+                "success": {"type": "boolean"},
+                "status": {"type": "object"},
+                "output": {"type": "string"},
+                "error": {"type": "string"}
+              }
+            }
+          },
+          "runOnce": {
+            "description": "Execute one autonomous development cycle",
+            "params": {
+              "type": "object",
+              "properties": {
+                "dryRun": {
+                  "type": "boolean",
+                  "description": "Simulate execution without making changes",
+                  "default": false
+                },
+                "validate": {
+                  "type": "boolean",
+                  "description": "Validate configuration before running",
+                  "default": false
+                }
+              }
+            },
+            "returns": {
+              "type": "object",
+              "properties": {
+                "success": {"type": "boolean"},
+                "output": {"type": "string"},
+                "error": {"type": "string"}
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}

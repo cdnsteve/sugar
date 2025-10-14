@@ -1,0 +1,230 @@
+{
+  "name": "sugar-marketplace",
+  "description": "Official marketplace for Sugar autonomous development plugin",
+  "owner": {
+    "name": "Steven Leggett",
+    "email": "contact@roboticforce.io",
+    "website": "https://github.com/cdnsteve/sugar",
+    "github": "cdnsteve"
+  },
+  "plugins": [
+    {
+      "name": "sugar",
+      "displayName": "Sugar - Autonomous Development",
+      "tagline": "Transform Claude Code into an autonomous AI development powerhouse",
+      "description": "Sugar brings true autonomous development to Claude Code. Create comprehensive tasks with rich context, assign specialized agents, and let AI handle complex multi-step development work while you focus on strategy and planning.",
+      "version": "1.9.1",
+      "author": {
+        "name": "Steven Leggett",
+        "email": "contact@roboticforce.io",
+        "github": "cdnsteve"
+      },
+      "source": {
+        "type": "git",
+        "url": "https://github.com/cdnsteve/sugar.git",
+        "branch": "main",
+        "subdirectory": ".claude-plugin"
+      },
+      "homepage": "https://github.com/cdnsteve/sugar",
+      "repository": "https://github.com/cdnsteve/sugar",
+      "documentation": "https://github.com/cdnsteve/sugar/blob/main/.claude-plugin/README.md",
+      "examples": "https://github.com/cdnsteve/sugar/blob/main/examples/claude-code-plugin/README.md",
+      "changelog": "https://github.com/cdnsteve/sugar/blob/main/CHANGELOG.md",
+      "license": "MIT",
+      "keywords": [
+        "autonomous",
+        "development",
+        "ai",
+        "task-management",
+        "automation",
+        "agents",
+        "enterprise",
+        "workflow",
+        "productivity",
+        "claude-code",
+        "autonomous-ai",
+        "development-automation"
+      ],
+      "category": "development-tools",
+      "subcategories": [
+        "task-management",
+        "automation",
+        "ai-development"
+      ],
+      "requires": {
+        "claude-code": ">=1.0.0",
+        "python": ">=3.11",
+        "node": ">=16.0.0"
+      },
+      "capabilities": {
+        "commands": {
+          "count": 5,
+          "list": [
+            {
+              "name": "sugar-task",
+              "description": "Create comprehensive tasks with rich context and AI guidance"
+            },
+            {
+              "name": "sugar-status",
+              "description": "View real-time system status and task queue metrics"
+            },
+            {
+              "name": "sugar-run",
+              "description": "Start autonomous execution with validation and safety checks"
+            },
+            {
+              "name": "sugar-review",
+              "description": "Interactively review and manage pending task queue"
+            },
+            {
+              "name": "sugar-analyze",
+              "description": "Discover work from errors, code quality, tests, and GitHub"
+            }
+          ]
+        },
+        "agents": {
+          "count": 3,
+          "list": [
+            {
+              "name": "sugar-orchestrator",
+              "description": "Coordinates complex development workflows and multi-agent collaboration"
+            },
+            {
+              "name": "task-planner",
+              "description": "Strategic planning and task breakdown specialist"
+            },
+            {
+              "name": "quality-guardian",
+              "description": "Code quality, testing, and security enforcement"
+            }
+          ]
+        },
+        "hooks": {
+          "count": 12,
+          "categories": [
+            "error-detection",
+            "task-tracking",
+            "quality-reminders",
+            "security-alerts",
+            "performance-monitoring"
+          ]
+        },
+        "mcp": true
+      },
+      "features": [
+        "Autonomous AI development workflows",
+        "Enterprise-grade task management with SQLite persistence",
+        "Intelligent agent orchestration and specialization",
+        "Automatic work discovery from multiple sources",
+        "Rich task context with business and technical requirements",
+        "Multi-project support with complete isolation",
+        "GitHub integration for issue and PR management",
+        "Code quality and test coverage analysis",
+        "Custom task types and workflow customization",
+        "Comprehensive testing and quality assurance",
+        "Team collaboration with shared task queues",
+        "Audit trails and execution history"
+      ],
+      "highlights": [
+        "🤖 First true autonomous development platform for Claude Code",
+        "🏢 Enterprise-ready with persistent task management",
+        "🎯 Intelligent agent selection and coordination",
+        "🔍 Automatic work discovery from errors, code quality, and GitHub",
+        "📊 Real-time monitoring and comprehensive analytics",
+        "🛡️ Production-grade safety with dry-run and validation",
+        "🚀 Scales from individual developers to large teams",
+        "✅ Comprehensive test coverage and quality assurance"
+      ],
+      "useCases": [
+        {
+          "title": "Individual Developer",
+          "description": "Autonomous bug fixing, test creation, and code quality improvements during idle time"
+        },
+        {
+          "title": "Development Team",
+          "description": "24/7 autonomous development across multiple repos with shared work discovery"
+        },
+        {
+          "title": "Enterprise Projects",
+          "description": "Handle complex multi-step features with specialized agents and quality enforcement"
+        },
+        {
+          "title": "Technical Debt",
+          "description": "Continuous improvement of code quality metrics and proactive maintenance"
+        }
+      ],
+      "screenshots": [
+        {
+          "url": "https://raw.githubusercontent.com/cdnsteve/sugar/main/docs/screenshots/task-creation.png",
+          "caption": "Rich task creation with comprehensive context"
+        },
+        {
+          "url": "https://raw.githubusercontent.com/cdnsteve/sugar/main/docs/screenshots/status-dashboard.png",
+          "caption": "Real-time system status and task queue monitoring"
+        },
+        {
+          "url": "https://raw.githubusercontent.com/cdnsteve/sugar/main/docs/screenshots/autonomous-execution.png",
+          "caption": "Safe autonomous execution with validation"
+        },
+        {
+          "url": "https://raw.githubusercontent.com/cdnsteve/sugar/main/docs/screenshots/agent-orchestration.png",
+          "caption": "Multi-agent workflow coordination"
+        }
+      ],
+      "video": {
+        "url": "https://www.youtube.com/watch?v=PLACEHOLDER",
+        "title": "Sugar - Autonomous Development for Claude Code",
+        "duration": "5:30"
+      },
+      "installation": {
+        "prerequisites": [
+          "Python 3.11 or higher",
+          "Node.js 16.0 or higher",
+          "Sugar CLI: pip install sugarai"
+        ],
+        "steps": [
+          "Install Sugar CLI: pip install sugarai",
+          "Initialize in your project: sugar init",
+          "Install plugin in Claude Code: /plugin install sugar@cdnsteve",
+          "Start using: /sugar-task \"Your first task\""
+        ],
+        "verification": [
+          "sugar --version",
+          "sugar status",
+          "/sugar-status in Claude Code"
+        ]
+      },
+      "support": {
+        "documentation": "https://github.com/cdnsteve/sugar/tree/main/docs",
+        "issues": "https://github.com/cdnsteve/sugar/issues",
+        "discussions": "https://github.com/cdnsteve/sugar/discussions",
+        "email": "contact@roboticforce.io"
+      },
+      "stats": {
+        "installs": 0,
+        "stars": 0,
+        "rating": 0,
+        "reviews": 0
+      },
+      "tags": [
+        "premier",
+        "enterprise",
+        "autonomous",
+        "productivity",
+        "task-management",
+        "ai-development",
+        "workflow-automation"
+      ],
+      "featured": true,
+      "verified": false,
+      "status": "active",
+      "created": "2025-10-14",
+      "updated": "2025-10-14"
+    }
+  ],
+  "metadata": {
+    "version": "1.0.0",
+    "updated": "2025-10-14T23:47:00Z",
+    "plugin_count": 1
+  }
+}

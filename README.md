@@ -162,6 +162,61 @@ sugar run --dry-run --once
 sugar run
 ```
 
+## 🔌 Claude Code Plugin
+
+**NEW!** Sugar is now available as a premier Claude Code plugin with native integration:
+
+### Quick Plugin Installation
+
+```
+/plugin install sugar@cdnsteve
+```
+
+### What You Get
+
+The Sugar plugin adds **5 powerful slash commands** to Claude Code:
+
+- `/sugar-task` - Create rich, contextual tasks with AI guidance
+- `/sugar-status` - Real-time system monitoring and insights
+- `/sugar-run` - Safe autonomous execution with validation
+- `/sugar-review` - Interactive task queue management
+- `/sugar-analyze` - Intelligent work discovery from errors, code quality, and GitHub
+
+Plus **3 specialized agents**:
+- `sugar-orchestrator` - Coordinates complex development workflows
+- `task-planner` - Strategic task planning and breakdown
+- `quality-guardian` - Code quality and testing enforcement
+
+And **12 intelligent hooks** that automatically enhance your workflow with contextual suggestions and reminders.
+
+### Plugin Features
+
+**Seamless Integration:**
+- Native Claude Code commands (no CLI needed for basic operations)
+- Automatic task suggestions from errors and patterns
+- Session-aware status updates
+- Smart context preservation
+
+**Example Usage in Claude Code:**
+
+```
+User: I'm getting authentication errors
+
+Claude: I see the errors. Would you like to create a Sugar task?
+
+User: Yes
+
+Claude: /sugar-task "Fix authentication timeout issues" --type bug_fix --urgent
+
+Task created! I'll guide you through the fix, or you can run autonomous mode:
+/sugar-run --once
+```
+
+**Learn More:**
+- **[Plugin Documentation](.claude-plugin/README.md)** - Complete plugin guide
+- **[Example Usage](examples/claude-code-plugin/README.md)** - Detailed examples and workflows
+- **[Plugin Overview](.claude-plugin/PLUGIN_OVERVIEW.md)** - Architecture and implementation
+
 ## What Sugar Does
 
 **Manual Task Creation (Primary Use):**
