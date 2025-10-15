@@ -53,12 +53,48 @@ It keeps going until the queue is empty (or you stop it).
 
 ## Real Example
 
+**Simple tasks:**
 ```bash
-# Monday morning: Load up the week's work
-sugar add "Implement OAuth login" --type feature --priority 4
-sugar add "Fix memory leak in auth module" --type bug_fix --urgent
-sugar add "Add integration tests for API" --type test
+# Quick task creation
+sugar add "Fix authentication timeout" --type bug_fix --urgent
+sugar add "Add user profile settings" --type feature --priority 4
+```
 
+**Complex tasks with rich context** (recommended for best results):
+```bash
+sugar add "User Dashboard Redesign" --json --description '{
+  "priority": 5,
+  "type": "feature",
+  "context": "Complete overhaul of user dashboard with modern UI/UX patterns",
+  "business_context": "User feedback shows dashboard is confusing. Goal: reduce support tickets by 40%",
+  "technical_requirements": [
+    "React 18 with TypeScript",
+    "Responsive design (mobile-first)",
+    "Real-time data updates via WebSocket",
+    "Accessibility compliance (WCAG 2.1 AA)"
+  ],
+  "agent_assignments": {
+    "ux_design_specialist": "Design system and user flows",
+    "frontend_developer": "Implementation and optimization",
+    "qa_test_engineer": "Testing and validation"
+  },
+  "success_criteria": [
+    "Dashboard loads in < 2 seconds",
+    "Mobile responsive on all breakpoints",
+    "Passes accessibility audit",
+    "User testing shows 90%+ satisfaction"
+  ],
+  "requirements": [
+    "Dark mode support",
+    "Customizable widget layout",
+    "Export dashboard data to PDF"
+  ]
+}'
+```
+
+**Why JSON format?** Rich context gives Claude Code everything it needs to build production-quality features autonomously. The more detail you provide, the better the results.
+
+```bash
 # Start autonomous mode
 sugar run
 
