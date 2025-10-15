@@ -90,7 +90,11 @@ Sugar leverages different Claude agents for different aspects of complex develop
 **Install from PyPI (recommended):**
 
 ```bash
+# Using pip
 pip install sugarai
+
+# Or using uv (much faster!)
+uv pip install sugarai
 ```
 
 **Or install from source for latest development version:**
@@ -99,10 +103,17 @@ pip install sugarai
 # Method 1: Clone and install (recommended for development)
 git clone https://github.com/cdnsteve/sugar.git
 cd sugar
-pip install -e .
+
+# Using uv (recommended - much faster)
+uv pip install -e ".[dev,test,github]"
+
+# Or using pip (traditional)
+pip install -e ".[dev,test,github]"
 
 # Method 2: Direct from Git (SSH) - Always use main branch
 pip install -e git+ssh://git@github.com/cdnsteve/sugar.git@main#egg=sugar
+# Or with uv:
+uv pip install -e git+ssh://git@github.com/cdnsteve/sugar.git@main#egg=sugar
 ```
 
 📖 **Detailed setup instructions:** [Local Development Setup](docs/dev/local-development.md)
@@ -804,9 +815,17 @@ Sugar has comprehensive test suites to ensure reliability:
 
 ```bash
 # Install development dependencies
-pip install pytest pytest-asyncio pytest-cov
+# Using uv (recommended)
+uv pip install -e ".[dev,test]"
+
+# Or using pip
+pip install -e ".[dev,test]"
 
 # Run all tests
+# Using uv
+uv run pytest tests/ -v
+
+# Or using pip/venv
 pytest tests/ -v
 
 # Run specific test suites

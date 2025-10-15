@@ -5,6 +5,68 @@ All notable changes to the Sugar autonomous development system will be documente
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.0.1] - 2025-10-15
+
+### 🔧 PATCH RELEASE: uv Package Manager Support
+
+This minor release adds support for uv, the blazingly fast Python package manager, while maintaining full backward compatibility with traditional pip/venv workflows.
+
+### Added
+
+#### uv Package Manager Support
+- **Dual Workflow Support**: Project now supports both uv and traditional pip/venv workflows
+- **Developer Choice**: Contributors can choose their preferred Python package manager
+- **Enhanced Documentation**: Updated installation and development instructions for both workflows
+- **Python Version Specification**: Added `.python-version` file for uv compatibility
+
+### Enhanced
+
+#### Documentation Updates
+- **CLAUDE.md**: Added comprehensive instructions for both uv and venv workflows
+- **README.md**: Updated installation section with uv examples alongside pip
+- **Testing Documentation**: Added uv examples for running tests and development commands
+- **Clear Workflow Separation**: Side-by-side examples showing both approaches
+
+#### Development Experience
+- **Faster Installation**: uv users can install 84 packages in ~1 second vs 30-60 seconds with pip
+- **No Breaking Changes**: Existing venv/pip workflows continue working exactly as before
+- **Smart Defaults**: `.python-version` ensures consistent Python 3.11 usage with uv
+
+### Usage Examples
+
+```bash
+# Installation with uv (recommended - much faster!)
+uv pip install sugarai
+
+# Or traditional pip
+pip install sugarai
+
+# Development with uv
+uv pip install -e ".[dev,test,github]"
+uv run pytest tests/
+uv run black .
+
+# Or traditional venv/pip (still fully supported)
+source venv/bin/activate
+pip install -e ".[dev,test,github]"
+pytest tests/
+black .
+```
+
+### Benefits
+- **Speed**: 30-60x faster package installation with uv
+- **Flexibility**: No forced migration - choose your preferred tool
+- **Modern Tooling**: Support for cutting-edge Python packaging ecosystem
+- **Zero Breaking Changes**: Existing workflows unaffected
+
+### Technical Details
+- Added `.python-version` specifying Python 3.11
+- Updated all documentation to show both workflow options
+- Maintained complete backward compatibility with pip/venv
+- No changes to core application code required
+
+---
+
 ## [1.9.0] - 2025-09-26
 
 ### 🎯 MINOR RELEASE: Configurable Task Type System
