@@ -13,7 +13,7 @@
       "displayName": "Sugar - Autonomous Development",
       "tagline": "Transform Claude Code into an autonomous AI development powerhouse",
       "description": "Sugar brings true autonomous development to Claude Code. Create comprehensive tasks with rich context, assign specialized agents, and let AI handle complex multi-step development work while you focus on strategy and planning.",
-      "version": "1.9.1",
+      "version": "2.0.0",
       "author": {
         "name": "Steven Leggett",
         "email": "contact@roboticforce.io",

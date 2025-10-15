@@ -41,7 +41,7 @@ class TestPluginStructure:
 
         # Verify values
         assert manifest["name"] == "sugar"
-        assert manifest["version"] == "1.9.1"
+        assert manifest["version"] == "2.0.0"
         assert "license" in manifest
 
     def test_commands_directory_exists(self, plugin_dir):
