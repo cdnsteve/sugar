@@ -3,7 +3,7 @@ Workflow Orchestrator - Apply consistent git/GitHub workflows to all Sugar work
 """
 
 import logging
-from typing import Dict, Any, Optional
+from typing import Dict, Any, Optional, List
 from enum import Enum
 
 logger = logging.getLogger(__name__)
@@ -28,6 +28,14 @@ class WorkflowOrchestrator:
         self.git_ops = git_ops
         self.work_queue = work_queue
         self.workflow_config = self._load_workflow_config()
+
+        # Initialize quality gates coordinator if enabled
+        self.quality_gates = None
+        if config.get("quality_gates", {}).get("enabled", False):
+            from ..quality_gates import QualityGatesCoordinator
+
+            self.quality_gates = QualityGatesCoordinator(config)
+            logger.info("🔒 Quality Gates enabled for workflow validation")
 
     def _load_workflow_config(self) -> Dict[str, Any]:
         """Load and validate workflow configuration"""
@@ -212,8 +220,57 @@ class WorkflowOrchestrator:
                 logger.info("📝 No changes to commit")
                 return True
 
+            # Run quality gate validation before committing
+            if self.quality_gates and self.quality_gates.is_enabled():
+                logger.info("🔒 Running quality gate validation before commit")
+
+                # Get list of changed files
+                changed_files = await self._get_changed_files()
+
+                # Extract claims from execution result if available
+                claims = self._extract_claims_from_result(execution_result)
+
+                # Validate with quality gates
+                can_commit, gate_result = (
+                    await self.quality_gates.validate_before_commit(
+                        task=work_item, changed_files=changed_files, claims=claims
+                    )
+                )
+
+                if not can_commit:
+                    logger.error(
+                        f"❌ Quality gate validation failed: {gate_result.reason}"
+                    )
+                    logger.error("🚫 Blocking commit - quality requirements not met")
+
+                    # Store failure information in work item
+                    if self.work_queue:
+                        await self.work_queue.update_work(
+                            work_item["id"],
+                            {
+                                "quality_gate_status": "failed",
+                                "quality_gate_reason": gate_result.reason,
+                                "quality_gate_details": gate_result.to_dict(),
+                            },
+                        )
+
+                    return False
+
+                logger.info(f"✅ Quality gates passed: {gate_result.reason}")
+
+                # Add quality gate evidence to commit message
+                quality_footer = self.quality_gates.get_commit_message_footer(
+                    gate_result
+                )
+            else:
+                quality_footer = ""
+
             # Format commit message
             commit_message = self.format_commit_message(work_item, workflow)
+
+            # Append quality gate evidence if available
+            if quality_footer:
+                commit_message += quality_footer
 
             # Commit changes
             success = await self.git_ops.commit_changes(commit_message)
@@ -263,3 +320,48 @@ class WorkflowOrchestrator:
         clean_title = "".join(c for c in title.lower() if c.isalnum() or c in "-_")[:30]
 
         return f"sugar/{source_type}/{work_type}-{clean_title}-{work_id}"
+
+    async def _get_changed_files(self) -> List[str]:
+        """Get list of changed files for quality gate validation"""
+        if not self.git_ops:
+            return []
+
+        try:
+            changed_files = await self.git_ops.get_changed_files()
+            return changed_files if changed_files else []
+        except Exception as e:
+            logger.warning(f"Could not get changed files: {e}")
+            return []
+
+    def _extract_claims_from_result(
+        self, execution_result: Dict[str, Any]
+    ) -> List[str]:
+        """Extract claims from execution result for truth enforcement"""
+        claims = []
+
+        # Look for explicit claims in result
+        if "claims" in execution_result:
+            claims.extend(execution_result["claims"])
+
+        # Extract implicit claims from summary/actions
+        summary = execution_result.get("summary", "").lower()
+        actions = execution_result.get("actions_taken", [])
+
+        # Common claim patterns
+        claim_patterns = {
+            "all tests pass": ["tests pass", "all tests passed", "tests successful"],
+            "functionality verified": ["verified", "tested", "confirmed working"],
+            "no errors": ["no errors", "error-free", "without errors"],
+            "implementation complete": ["complete", "implemented", "finished"],
+        }
+
+        for claim, patterns in claim_patterns.items():
+            if any(pattern in summary for pattern in patterns):
+                claims.append(claim)
+            for action in actions:
+                if any(pattern in str(action).lower() for pattern in patterns):
+                    if claim not in claims:
+                        claims.append(claim)
+                    break
+
+        return claims
