@@ -1,0 +1,128 @@
+# Contributing to Sugar
+
+First off, thank you for considering contributing to Sugar! It's people like you that make Sugar such a great tool.
+
+## Code of Conduct
+
+This project and everyone participating in it is governed by our commitment to providing a welcoming and inspiring community for all.
+
+## How Can I Contribute?
+
+### Reporting Bugs
+
+Before creating bug reports, please check the existing issues as you might find that you don't need to create one. When you are creating a bug report, please include as many details as possible using our bug report template.
+
+### Suggesting Features
+
+Feature requests are welcome! Please use our feature request template and provide as much detail as possible about your use case.
+
+### Pull Requests
+
+1. Fork the repo and create your branch from `main`
+2. If you've added code that should be tested, add tests
+3. If you've changed APIs, update the documentation
+4. Ensure the test suite passes
+5. Make sure your code follows the existing code style (we use Black for formatting)
+6. Issue that pull request!
+
+## Development Setup
+
+```bash
+# Clone your fork
+git clone https://github.com/YOUR_USERNAME/sugar.git
+cd sugar
+
+# Create virtual environment
+python -m venv venv
+source venv/bin/activate  # On Windows: venv\Scripts\activate
+
+# Install development dependencies
+pip install -e ".[dev]"
+
+# Run tests
+pytest
+
+# Format code
+black sugar/ tests/
+```
+
+## Testing
+
+We use pytest for testing. Please ensure all tests pass before submitting a PR:
+
+```bash
+# Run all tests
+pytest
+
+# Run with coverage
+pytest --cov=sugar --cov-report=term-missing
+
+# Run specific test file
+pytest tests/test_cli.py
+```
+
+## Code Style
+
+- We use [Black](https://github.com/psf/black) for Python code formatting
+- Line length is 88 characters
+- We use type hints where applicable
+- Follow PEP 8 style guide
+
+## Commit Messages
+
+- Use clear and meaningful commit messages
+- Start with a verb in present tense (e.g., "Add feature" not "Added feature")
+- Reference issues and pull requests where relevant
+
+Format:
+```
+type: brief description
+
+Detailed explanation if needed
+
+Fixes #123
+```
+
+Types: `feat`, `fix`, `docs`, `style`, `refactor`, `test`, `chore`
+
+## Plugin Development
+
+If you're contributing to the Claude Code plugin:
+
+1. Test your changes locally:
+   ```bash
+   # Link plugin for testing
+   ln -s /path/to/sugar/.claude-plugin ~/.claude-plugins/sugar
+
+   # Test in Claude Code
+   /plugin reload sugar
+   ```
+
+2. Ensure all plugin components work:
+   - Slash commands
+   - Agents
+   - Hooks
+   - MCP server
+
+3. Update plugin documentation in `.claude-plugin/README.md`
+
+## Documentation
+
+- Update the README.md if you change functionality
+- Add docstrings to new functions and classes
+- Update CHANGELOG.md for notable changes
+- Keep examples up to date
+
+## Release Process
+
+Maintainers will handle releases. Version bumps follow [Semantic Versioning](https://semver.org/).
+
+## Questions?
+
+Feel free to ask questions in [GitHub Discussions](https://github.com/cdnsteve/sugar/discussions) or open an issue.
+
+## License
+
+By contributing, you agree that your contributions will be licensed under the MIT License.
+
+Thank you for contributing to Sugar! 🍰
