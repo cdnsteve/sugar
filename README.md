@@ -99,20 +99,37 @@ sugar list --status completed
 
 ## How It Works
 
-```mermaid
-graph LR
-    A[You: Assign Tasks] --> B[Priority Queue]
-    B --> C[Sugar: Picks Up Work]
-    C --> D[Claude Code Executes]
-    D --> E[Completes & Commits]
-    E --> B
+```
+┌─────────────────────────────────────────────────────────┐
+│                    The Sugar Loop                       │
+└─────────────────────────────────────────────────────────┘
 
-    style A fill:#e3f2fd
-    style D fill:#fff3e0
-    style E fill:#c8e6c9
+  You                    Priority Queue               Sugar
+   │                          │                         │
+   │  sugar add "task"        │                         │
+   ├─────────────────────────>│                         │
+   │                          │                         │
+   │                          │  Picks highest priority │
+   │                          │<────────────────────────┤
+   │                          │                         │
+   │                          │                         │
+   │                     Claude Code                    │
+   │                          │                         │
+   │                          │  Executes in background │
+   │                          │  (uses agents, tests)   │
+   │                          │                         │
+   │                          ▼                         │
+   │                     Completes Work                 │
+   │                          │                         │
+   │                          │  Commits, updates       │
+   │                          │                         │
+   │                          │  Back to queue ────────>│
+   │                          │                         │
+   └──────────────────────────┴─────────────────────────┘
+                              ↻ Repeat
 ```
 
-Sugar runs in a continuous loop:
+**The continuous execution loop:**
 
 1. **You assign** - Add tasks with priorities and context
 2. **Sugar picks up** - Grabs highest priority work from the queue
