@@ -100,35 +100,25 @@ sugar list --status completed
 ## How It Works
 
 ```mermaid
-flowchart LR
-    subgraph Discover
-        A[Task Queue]
-        B[GitHub Issues]
-        C[Error Logs]
-        D[Code Analysis]
-    end
+graph LR
+    A[You: Assign Tasks] --> B[Priority Queue]
+    B --> C[Sugar: Picks Up Work]
+    C --> D[Claude Code Executes]
+    D --> E[Completes & Commits]
+    E --> B
 
-    subgraph Execute
-        E[Claude Code]
-        F[Specialized Agents]
-    end
-
-    subgraph Ship
-        G[Run Tests]
-        H[Commit]
-        I[Update GitHub]
-    end
-
-    Discover --> Execute
-    Execute --> Ship
-    Ship -.Repeat.-> Discover
-
-    style Discover fill:#e3f2fd
-    style Execute fill:#fff3e0
-    style Ship fill:#f1f8e9
+    style A fill:#e3f2fd
+    style D fill:#fff3e0
+    style E fill:#c8e6c9
 ```
 
-Sugar runs continuously, cycling through discovery → execution → shipping. Each cycle can handle multiple tasks in parallel.
+Sugar runs in a continuous loop:
+
+1. **You assign** - Add tasks with priorities and context
+2. **Sugar picks up** - Grabs highest priority work from the queue
+3. **Claude Code executes** - Runs in background, uses specialized agents as needed
+4. **Completes work** - Tests, commits, moves to next task
+5. **Repeat** - Continuous execution until queue is empty
 
 ## Configuration
 
