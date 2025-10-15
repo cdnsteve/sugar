@@ -5,6 +5,37 @@ All notable changes to the Sugar autonomous development system will be documente
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.0.2] - 2025-10-15
+
+### 🔧 PATCH RELEASE: README Refresh and Documentation
+
+Complete refresh of README.md for improved developer experience and clarity.
+
+### Changed
+
+#### Documentation Updates
+- **README.md**: Complete rewrite with minimal, focused structure (70% shorter)
+- **Clear Value Proposition**: "Claude Code running in a loop" messaging
+- **ASCII Diagram**: Simple, clear visualization of the continuous execution loop
+- **JSON Task Examples**: Prominent examples showing rich task context for complex work
+- **Claude Code Integration**: New section showing delegation workflow with slash commands and MCP
+- **Improved Structure**: Quick Start moved higher, better visual hierarchy, more scannable
+
+#### Content Improvements
+- Reduced from 880 to 254 lines
+- Real conversation examples showing Claude Code + Sugar workflow
+- Focused on showing, not telling
+- Removed verbose content (moved to dedicated docs)
+- Better code examples with syntax highlighting
+
+### Benefits
+- **Faster comprehension**: Developers understand Sugar in seconds, not minutes
+- **Clear use cases**: JSON examples show how to create production-quality tasks
+- **Integration clarity**: Claude Code delegation workflow front and center
+- **Professional tone**: Confident, focused, no marketing fluff
+
+---
+
 ## [2.0.1] - 2025-10-15
 
 ### 🔧 PATCH RELEASE: uv Package Manager Support
