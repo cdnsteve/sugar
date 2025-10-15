@@ -1,0 +1,88 @@
+# Quality Gates Configuration Example
+# Add this to your .sugar/config.yaml file
+
+quality_gates:
+  enabled: true  # Master switch for all quality gates
+
+  # Feature 1: Mandatory Test Execution
+  # Ensures tests are run and pass before allowing commits
+  mandatory_testing:
+    enabled: true
+    block_commits: true  # Prevent git commit if tests not run or failed
+
+    # Test commands for different scenarios
+    test_commands:
+      default: "pytest"  # Default test command
+      unit: "pytest tests/unit"
+      integration: "pytest tests/integration"
+      system: "pytest tests/system"
+
+    # Auto-detect which tests to run based on changed files
+    auto_detect_required_tests:
+      enabled: true
+      patterns:
+        - pattern: "app/controllers/**/*.py"
+          required_tests: ["integration", "system"]
+        - pattern: "app/models/**/*.py"
+          required_tests: ["unit", "integration"]
+        - pattern: "app/views/**/*"
+          required_tests: ["system"]
+
+    # Validation rules for test output
+    validation:
+      require_zero_failures: true
+      require_zero_errors: true
+      allow_pending: true  # Pending tests are okay
+      max_warnings: 10
+
+    # Test evidence storage
+    evidence:
+      store_test_output: true
+      path: ".sugar/test_evidence/{task_id}.txt"
+      include_in_commit_message: true
+
+  # Feature 8: Truth Enforcement
+  # Requires proof for all claims of success
+  truth_enforcement:
+    enabled: true
+    mode: "strict"  # strict | permissive
+    block_unproven_success: true
+
+    # Define rules for what proof is required for each claim
+    rules:
+      - claim: "all tests pass"
+        proof_required: "test_execution_evidence"
+        must_show:
+          exit_code: 0
+          failures: 0
+          errors: 0
+
+      - claim: "functionality verified"
+        proof_required: "functional_verification_evidence"
+        must_show:
+          http_request_results: "all_success"
+
+      - claim: "success criteria met"
+        proof_required: "success_criteria_verification"
+        must_show:
+          all_criteria_verified: true
+
+# Example: Task with Success Criteria (Feature 3)
+# When adding tasks, include verifiable success criteria:
+#
+# task:
+#   title: "Fix /login redirect issue"
+#   type: "bug_fix"
+#   success_criteria:
+#     - type: "http_status"
+#       url: "http://localhost:3000/login"
+#       expected: 200
+#
+#     - type: "http_no_redirect"
+#       url: "http://localhost:3000/login"
+#       disallowed_status: [301, 302, 303, 307, 308]
+#
+#     - type: "test_suite"
+#       command: "pytest tests/test_login.py"
+#       expected_failures: 0
+#       expected_errors: 0
