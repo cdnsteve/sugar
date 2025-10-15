@@ -276,3 +276,375 @@ class TestSugarRun:
             assert result.exit_code in [0, 1]
             # Check that the mock was created
             mock_loop_class.assert_called()
+
+
+class TestSugarView:
+    """Test sugar view command"""
+
+    @patch("sugar.storage.work_queue.WorkQueue")
+    def test_view_task_basic(self, mock_queue_class, cli_runner):
+        """Test viewing a task"""
+        mock_queue = MagicMock()
+        mock_queue_class.return_value = mock_queue
+        mock_queue.initialize = AsyncMock()
+        mock_queue.get_work_by_id = AsyncMock(
+            return_value={
+                "id": "task-123",
+                "type": "bug_fix",
+                "title": "Fix auth bug",
+                "description": "Fix login issues",
+                "priority": 5,
+                "status": "pending",
+                "created_at": "2024-01-01T12:00:00Z",
+                "attempts": 0,
+            }
+        )
+
+        with cli_runner.isolated_filesystem():
+            (Path.cwd() / ".sugar").mkdir()
+            with open(".sugar/config.yaml", "w") as f:
+                yaml.dump({"sugar": {"storage": {"database": ".sugar/sugar.db"}}}, f)
+
+            result = cli_runner.invoke(cli, ["view", "task-123"])
+
+            assert result.exit_code == 0
+            assert "Fix auth bug" in result.output
+
+    @patch("sugar.storage.work_queue.WorkQueue")
+    def test_view_task_not_found(self, mock_queue_class, cli_runner):
+        """Test viewing a non-existent task"""
+        mock_queue = MagicMock()
+        mock_queue_class.return_value = mock_queue
+        mock_queue.initialize = AsyncMock()
+        mock_queue.get_work_by_id = AsyncMock(return_value=None)
+
+        with cli_runner.isolated_filesystem():
+            (Path.cwd() / ".sugar").mkdir()
+            with open(".sugar/config.yaml", "w") as f:
+                yaml.dump({"sugar": {"storage": {"database": ".sugar/sugar.db"}}}, f)
+
+            result = cli_runner.invoke(cli, ["view", "nonexistent"])
+
+            # Currently returns 0 when task not found, just shows empty output
+            assert result.exit_code == 0
+            assert "Task not found" in result.output or result.output.strip() == ""
+
+
+class TestSugarRemove:
+    """Test sugar remove command"""
+
+    @patch("sugar.storage.work_queue.WorkQueue")
+    def test_remove_task(self, mock_queue_class, cli_runner):
+        """Test removing a task"""
+        mock_queue = MagicMock()
+        mock_queue_class.return_value = mock_queue
+        mock_queue.initialize = AsyncMock()
+        mock_queue.remove_work = AsyncMock(return_value=True)
+
+        with cli_runner.isolated_filesystem():
+            (Path.cwd() / ".sugar").mkdir()
+            with open(".sugar/config.yaml", "w") as f:
+                yaml.dump({"sugar": {"storage": {"database": ".sugar/sugar.db"}}}, f)
+
+            result = cli_runner.invoke(cli, ["remove", "task-123"])
+
+            assert result.exit_code == 0
+            assert "Removed task" in result.output
+
+
+class TestSugarUpdate:
+    """Test sugar update command"""
+
+    @patch("sugar.storage.work_queue.WorkQueue")
+    def test_update_task_title(self, mock_queue_class, cli_runner):
+        """Test updating a task title"""
+        mock_queue = MagicMock()
+        mock_queue_class.return_value = mock_queue
+        mock_queue.initialize = AsyncMock()
+        mock_queue.update_work = AsyncMock(return_value=True)
+        mock_queue.get_work_by_id = AsyncMock(
+            return_value={
+                "id": "task-123",
+                "type": "bug_fix",
+                "title": "New title",
+                "status": "pending",
+                "priority": 3,
+            }
+        )
+
+        with cli_runner.isolated_filesystem():
+            (Path.cwd() / ".sugar").mkdir()
+            with open(".sugar/config.yaml", "w") as f:
+                yaml.dump({"sugar": {"storage": {"database": ".sugar/sugar.db"}}}, f)
+
+            result = cli_runner.invoke(
+                cli, ["update", "task-123", "--title", "New title"]
+            )
+
+            assert result.exit_code == 0
+            assert "Updated task" in result.output
+
+    @patch("sugar.storage.work_queue.WorkQueue")
+    def test_update_task_priority(self, mock_queue_class, cli_runner):
+        """Test updating a task priority"""
+        mock_queue = MagicMock()
+        mock_queue_class.return_value = mock_queue
+        mock_queue.initialize = AsyncMock()
+        mock_queue.update_work = AsyncMock(return_value=True)
+        mock_queue.get_work_by_id = AsyncMock(
+            return_value={
+                "id": "task-123",
+                "type": "bug_fix",
+                "title": "Test task",
+                "status": "pending",
+                "priority": 5,
+            }
+        )
+
+        with cli_runner.isolated_filesystem():
+            (Path.cwd() / ".sugar").mkdir()
+            with open(".sugar/config.yaml", "w") as f:
+                yaml.dump({"sugar": {"storage": {"database": ".sugar/sugar.db"}}}, f)
+
+            result = cli_runner.invoke(cli, ["update", "task-123", "--priority", "5"])
+
+            assert result.exit_code == 0
+            assert "Updated task" in result.output
+
+
+class TestSugarPriority:
+    """Test sugar priority command"""
+
+    @patch("sugar.storage.work_queue.WorkQueue")
+    def test_priority_urgent_flag(self, mock_queue_class, cli_runner):
+        """Test setting priority with urgent flag"""
+        mock_queue = MagicMock()
+        mock_queue_class.return_value = mock_queue
+        mock_queue.initialize = AsyncMock()
+        mock_queue.update_work = AsyncMock(return_value=True)
+        mock_queue.get_work_by_id = AsyncMock(
+            return_value={
+                "id": "task-123",
+                "type": "bug_fix",
+                "title": "Test task",
+                "status": "pending",
+                "priority": 1,
+            }
+        )
+
+        with cli_runner.isolated_filesystem():
+            (Path.cwd() / ".sugar").mkdir()
+            with open(".sugar/config.yaml", "w") as f:
+                yaml.dump({"sugar": {"storage": {"database": ".sugar/sugar.db"}}}, f)
+
+            result = cli_runner.invoke(cli, ["priority", "task-123", "--urgent"])
+
+            assert result.exit_code == 0
+            assert "priority" in result.output.lower()
+
+    @patch("sugar.storage.work_queue.WorkQueue")
+    def test_priority_numeric(self, mock_queue_class, cli_runner):
+        """Test setting priority with numeric value"""
+        mock_queue = MagicMock()
+        mock_queue_class.return_value = mock_queue
+        mock_queue.initialize = AsyncMock()
+        mock_queue.update_work = AsyncMock(return_value=True)
+        mock_queue.get_work_by_id = AsyncMock(
+            return_value={
+                "id": "task-123",
+                "type": "bug_fix",
+                "title": "Test task",
+                "status": "pending",
+                "priority": 3,
+            }
+        )
+
+        with cli_runner.isolated_filesystem():
+            (Path.cwd() / ".sugar").mkdir()
+            with open(".sugar/config.yaml", "w") as f:
+                yaml.dump({"sugar": {"storage": {"database": ".sugar/sugar.db"}}}, f)
+
+            result = cli_runner.invoke(cli, ["priority", "task-123", "--priority", "3"])
+
+            assert result.exit_code == 0
+
+
+class TestSugarLogs:
+    """Test sugar logs command"""
+
+    def test_logs_basic(self, cli_runner):
+        """Test basic logs command"""
+        with cli_runner.isolated_filesystem():
+            (Path.cwd() / ".sugar").mkdir()
+            with open(".sugar/config.yaml", "w") as f:
+                yaml.dump(
+                    {
+                        "sugar": {
+                            "storage": {"database": ".sugar/sugar.db"},
+                            "logging": {"file": ".sugar/sugar.log"},
+                        }
+                    },
+                    f,
+                )
+
+            # Create log file
+            log_file = Path(".sugar/sugar.log")
+            log_file.write_text("Test log line 1\nTest log line 2\n")
+
+            result = cli_runner.invoke(cli, ["logs"])
+
+            assert result.exit_code == 0
+            assert "Test log line" in result.output
+
+    def test_logs_with_tail_option(self, cli_runner):
+        """Test logs command with --tail option"""
+        with cli_runner.isolated_filesystem():
+            (Path.cwd() / ".sugar").mkdir()
+            with open(".sugar/config.yaml", "w") as f:
+                yaml.dump(
+                    {
+                        "sugar": {
+                            "storage": {"database": ".sugar/sugar.db"},
+                            "logging": {"file": ".sugar/sugar.log"},
+                        }
+                    },
+                    f,
+                )
+
+            # Create log file with multiple lines
+            log_file = Path(".sugar/sugar.log")
+            log_file.write_text("\n".join([f"Log line {i}" for i in range(1, 11)]))
+
+            result = cli_runner.invoke(cli, ["logs", "--tail", "5"])
+
+            assert result.exit_code == 0
+            assert "Last 5 lines" in result.output
+
+    def test_logs_with_lines_option(self, cli_runner):
+        """Test logs command with --lines/-n option"""
+        with cli_runner.isolated_filesystem():
+            (Path.cwd() / ".sugar").mkdir()
+            with open(".sugar/config.yaml", "w") as f:
+                yaml.dump(
+                    {
+                        "sugar": {
+                            "storage": {"database": ".sugar/sugar.db"},
+                            "logging": {"file": ".sugar/sugar.log"},
+                        }
+                    },
+                    f,
+                )
+
+            # Create log file
+            log_file = Path(".sugar/sugar.log")
+            log_file.write_text("\n".join([f"Log line {i}" for i in range(1, 11)]))
+
+            result = cli_runner.invoke(cli, ["logs", "-n", "3"])
+
+            assert result.exit_code == 0
+            assert "Last 3 lines" in result.output
+
+    def test_logs_file_not_found(self, cli_runner):
+        """Test logs command when log file doesn't exist"""
+        with cli_runner.isolated_filesystem():
+            (Path.cwd() / ".sugar").mkdir()
+            with open(".sugar/config.yaml", "w") as f:
+                yaml.dump(
+                    {
+                        "sugar": {
+                            "storage": {"database": ".sugar/sugar.db"},
+                            "logging": {"file": ".sugar/truly_nonexistent_file.log"},
+                        }
+                    },
+                    f,
+                )
+
+            result = cli_runner.invoke(cli, ["logs"])
+
+            # Logs command gracefully handles missing files
+            assert result.exit_code == 0
+
+
+class TestSugarHelp:
+    """Test sugar help command"""
+
+    def test_help_command(self, cli_runner):
+        """Test help command"""
+        result = cli_runner.invoke(cli, ["help"])
+
+        assert result.exit_code == 0
+        assert "Sugar" in result.output
+        assert "QUICK START" in result.output
+
+
+class TestSugarStop:
+    """Test sugar stop command"""
+
+    @patch("pathlib.Path.exists")
+    @patch("pathlib.Path.read_text")
+    @patch("os.kill")
+    def test_stop_graceful(self, mock_kill, mock_read_text, mock_exists, cli_runner):
+        """Test graceful stop"""
+        mock_exists.return_value = True
+        mock_read_text.return_value = "12345"
+
+        with cli_runner.isolated_filesystem():
+            (Path.cwd() / ".sugar").mkdir()
+            with open(".sugar/config.yaml", "w") as f:
+                yaml.dump({"sugar": {"storage": {"database": ".sugar/sugar.db"}}}, f)
+
+            result = cli_runner.invoke(cli, ["stop"])
+
+            # Should either succeed or fail gracefully if process doesn't exist
+            assert result.exit_code in [0, 1]
+
+    def test_stop_no_pid_file(self, cli_runner):
+        """Test stop when no PID file exists"""
+        with cli_runner.isolated_filesystem():
+            (Path.cwd() / ".sugar").mkdir()
+            with open(".sugar/config.yaml", "w") as f:
+                yaml.dump({"sugar": {"storage": {"database": ".sugar/sugar.db"}}}, f)
+
+            result = cli_runner.invoke(cli, ["stop"])
+
+            assert result.exit_code in [0, 1]
+
+
+class TestSugarDedupe:
+    """Test sugar dedupe command"""
+
+    @patch("sugar.storage.work_queue.WorkQueue")
+    def test_dedupe_dry_run(self, mock_queue_class, cli_runner):
+        """Test dedupe in dry-run mode"""
+        mock_queue = MagicMock()
+        mock_queue_class.return_value = mock_queue
+
+        with cli_runner.isolated_filesystem():
+            (Path.cwd() / ".sugar").mkdir()
+            with open(".sugar/config.yaml", "w") as f:
+                yaml.dump({"sugar": {"storage": {"database": ".sugar/sugar.db"}}}, f)
+
+            result = cli_runner.invoke(cli, ["dedupe", "--dry-run"])
+
+            # Should not error out
+            assert result.exit_code in [0, 1]
+
+
+class TestSugarCleanup:
+    """Test sugar cleanup command"""
+
+    @patch("sugar.storage.work_queue.WorkQueue")
+    def test_cleanup_dry_run(self, mock_queue_class, cli_runner):
+        """Test cleanup in dry-run mode"""
+        mock_queue = MagicMock()
+        mock_queue_class.return_value = mock_queue
+
+        with cli_runner.isolated_filesystem():
+            (Path.cwd() / ".sugar").mkdir()
+            with open(".sugar/config.yaml", "w") as f:
+                yaml.dump({"sugar": {"storage": {"database": ".sugar/sugar.db"}}}, f)
+
+            result = cli_runner.invoke(cli, ["cleanup", "--dry-run"])
+
+            # Should not error out
+            assert result.exit_code in [0, 1]

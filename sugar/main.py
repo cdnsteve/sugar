@@ -983,7 +983,7 @@ def priority(ctx, task_id, priority, urgent, high, normal, low, minimal):
 
 
 @cli.command()
-@click.option("--lines", "-n", default=50, help="Number of log lines to show")
+@click.option("--lines", "-n", "--tail", default=50, help="Number of log lines to show")
 @click.option("--follow", "-f", is_flag=True, help="Follow log output (like tail -f)")
 @click.option(
     "--level",
