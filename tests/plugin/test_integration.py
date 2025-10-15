@@ -105,10 +105,18 @@ class TestMCPServer:
         """Verify MCP server is executable"""
         import os
         import stat
+        import platform
 
-        st = os.stat(mcp_server_path)
-        is_executable = bool(st.st_mode & stat.S_IXUSR)
-        assert is_executable, "MCP server is not executable"
+        # On Windows, executability is determined differently
+        if platform.system() == "Windows":
+            # On Windows, .js files aren't executable in the Unix sense
+            # Just verify the file exists and has content
+            assert mcp_server_path.exists()
+            assert mcp_server_path.stat().st_size > 0
+        else:
+            st = os.stat(mcp_server_path)
+            is_executable = bool(st.st_mode & stat.S_IXUSR)
+            assert is_executable, "MCP server is not executable"
 
     @pytest.mark.skipif(
         not Path(".claude-plugin/mcp-server/sugar-mcp.js").exists(),
@@ -145,7 +153,7 @@ class TestPluginFiles:
         plugin_dir = Path(".claude-plugin")
 
         for doc_file in plugin_dir.glob("**/*.md"):
-            content = doc_file.read_text()
+            content = doc_file.read_text(encoding="utf-8")
 
             # Check for relative file references
             import re
@@ -182,7 +190,7 @@ class TestPluginFiles:
             ]:  # Allow in examples
                 continue
 
-            content = file.read_text()
+            content = file.read_text(encoding="utf-8")
             for pattern in forbidden_patterns:
                 if pattern in content:
                     # Check if it's in a code example or actual path reference
@@ -199,7 +207,7 @@ class TestPluginFiles:
         plugin_dir = Path(".claude-plugin")
 
         for json_file in plugin_dir.glob("**/*.json"):
-            with open(json_file) as f:
+            with open(json_file, encoding="utf-8") as f:
                 try:
                     json.load(f)
                 except json.JSONDecodeError as e:
