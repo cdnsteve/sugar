@@ -197,6 +197,80 @@ discovery:
     enabled: true
 ```
 
+## Use Sugar from Claude Code
+
+**Sugar has native Claude Code integration!** Delegate work to Sugar directly from your Claude sessions.
+
+### Install the Plugin
+
+```
+/plugin install sugar@cdnsteve
+```
+
+### Delegate Work from Claude
+
+**Inside a Claude Code session:**
+
+```
+You: "I'm working on authentication but need to fix these test failures.
+Can you handle the test fixes while I finish the auth flow?"
+
+Claude: "I'll create a Sugar task for the test fixes so you can keep coding."
+
+/sugar-task "Fix authentication test failures" --type test --urgent
+```
+
+**Why this is powerful:** Claude Code handles your interactive work while Sugar autonomously fixes the tests in the background. No context switching.
+
+### Example Workflow
+
+```
+You: "Found a memory leak in the cache module. Add it to the queue."
+
+Claude:
+/sugar-task "Fix memory leak in cache module" --json --description '{
+  "priority": 5,
+  "type": "bug_fix",
+  "context": "Memory usage grows unbounded in production",
+  "technical_requirements": ["Profile memory usage", "Add cleanup cycle"],
+  "agent_assignments": {
+    "tech_lead": "Investigate root cause and fix"
+  }
+}'
+
+Task created! You can check progress with /sugar-status
+```
+
+### Available Slash Commands
+
+- `/sugar-task` - Create tasks with rich context
+- `/sugar-status` - Check queue and progress
+- `/sugar-run` - Start autonomous mode
+- `/sugar-review` - Review pending tasks
+- `/sugar-analyze` - Analyze code for potential work
+
+### MCP Server Integration
+
+Sugar includes an MCP server for advanced integration:
+
+```json
+// In your Claude Code MCP settings
+{
+  "mcpServers": {
+    "sugar": {
+      "command": "sugar",
+      "args": ["mcp"]
+    }
+  }
+}
+```
+
+Enables:
+- Real-time task queue access
+- Direct task manipulation from prompts
+- System status monitoring
+- Seamless tool integration
+
 ## Requirements
 
 - Python 3.11+
