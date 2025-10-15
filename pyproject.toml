@@ -4,8 +4,8 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "sugarai"
-version = "2.0.2"
-description = "Sugar 🍰 - AI-powered autonomous development system for Claude Code CLI"
+version = "2.0.3"
+description = "Sugar 🍰 - A dev team that never stops. Delegate full tasks to AI in the background."
 readme = "README.md"
 requires-python = ">=3.11"
 license = {text = "MIT"}

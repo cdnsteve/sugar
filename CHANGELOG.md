@@ -5,6 +5,34 @@ All notable changes to the Sugar autonomous development system will be documente
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.0.3] - 2025-10-15
+
+### 🔧 PATCH RELEASE: Messaging Refresh
+
+Complete refresh of Sugar's core messaging with a clear, memorable slogan.
+
+### Changed
+
+#### Brand Messaging
+- **New Slogan**: "A dev team that never stops" - memorable, clear value proposition
+- **Tagline Update**: "Delegate full tasks to AI in the background" - immediately explains what Sugar does
+- **README.md**: Updated header with new slogan and delegation-focused messaging
+- **Quick Start Section**: Added immediate delegation example showing `/sugar-task` command
+- **What It Does**: Added "Delegate from Claude" bullet point for visibility
+
+#### Documentation Updates
+- **.claude-plugin/README.md**: Updated with new slogan and tagline for consistency
+- **pyproject.toml**: Updated package description to match new messaging
+- **Removed**: Old "Claude Code running in a loop" tagline - too technical
+
+### Benefits
+- **Instant Clarity**: "A dev team that never stops" immediately communicates value
+- **Clear Use Case**: "Delegate full tasks" makes the delegation pattern obvious
+- **Better Discoverability**: Early mention of delegation workflow in Quick Start
+- **Professional Branding**: Memorable slogan suitable for marketing and word-of-mouth
+
+---
+
 ## [2.0.2] - 2025-10-15
 
 ### 🔧 PATCH RELEASE: README Refresh and Documentation

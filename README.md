@@ -1,14 +1,15 @@
 # Sugar 🍰
 
-Claude Code running in a loop, working through your task list autonomously.
+A dev team that never stops.
 
-Sugar builds features, fixes bugs, and ships code while you focus on what matters. It's like having a dev team that never stops.
+Delegate full tasks to AI in the background. Sugar builds features, fixes bugs, and ships code while you focus on what matters.
 
 ## What It Does
 
 Think of Sugar as **Claude Code with persistence**. Instead of one-off interactions:
 
 - **Continuous execution** - Runs 24/7, working through your task queue
+- **Delegate from Claude** - Hand off tasks during interactive sessions
 - **Builds features** - Takes specs, implements, tests, commits working code
 - **Fixes bugs** - Reads error logs, investigates, implements fixes
 - **GitHub integration** - Creates PRs, updates issues, tracks progress
@@ -50,6 +51,12 @@ Sugar will:
 5. Move to the next task
 
 It keeps going until the queue is empty (or you stop it).
+
+**Or delegate from Claude Code:**
+```
+/sugar-task "Fix login timeout" --type bug_fix --urgent
+```
+Sugar picks it up and works on it while you keep coding.
 
 ## Real Example
 

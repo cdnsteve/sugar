@@ -1,6 +1,8 @@
 # Sugar 🍰 - Claude Code Plugin
 
-Transform your Claude Code experience with autonomous AI development capabilities!
+A dev team that never stops.
+
+Delegate full tasks to AI in the background with autonomous development capabilities.
 
 ## What is Sugar?
 
