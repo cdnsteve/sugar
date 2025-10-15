@@ -14,6 +14,10 @@ from .test_validator import TestExecutionValidator, TestExecutionResult
 from .success_criteria import SuccessCriteriaVerifier, SuccessCriterion
 from .truth_enforcer import TruthEnforcer
 from .evidence import EvidenceCollector
+from .functional_verifier import FunctionalVerifier
+from .preflight_checks import PreFlightChecker
+from .failure_handler import VerificationFailureHandler
+from .diff_validator import DiffValidator
 
 logger = logging.getLogger(__name__)
 
@@ -28,14 +32,22 @@ class QualityGateResult:
         tests_passed: bool = False,
         criteria_verified: bool = False,
         claims_proven: bool = False,
+        preflight_passed: bool = True,
+        functional_verified: bool = True,
+        diff_validated: bool = True,
         evidence_collector: Optional[EvidenceCollector] = None,
+        failure_report: Optional[Any] = None,
     ):
         self.can_complete = can_complete
         self.reason = reason
         self.tests_passed = tests_passed
         self.criteria_verified = criteria_verified
         self.claims_proven = claims_proven
+        self.preflight_passed = preflight_passed
+        self.functional_verified = functional_verified
+        self.diff_validated = diff_validated
         self.evidence_collector = evidence_collector
+        self.failure_report = failure_report
 
     def to_dict(self) -> dict:
         """Convert to dictionary"""
@@ -45,11 +57,21 @@ class QualityGateResult:
             "tests_passed": self.tests_passed,
             "criteria_verified": self.criteria_verified,
             "claims_proven": self.claims_proven,
+            "preflight_passed": self.preflight_passed,
+            "functional_verified": self.functional_verified,
+            "diff_validated": self.diff_validated,
         }
 
         if self.evidence_collector:
             result["evidence_summary"] = self.evidence_collector.get_evidence_summary()
             result["evidence_urls"] = self.evidence_collector.generate_evidence_urls()
+
+        if self.failure_report:
+            result["failure_report"] = (
+                self.failure_report.to_dict()
+                if hasattr(self.failure_report, "to_dict")
+                else str(self.failure_report)
+            )
 
         return result
 
@@ -70,10 +92,18 @@ class QualityGatesCoordinator:
         self.gates_config = config.get("quality_gates", {})
         self.enabled = self.gates_config.get("enabled", False)
 
-        # Initialize components
+        # Initialize Phase 1 components
         self.test_validator = TestExecutionValidator(config)
         self.criteria_verifier = SuccessCriteriaVerifier(config)
         self.truth_enforcer = TruthEnforcer(config)
+
+        # Initialize Phase 2 components
+        self.functional_verifier = FunctionalVerifier(config)
+        self.preflight_checker = PreFlightChecker(config)
+
+        # Initialize Phase 3 components
+        self.failure_handler = VerificationFailureHandler(config)
+        self.diff_validator = DiffValidator(config)
 
     def is_enabled(self) -> bool:
         """Check if quality gates are enabled"""
