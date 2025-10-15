@@ -38,13 +38,33 @@ __url__ = "https://github.com/cdnsteve/sugar"
 
 def get_version_info() -> str:
     """Get formatted version information"""
-    return f"{__title__} {__description__} v{__version__}"
+    import sys
+
+    # Handle Windows encoding limitations
+    try:
+        # Try to encode with system encoding to verify it works
+        output = f"{__title__} {__description__} v{__version__}"
+        output.encode(sys.stdout.encoding or "utf-8")
+        return output
+    except (UnicodeEncodeError, AttributeError):
+        # Fallback for Windows terminals that can't handle emojis
+        return f"Sugar {__description__} v{__version__}"
 
 
 def get_full_version_info() -> str:
     """Get detailed version information"""
+    import sys
+
+    # Handle Windows encoding limitations
+    try:
+        title_line = f"{__title__} v{__version__}"
+        title_line.encode(sys.stdout.encoding or "utf-8")
+        title = __title__
+    except (UnicodeEncodeError, AttributeError):
+        title = "Sugar"
+
     return f"""
-{__title__} v{__version__}
+{title} v{__version__}
 {__description__}
 
 Author: {__author__} <{__author_email__}>
