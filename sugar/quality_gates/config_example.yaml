@@ -1,8 +1,12 @@
-# Quality Gates Configuration Example
+# Quality Gates Configuration Example - ALL FEATURES
 # Add this to your .sugar/config.yaml file
 
 quality_gates:
   enabled: true  # Master switch for all quality gates
+
+  # ============================================================================
+  # PHASE 1: Critical Features
+  # ============================================================================
 
   # Feature 1: Mandatory Test Execution
   # Ensures tests are run and pass before allowing commits
@@ -66,6 +70,171 @@ quality_gates:
         proof_required: "success_criteria_verification"
         must_show:
           all_criteria_verified: true
+
+  # ============================================================================
+  # PHASE 2: High Priority Features
+  # ============================================================================
+
+  # Feature 2: Functional Verification Layer
+  # Verifies that fixes actually work in the running application
+  functional_verification:
+    enabled: true
+    required: true  # Block completion without verification
+
+    methods:
+      http_requests:
+        enabled: true
+        tool: "curl"
+        timeout: 10
+
+      browser_automation:
+        enabled: false  # Requires MCP Chrome DevTools integration
+        tools: ["mcp__chrome-devtools"]
+        screenshot_on_verification: true
+        screenshot_path: ".sugar/verification/{task_id}/"
+
+      database_queries:
+        enabled: false  # Requires implementation
+        require_evidence: true
+
+    # Auto-detect verification needs based on changed files
+    auto_detect:
+      enabled: true
+      patterns:
+        - pattern: "app/controllers/**/*.py"
+          verification: "http_requests"
+          test_urls: ["/"]
+          expected_status: [200, 302]
+
+        - pattern: "config/routes.py"
+          verification: "http_requests"
+          action: "extract_new_routes_and_test"
+
+        - pattern: "app/templates/**/*.html"
+          verification: "browser_automation"
+          action: "screenshot_and_validate"
+
+# ============================================================================
+# PHASE 2: Pre-Flight Checks (Feature 6)
+# ============================================================================
+pre_flight_checks:
+  enabled: true
+  block_execution_if_failed: true
+
+  checks:
+    # Check if development server is running
+    - name: "dev_server_running"
+      type: "port_check"
+      port: 8000
+      host: "localhost"
+      required_for: ["ui_changes", "api_changes", "route_changes"]
+
+    # Check if database is accessible
+    - name: "database_accessible"
+      type: "command"
+      command: "python manage.py check --database default"
+      timeout: 10
+      required_for: ["model_changes", "migration_changes"]
+
+    # Check if test suite is runnable
+    - name: "test_suite_runnable"
+      type: "command"
+      command: "pytest --collect-only"
+      timeout: 30
+      required_for: ["all_tasks"]
+
+    # Check if required tools are available
+    - name: "required_tools_available"
+      type: "tool_check"
+      tools: ["python", "pytest", "curl"]
+      required_for: ["all_tasks"]
+
+    # Check git working directory state
+    - name: "git_clean_state"
+      type: "git_status"
+      allow_untracked: true
+      allow_unstaged: false
+      required_for: ["all_tasks"]
+
+    # Check required config files exist
+    - name: "config_files_exist"
+      type: "file_exists"
+      file_path: ".sugar/config.yaml"
+      required_for: ["all_tasks"]
+
+# ============================================================================
+# PHASE 3: Enhancement Features
+# ============================================================================
+
+# Feature 7: Verification Failure Handling
+verification_failure_handling:
+  enabled: true
+
+  # How to handle test failures
+  on_test_failure:
+    action: "retry"
+    max_retries: 2
+    retry_with_more_context: true
+
+    escalate:
+      enabled: true
+      action: "create_detailed_failure_report"
+      report_path: ".sugar/failures/{task_id}.md"
+      include_evidence: true
+
+  # How to handle functional verification failures
+  on_functional_verification_failure:
+    action: "retry"
+    max_retries: 1
+
+    # Collect enhanced debugging information
+    enhanced_debugging:
+      - "capture_server_logs"
+      - "capture_network_requests"
+      - "capture_database_state"
+
+    escalate:
+      action: "mark_task_as_needs_manual_review"
+      notify_user: true
+
+  # How to handle unmet success criteria
+  on_success_criteria_not_met:
+    action: "fail_task"
+    do_not_commit: true
+    create_failure_report: true
+
+# Feature 10: Work Diff Validation
+git_diff_validation:
+  enabled: true
+
+  before_commit:
+    # Validate that changed files match expectations
+    validate_files_changed:
+      enabled: true
+      allowed_files: "from task.files_to_modify.expected"
+      allow_additional_files: false
+
+    # Limit size of changes to prevent massive commits
+    max_lines_changed: 500
+    warn_if_exceeds: 200
+
+    # Check for patterns that shouldn't be in commits
+    disallow_patterns:
+      - pattern: "debugger"
+        reason: "Debug statement left in code"
+      - pattern: "console\\.log"
+        reason: "Console.log left in code"
+      - pattern: "binding\\.pry"
+        reason: "Binding.pry left in code"
+      - pattern: "import pdb"
+        reason: "pdb import left in code"
+      - pattern: "TODO:"
+        reason: "TODO comment left in code"
+
+    # Handle unexpected file changes
+    if_unexpected_files_changed:
+      action: "require_justification"
+      prompt: "Why were these additional files changed?"
 
 # Example: Task with Success Criteria (Feature 3)
 # When adding tasks, include verifiable success criteria:

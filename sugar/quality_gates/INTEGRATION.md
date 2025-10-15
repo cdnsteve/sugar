@@ -25,16 +25,32 @@ When `WorkflowOrchestrator.complete_work_execution()` is called:
 ```
 1. Check if there are uncommitted changes
 2. If quality gates enabled:
-   a. Get list of changed files
-   b. Extract claims from execution result
-   c. Run quality gate validation
-   d. If validation fails:
+   a. Run pre-flight checks (Phase 2)
+      - Verify environment is ready
+      - Check ports, tools, services
+      - Block if critical checks fail
+
+   b. Get list of changed files
+
+   c. Extract claims from execution result
+
+   d. Run quality gate validation:
+      - Phase 1: Mandatory testing, success criteria, truth enforcement
+      - Phase 2: Functional verification (HTTP, port checks)
+      - Phase 3: Diff validation
+
+   e. If validation fails:
+      - Phase 3: Retry with configurable logic
       - Log error
+      - Create failure report (Phase 3)
       - Store failure in database
       - Return False (block commit)
-   e. If validation passes:
+
+   f. If validation passes:
       - Log success
       - Append evidence to commit message
+      - Store evidence files
+
 3. Commit changes with evidence
 4. Complete workflow (push, PR creation, etc.)
 ```
@@ -111,13 +127,15 @@ quality_gates:
 
 ## Task-Level Success Criteria
 
-Define success criteria in your tasks:
+Define success criteria and verification requirements in your tasks:
 
 ```python
 work_item = {
     "id": "task-123",
     "title": "Fix login bug",
     "type": "bug_fix",
+
+    # Phase 1: Success criteria to verify
     "success_criteria": [
         {
             "type": "http_status",
@@ -134,7 +152,30 @@ work_item = {
             "type": "file_exists",
             "file_path": "sugar/auth/login.py"
         }
-    ]
+    ],
+
+    # Phase 2: Functional verifications
+    "functional_verifications": [
+        {
+            "type": "http_request",
+            "url": "http://localhost:8000/login",
+            "method": "GET",
+            "expected_status": 200
+        },
+        {
+            "type": "port_listening",
+            "port": 8000,
+            "host": "localhost"
+        }
+    ],
+
+    # Phase 3: Expected file changes (for diff validation)
+    "files_to_modify": {
+        "expected": [
+            "sugar/auth/login.py",
+            "tests/test_login.py"
+        ]
+    }
 }
 ```
 
@@ -164,8 +205,11 @@ Quality gates automatically collect evidence:
 ### Storage
 
 Evidence is stored in:
-- `.sugar/test_evidence/{task_id}.txt` - Test execution logs
-- `.sugar/evidence/{task_id}.json` - Complete evidence report
+- `.sugar/test_evidence/{task_id}.txt` - Test execution logs (Phase 1)
+- `.sugar/evidence/{task_id}.json` - Complete evidence report (Phase 1)
+- `.sugar/verification/{task_id}/` - Functional verification screenshots (Phase 2, when MCP integrated)
+- `.sugar/failures/{task_id}.md` - Detailed failure reports (Phase 3)
+- `.sugar/failures/{task_id}.json` - Failure report JSON (Phase 3)
 
 Evidence URLs are included in commit messages for traceability.
 
@@ -326,36 +370,187 @@ cat .sugar/evidence/task-123.json
 ## Architecture
 
 ```
-┌─────────────────────────────────────────────────────────┐
-│                  WorkflowOrchestrator                    │
-│                                                          │
-│  ┌────────────────────────────────────────────────┐    │
-│  │  complete_work_execution()                      │    │
-│  │                                                  │    │
-│  │  1. Check uncommitted changes                   │    │
-│  │  2. Get changed files                           │    │
-│  │  3. Extract claims                              │    │
-│  │  4. Call QualityGatesCoordinator               │    │
-│  │     ├─ TestExecutionValidator                   │    │
-│  │     ├─ SuccessCriteriaVerifier                 │    │
-│  │     └─ TruthEnforcer                           │    │
-│  │  5. Block or allow commit                       │    │
-│  │  6. Append evidence to message                  │    │
-│  └────────────────────────────────────────────────┘    │
-└─────────────────────────────────────────────────────────┘
+┌──────────────────────────────────────────────────────────────────┐
+│                    WorkflowOrchestrator                          │
+│                                                                  │
+│  ┌────────────────────────────────────────────────────────┐    │
+│  │  complete_work_execution()                              │    │
+│  │                                                          │    │
+│  │  1. Check uncommitted changes                           │    │
+│  │  2. Get changed files                                   │    │
+│  │  3. Extract claims                                      │    │
+│  │  4. Call QualityGatesCoordinator                       │    │
+│  │     │                                                    │    │
+│  │     ├─ Phase 1: Critical Features                      │    │
+│  │     │  ├─ TestExecutionValidator                        │    │
+│  │     │  ├─ SuccessCriteriaVerifier                      │    │
+│  │     │  ├─ TruthEnforcer                                │    │
+│  │     │  └─ EvidenceCollector                            │    │
+│  │     │                                                    │    │
+│  │     ├─ Phase 2: High Priority                          │    │
+│  │     │  ├─ FunctionalVerifier (HTTP, port checks)       │    │
+│  │     │  └─ PreFlightChecker (env validation)            │    │
+│  │     │                                                    │    │
+│  │     └─ Phase 3: Enhancements                           │    │
+│  │        ├─ VerificationFailureHandler (retry/escalate)  │    │
+│  │        └─ DiffValidator (change validation)            │    │
+│  │                                                          │    │
+│  │  5. Block or allow commit based on all validations     │    │
+│  │  6. Append evidence to message                          │    │
+│  └────────────────────────────────────────────────────────┘    │
+└──────────────────────────────────────────────────────────────────┘
 ```
 
-## Future Enhancements (Phase 2 & 3)
+## Phase 2 & 3 Features (Now Available)
 
-Coming in future phases:
-- HTTP request verification (Phase 2)
-- Browser automation verification (Phase 2)
-- Claude Code MCP integration (Phase 3)
-- Retry logic for flaky tests (Phase 3)
-- Advanced evidence reporting (Phase 2)
+### Phase 2: Functional Verification & Pre-Flight Checks
+
+**Feature 2: Functional Verification Layer**
+
+Verifies actual functionality works in the running application:
+
+```yaml
+quality_gates:
+  functional_verification:
+    enabled: true
+    required: true
+
+    methods:
+      http_requests:
+        enabled: true
+        tool: "curl"
+        timeout: 10
+
+      browser_automation:
+        enabled: false  # Requires MCP Chrome DevTools
+        tools: ["mcp__chrome-devtools"]
+        screenshot_on_verification: true
+
+      database_queries:
+        enabled: false  # Future implementation
+        require_evidence: true
+
+    auto_detect:
+      enabled: true
+      patterns:
+        - pattern: "app/controllers/**/*.py"
+          verification: "http_requests"
+          test_urls: ["/"]
+          expected_status: [200, 302]
+```
+
+**Feature 6: Task Pre-Flight Checks**
+
+Validates environment before starting work:
+
+```yaml
+pre_flight_checks:
+  enabled: true
+  block_execution_if_failed: true
+
+  checks:
+    - name: "dev_server_running"
+      type: "port_check"
+      port: 8000
+      host: "localhost"
+      required_for: ["ui_changes", "api_changes"]
+
+    - name: "database_accessible"
+      type: "command"
+      command: "python manage.py check --database default"
+      timeout: 10
+      required_for: ["model_changes"]
+
+    - name: "test_suite_runnable"
+      type: "command"
+      command: "pytest --collect-only"
+      timeout: 30
+      required_for: ["all_tasks"]
+
+    - name: "required_tools_available"
+      type: "tool_check"
+      tools: ["python", "pytest", "curl"]
+      required_for: ["all_tasks"]
+```
+
+### Phase 3: Failure Handling & Diff Validation
+
+**Feature 7: Verification Failure Handling**
+
+Retry logic and escalation for failures:
+
+```yaml
+verification_failure_handling:
+  enabled: true
+
+  on_test_failure:
+    action: "retry"
+    max_retries: 2
+    retry_with_more_context: true
+
+    escalate:
+      enabled: true
+      action: "create_detailed_failure_report"
+      report_path: ".sugar/failures/{task_id}.md"
+      include_evidence: true
+
+  on_functional_verification_failure:
+    action: "retry"
+    max_retries: 1
+
+    enhanced_debugging:
+      - "capture_server_logs"
+      - "capture_network_requests"
+      - "capture_database_state"
+
+    escalate:
+      action: "mark_task_as_needs_manual_review"
+      notify_user: true
+
+  on_success_criteria_not_met:
+    action: "fail_task"
+    do_not_commit: true
+    create_failure_report: true
+```
+
+**Feature 10: Work Diff Validation**
+
+Validates git changes before commit:
+
+```yaml
+git_diff_validation:
+  enabled: true
+
+  before_commit:
+    validate_files_changed:
+      enabled: true
+      allowed_files: "from task.files_to_modify.expected"
+      allow_additional_files: false
+
+    max_lines_changed: 500
+    warn_if_exceeds: 200
+
+    disallow_patterns:
+      - pattern: "debugger"
+        reason: "Debug statement left in code"
+      - pattern: "console\\.log"
+        reason: "Console.log left in code"
+      - pattern: "binding\\.pry"
+        reason: "Binding.pry left in code"
+      - pattern: "import pdb"
+        reason: "pdb import left in code"
+      - pattern: "TODO:"
+        reason: "TODO comment left in code"
+
+    if_unexpected_files_changed:
+      action: "require_justification"
+      prompt: "Why were these additional files changed?"
+```
 
 ## See Also
 
-- [Quality Gates README](README.md) - Feature overview and benefits
-- [Configuration Example](config_example.yaml) - Complete configuration
+- [Quality Gates README](README.md) - Phase 1 feature overview
+- [Phase 2 & 3 Documentation](PHASE2_AND_3.md) - Complete Phase 2 & 3 documentation
+- [User Guide](USER_GUIDE.md) - Comprehensive user guide for all phases
+- [Configuration Example](config_example.yaml) - Complete configuration reference
 - [Test Suite](../../tests/test_quality_gates.py) - Integration tests
