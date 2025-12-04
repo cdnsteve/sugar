@@ -39,6 +39,11 @@ a different source of potential work:
     - Supports security analysis, test coverage, and lint analysis templates
     - Enables consistent AI-powered interpretation of tool outputs
 
+**External Tool Configuration** (``ExternalToolConfig``):
+    - Manages configuration for external analysis tools
+    - Validates tool configuration schemas
+    - Supports environment variable expansion in tool configurations
+
 Usage Example
 -------------
 Basic discovery operations::
@@ -106,6 +111,14 @@ from .prompt_templates import (
     TEST_COVERAGE_TEMPLATE,
     LINT_ANALYSIS_TEMPLATE,
 )
+from .external_tool_config import (
+    ExternalToolConfig,
+    ExternalToolConfigError,
+    validate_external_tools_config,
+    parse_external_tools_from_code_quality_config,
+    expand_env_vars,
+    get_external_tools_config_schema,
+)
 
 __all__ = [
     # Error and log monitoring
@@ -123,4 +136,11 @@ __all__ = [
     "SECURITY_ANALYSIS_TEMPLATE",
     "TEST_COVERAGE_TEMPLATE",
     "LINT_ANALYSIS_TEMPLATE",
+    # External tool configuration
+    "ExternalToolConfig",
+    "ExternalToolConfigError",
+    "validate_external_tools_config",
+    "parse_external_tools_from_code_quality_config",
+    "expand_env_vars",
+    "get_external_tools_config_schema",
 ]

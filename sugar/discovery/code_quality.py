@@ -10,6 +10,12 @@ from pathlib import Path
 import ast
 import re
 
+from .external_tool_config import (
+    ExternalToolConfig,
+    ExternalToolConfigError,
+    parse_external_tools_from_code_quality_config,
+)
+
 logger = logging.getLogger(__name__)
 
 
@@ -58,6 +64,19 @@ class CodeQualityScanner:
             )
         )
         self.max_files_per_scan = config.get("max_files_per_scan", 50)
+
+        # Parse and validate external tools configuration
+        self.external_tools: List[ExternalToolConfig] = []
+        try:
+            self.external_tools = parse_external_tools_from_code_quality_config(config)
+            if self.external_tools:
+                logger.info(
+                    f"Loaded {len(self.external_tools)} external tool(s): "
+                    f"{', '.join(t.name for t in self.external_tools)}"
+                )
+        except ExternalToolConfigError as e:
+            logger.error(f"External tools configuration error: {e}")
+            # Continue without external tools on config error
 
     async def discover(self) -> List[Dict[str, Any]]:
         """Discover code quality improvement opportunities"""
@@ -488,4 +507,8 @@ class CodeQualityScanner:
             "file_extensions": self.file_extensions,
             "excluded_dirs": list(self.excluded_dirs),
             "max_files_per_scan": self.max_files_per_scan,
+            "external_tools": [
+                {"name": tool.name, "command": tool.command}
+                for tool in self.external_tools
+            ],
         }

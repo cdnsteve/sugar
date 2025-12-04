@@ -117,14 +117,32 @@ sugar:
       root_path: ".."  # Path to analyze
       file_extensions: [".py", ".js", ".ts", ".jsx", ".tsx"]
       excluded_dirs: [
-        "node_modules", ".git", "__pycache__", 
-        "venv", ".venv", "env", ".env", "ENV", 
+        "node_modules", ".git", "__pycache__",
+        "venv", ".venv", "env", ".env", "ENV",
         "env.bak", "venv.bak", "virtualenv",
         "build", "dist", ".tox", ".nox",
         "coverage", "htmlcov", ".pytest_cache",
         ".sugar", ".claude"
       ]
       max_files_per_scan: 50
+
+      # External Code Quality Tools
+      # Define external tools to run for code quality analysis.
+      # Each tool requires:
+      #   - name: Tool identifier (required)
+      #   - command: Shell command to execute (required)
+      # Commands run from project root_path and support environment variable expansion ($VAR or ${VAR})
+      external_tools: []
+      # Example configuration:
+      # external_tools:
+      #   - name: eslint
+      #     command: "npx eslint . --format json"
+      #   - name: phpstan
+      #     command: "vendor/bin/phpstan analyse --error-format=json"
+      #   - name: ruff
+      #     command: "ruff check . --output-format json"
+      #   - name: sonarqube
+      #     command: "sonar-scanner -Dsonar.token=$SONAR_TOKEN"
       
     test_coverage:
       enabled: true
