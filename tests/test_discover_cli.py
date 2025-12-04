@@ -9,14 +9,15 @@ Tests the sugar discover command including:
 - Integration with orchestrator and Claude Code wrapper
 """
 
+from pathlib import Path
+from unittest.mock import AsyncMock, MagicMock, patch
+
 import pytest
 import yaml
-from pathlib import Path
-from unittest.mock import patch, MagicMock, AsyncMock
 from click.testing import CliRunner
 
+from sugar.cli.discover import _execute_tool_discovery, _parse_sugar_add_commands
 from sugar.main import cli
-from sugar.cli.discover import _parse_sugar_add_commands, _execute_tool_discovery
 
 
 class TestParseSugarAddCommands:
@@ -347,12 +348,14 @@ class TestDiscoverDryRun:
         mock_queue.add_work = AsyncMock()
         mock_queue_class.return_value = mock_queue
 
-        # Mock subprocess to simulate tool output
-        mock_subprocess.return_value = MagicMock(
-            stdout="Tool output line 1\nTool output line 2\n",
-            stderr="",
-            returncode=0,
-        )
+        # Mock subprocess to simulate tool output - write to file handle
+        def subprocess_side_effect(*args, **kwargs):
+            stdout_file = kwargs.get("stdout")
+            if stdout_file and hasattr(stdout_file, "write"):
+                stdout_file.write("Tool output line 1\nTool output line 2\n")
+            return MagicMock(stderr="", returncode=0)
+
+        mock_subprocess.side_effect = subprocess_side_effect
 
         with cli_runner.isolated_filesystem():
             Path(".sugar").mkdir()
@@ -398,9 +401,13 @@ class TestDiscoverTimeout:
         mock_queue.initialize = AsyncMock()
         mock_queue_class.return_value = mock_queue
 
-        mock_subprocess.return_value = MagicMock(
-            stdout="output", stderr="", returncode=0
-        )
+        def subprocess_side_effect(*args, **kwargs):
+            stdout_file = kwargs.get("stdout")
+            if stdout_file and hasattr(stdout_file, "write"):
+                stdout_file.write("output")
+            return MagicMock(stderr="", returncode=0)
+
+        mock_subprocess.side_effect = subprocess_side_effect
 
         with cli_runner.isolated_filesystem():
             Path(".sugar").mkdir()
@@ -480,12 +487,14 @@ class TestDiscoverIntegrationWithOrchestrator:
         mock_queue.initialize = AsyncMock()
         mock_queue_class.return_value = mock_queue
 
-        # Mock subprocess for tool execution
-        mock_subprocess.return_value = MagicMock(
-            stdout='{"errors": []}',
-            stderr="",
-            returncode=0,
-        )
+        # Mock subprocess for tool execution - write to file handle
+        def subprocess_side_effect(*args, **kwargs):
+            stdout_file = kwargs.get("stdout")
+            if stdout_file and hasattr(stdout_file, "write"):
+                stdout_file.write('{"errors": []}')
+            return MagicMock(stderr="", returncode=0)
+
+        mock_subprocess.side_effect = subprocess_side_effect
 
         with cli_runner.isolated_filesystem():
             Path(".sugar").mkdir()
@@ -568,6 +577,66 @@ class TestDiscoverIntegrationWithOrchestrator:
 class TestDiscoverIntegrationWithClaudeCode:
     """Integration tests for discover CLI with mocked Claude Code"""
 
+    def _setup_mock_queue(self, mock_queue_class):
+        """Setup mock work queue with common configuration."""
+        mock_queue = MagicMock()
+        mock_queue.initialize = AsyncMock()
+        mock_queue.add_work = AsyncMock()
+        mock_queue_class.return_value = mock_queue
+        return mock_queue
+
+    def _setup_mock_claude(
+        self, mock_claude_class, *, success=True, output="", error=None, exception=None
+    ):
+        """Setup mock Claude wrapper with configurable response."""
+        mock_claude = MagicMock()
+        if exception:
+            mock_claude.execute_work = AsyncMock(side_effect=exception)
+        else:
+            mock_claude.execute_work = AsyncMock(
+                return_value={"success": success, "output": output, "error": error}
+            )
+        mock_claude_class.return_value = mock_claude
+        return mock_claude
+
+    def _setup_mock_subprocess(
+        self, mock_subprocess, *, stdout="", stderr="", returncode=0
+    ):
+        """Setup mock subprocess with configurable output.
+
+        Writes stdout to the file handle passed to subprocess.run since
+        the orchestrator now writes output to files instead of capturing.
+        """
+
+        def subprocess_side_effect(*args, **kwargs):
+            # Write stdout to the file handle if provided
+            stdout_file = kwargs.get("stdout")
+            if stdout_file and hasattr(stdout_file, "write"):
+                stdout_file.write(stdout)
+            return MagicMock(stderr=stderr, returncode=returncode)
+
+        mock_subprocess.side_effect = subprocess_side_effect
+
+    def _create_discover_config(self, tool_name="tool", tool_command="tool --check"):
+        """Create a minimal discover configuration dict."""
+        return {
+            "sugar": {
+                "storage": {"database": ".sugar/sugar.db"},
+                "claude": {"command": "claude", "timeout": 300},
+                "discovery": {
+                    "code_quality": {
+                        "external_tools": [{"name": tool_name, "command": tool_command}]
+                    }
+                },
+            }
+        }
+
+    def _write_config_file(self, config):
+        """Write config to .sugar/config.yaml (must be inside isolated_filesystem)."""
+        Path(".sugar").mkdir(exist_ok=True)
+        with open(".sugar/config.yaml", "w") as f:
+            yaml.dump(config, f)
+
     @patch("sugar.storage.work_queue.WorkQueue")
     @patch("sugar.executor.claude_wrapper.ClaudeWrapper")
     @patch("subprocess.run")
@@ -575,72 +644,44 @@ class TestDiscoverIntegrationWithClaudeCode:
         self, mock_subprocess, mock_claude_class, mock_queue_class, cli_runner
     ):
         """Test end-to-end: config → execute → Claude → tasks"""
-        # Setup mock work queue
-        mock_queue = MagicMock()
-        mock_queue.initialize = AsyncMock()
-        mock_queue.add_work = AsyncMock()
-        mock_queue_class.return_value = mock_queue
-
-        # Setup mock Claude wrapper
-        mock_claude = MagicMock()
-        mock_claude.execute_work = AsyncMock(
-            return_value={
-                "success": True,
-                "output": """Analysis complete. Here are the tasks:
+        claude_output = """Analysis complete. Here are the tasks:
 
 sugar add "Fix no-unused-vars in auth.js" --type refactor --priority 2 --description "Remove unused import at line 15"
 sugar add "Add error handling in api.js" --type bug_fix --priority 4 --description "Handle null response"
-""",
-            }
-        )
-        mock_claude_class.return_value = mock_claude
-
-        # Setup mock subprocess for tool execution
-        mock_subprocess.return_value = MagicMock(
+"""
+        mock_queue = self._setup_mock_queue(mock_queue_class)
+        self._setup_mock_claude(mock_claude_class, success=True, output=claude_output)
+        self._setup_mock_subprocess(
+            mock_subprocess,
             stdout='[{"ruleId": "no-unused-vars", "message": "x is unused"}]',
-            stderr="",
-            returncode=1,  # Non-zero = issues found
+            returncode=1,
         )
 
         with cli_runner.isolated_filesystem():
-            Path(".sugar").mkdir()
-            with open(".sugar/config.yaml", "w") as f:
-                yaml.dump(
-                    {
-                        "sugar": {
-                            "storage": {"database": ".sugar/sugar.db"},
-                            "claude": {"command": "claude", "timeout": 300},
-                            "discovery": {
-                                "code_quality": {
-                                    "external_tools": [
-                                        {
-                                            "name": "eslint",
-                                            "command": "npx eslint . --format json",
-                                        },
-                                    ]
-                                }
-                            },
-                        }
-                    },
-                    f,
-                )
+            config = self._create_discover_config(
+                "eslint", "npx eslint . --format json"
+            )
+            self._write_config_file(config)
 
-            result = cli_runner.invoke(cli, ["discover"])
+            cli_runner.invoke(cli, ["discover"])
 
-            # Verify tasks were added
             assert mock_queue.add_work.call_count == 2
+            self._verify_task(
+                mock_queue, 0, "Fix no-unused-vars in auth.js", "refactor", 2
+            )
+            self._verify_task(
+                mock_queue, 1, "Add error handling in api.js", "bug_fix", 4
+            )
 
-            # Verify task details
-            calls = mock_queue.add_work.call_args_list
-            first_task = calls[0][0][0]
-            assert first_task["title"] == "Fix no-unused-vars in auth.js"
-            assert first_task["type"] == "refactor"
-            assert first_task["priority"] == 2
-
-            second_task = calls[1][0][0]
-            assert second_task["title"] == "Add error handling in api.js"
-            assert second_task["type"] == "bug_fix"
-            assert second_task["priority"] == 4
+    def _verify_task(
+        self, mock_queue, index, expected_title, expected_type, expected_priority
+    ):
+        """Verify a task was added with expected values."""
+        calls = mock_queue.add_work.call_args_list
+        task = calls[index][0][0]
+        assert task["title"] == expected_title
+        assert task["type"] == expected_type
+        assert task["priority"] == expected_priority
 
     @patch("sugar.storage.work_queue.WorkQueue")
     @patch("sugar.executor.claude_wrapper.ClaudeWrapper")
@@ -649,48 +690,15 @@ sugar add "Add error handling in api.js" --type bug_fix --priority 4 --descripti
         self, mock_subprocess, mock_claude_class, mock_queue_class, cli_runner
     ):
         """Test handling when Claude Code returns an error"""
-        mock_queue = MagicMock()
-        mock_queue.initialize = AsyncMock()
-        mock_queue.add_work = AsyncMock()
-        mock_queue_class.return_value = mock_queue
-
-        # Setup mock Claude wrapper to fail
-        mock_claude = MagicMock()
-        mock_claude.execute_work = AsyncMock(
-            return_value={
-                "success": False,
-                "error": "Claude Code execution failed",
-            }
+        mock_queue = self._setup_mock_queue(mock_queue_class)
+        self._setup_mock_claude(
+            mock_claude_class, success=False, error="Claude Code execution failed"
         )
-        mock_claude_class.return_value = mock_claude
-
-        mock_subprocess.return_value = MagicMock(
-            stdout="tool output", stderr="", returncode=0
-        )
+        self._setup_mock_subprocess(mock_subprocess, stdout="tool output")
 
         with cli_runner.isolated_filesystem():
-            Path(".sugar").mkdir()
-            with open(".sugar/config.yaml", "w") as f:
-                yaml.dump(
-                    {
-                        "sugar": {
-                            "storage": {"database": ".sugar/sugar.db"},
-                            "claude": {"command": "claude", "timeout": 300},
-                            "discovery": {
-                                "code_quality": {
-                                    "external_tools": [
-                                        {"name": "tool", "command": "tool --check"},
-                                    ]
-                                }
-                            },
-                        }
-                    },
-                    f,
-                )
-
-            result = cli_runner.invoke(cli, ["discover"])
-
-            # Should complete but not create tasks
+            self._write_config_file(self._create_discover_config())
+            cli_runner.invoke(cli, ["discover"])
             mock_queue.add_work.assert_not_called()
 
     @patch("sugar.storage.work_queue.WorkQueue")
@@ -700,42 +708,15 @@ sugar add "Add error handling in api.js" --type bug_fix --priority 4 --descripti
         self, mock_subprocess, mock_claude_class, mock_queue_class, cli_runner
     ):
         """Test handling when Claude Code raises exception"""
-        mock_queue = MagicMock()
-        mock_queue.initialize = AsyncMock()
-        mock_queue_class.return_value = mock_queue
-
-        # Setup mock Claude wrapper to raise exception
-        mock_claude = MagicMock()
-        mock_claude.execute_work = AsyncMock(side_effect=Exception("Connection failed"))
-        mock_claude_class.return_value = mock_claude
-
-        mock_subprocess.return_value = MagicMock(
-            stdout="tool output", stderr="", returncode=0
+        self._setup_mock_queue(mock_queue_class)
+        self._setup_mock_claude(
+            mock_claude_class, exception=Exception("Connection failed")
         )
+        self._setup_mock_subprocess(mock_subprocess, stdout="tool output")
 
         with cli_runner.isolated_filesystem():
-            Path(".sugar").mkdir()
-            with open(".sugar/config.yaml", "w") as f:
-                yaml.dump(
-                    {
-                        "sugar": {
-                            "storage": {"database": ".sugar/sugar.db"},
-                            "claude": {"command": "claude", "timeout": 300},
-                            "discovery": {
-                                "code_quality": {
-                                    "external_tools": [
-                                        {"name": "tool", "command": "tool --check"},
-                                    ]
-                                }
-                            },
-                        }
-                    },
-                    f,
-                )
-
+            self._write_config_file(self._create_discover_config())
             result = cli_runner.invoke(cli, ["discover"])
-
-            # Should complete gracefully with error message
             assert "error" in result.output.lower() or "failed" in result.output.lower()
 
     @patch("sugar.storage.work_queue.WorkQueue")
@@ -745,49 +726,18 @@ sugar add "Add error handling in api.js" --type bug_fix --priority 4 --descripti
         self, mock_subprocess, mock_claude_class, mock_queue_class, cli_runner
     ):
         """Test handling when Claude finds no actionable issues"""
-        mock_queue = MagicMock()
-        mock_queue.initialize = AsyncMock()
-        mock_queue.add_work = AsyncMock()
-        mock_queue_class.return_value = mock_queue
-
-        mock_claude = MagicMock()
-        mock_claude.execute_work = AsyncMock(
-            return_value={
-                "success": True,
-                "output": "No issues found. The code looks clean!",
-            }
+        mock_queue = self._setup_mock_queue(mock_queue_class)
+        self._setup_mock_claude(
+            mock_claude_class,
+            success=True,
+            output="No issues found. The code looks clean!",
         )
-        mock_claude_class.return_value = mock_claude
-
-        mock_subprocess.return_value = MagicMock(
-            stdout="[]",  # Empty results
-            stderr="",
-            returncode=0,
-        )
+        self._setup_mock_subprocess(mock_subprocess, stdout="[]")
 
         with cli_runner.isolated_filesystem():
-            Path(".sugar").mkdir()
-            with open(".sugar/config.yaml", "w") as f:
-                yaml.dump(
-                    {
-                        "sugar": {
-                            "storage": {"database": ".sugar/sugar.db"},
-                            "claude": {"command": "claude", "timeout": 300},
-                            "discovery": {
-                                "code_quality": {
-                                    "external_tools": [
-                                        {"name": "tool", "command": "tool --check"},
-                                    ]
-                                }
-                            },
-                        }
-                    },
-                    f,
-                )
-
+            self._write_config_file(self._create_discover_config())
             result = cli_runner.invoke(cli, ["discover"])
 
-            # Should complete successfully with 0 tasks
             mock_queue.add_work.assert_not_called()
             assert "0 new tasks" in result.output or "No actionable" in result.output
 
