@@ -137,18 +137,26 @@ async def _execute_tool_discovery(
         summary["error"] = "No output from tool"
         return summary
 
-    # Create interpretation prompt
+    # Check if output file exists
+    if not result.output_path or not result.output_path.exists():
+        summary["error"] = "No output file from tool"
+        return summary
+
+    # Create interpretation prompt with file path (not inline content)
+    # Claude Code will read the file directly
     prompt = create_tool_interpretation_prompt(
         tool_name=result.name,
         command=result.command,
-        raw_output=result.stdout if result.stdout else result.stderr,
+        output_file_path=result.output_path,
     )
 
     # Pass to Claude Code for interpretation
     if dry_run:
+        output_size = result.output_path.stat().st_size if result.output_path else 0
         click.echo(
-            f"   📝 [DRY-RUN] Would pass {len(result.stdout)} chars to Claude Code"
+            f"   📝 [DRY-RUN] Would pass file to Claude Code: {result.output_path}"
         )
+        click.echo(f"   📝 [DRY-RUN] Output file size: {output_size} bytes")
         click.echo(f"   📝 [DRY-RUN] Prompt preview (first 500 chars):")
         click.echo(f"      {prompt[:500]}...")
         summary["dry_run"] = True

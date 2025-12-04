@@ -3,6 +3,10 @@ Claude Invoker - Send tool output to Claude Code for interpretation
 
 This module reuses the existing ClaudeWrapper to send external tool output
 to Claude Code for interpretation and automatic task generation.
+
+The interpreter receives file paths to tool output (not inline content),
+allowing Claude Code to read the files directly. This is more efficient
+for large outputs and integrates with the orchestrator's temp file management.
 """
 
 import asyncio
@@ -11,6 +15,7 @@ import re
 import shlex
 import subprocess
 from dataclasses import dataclass, field
+from pathlib import Path
 from typing import List, Dict, Any, Optional
 
 from ..executor.claude_wrapper import ClaudeWrapper
@@ -89,35 +94,40 @@ class ToolOutputInterpreter:
         self,
         tool_name: str,
         command: str,
-        raw_output: str,
+        output_file_path: Path,
         template_type: Optional[str] = None,
     ) -> InterpretationResult:
         """
         Send tool output to Claude Code for interpretation.
 
+        Claude Code will read the output file directly at the given path.
+        This approach is more efficient for large outputs and integrates
+        with the orchestrator's temp file management.
+
         Args:
             tool_name: Name of the tool that generated the output
             command: The command that was executed
-            raw_output: The raw output from the tool
+            output_file_path: Path to the file containing the tool output
             template_type: Optional template type (default, security, coverage, lint)
 
         Returns:
             InterpretationResult containing parsed sugar add commands
         """
         logger.info(f"Interpreting output from tool: {tool_name}")
+        logger.debug(f"Output file path: {output_file_path}")
 
         # Build prompt from template
         if self.custom_template:
             # Use custom template with simple substitution
             prompt = self.custom_template.replace("${tool_name}", tool_name)
             prompt = prompt.replace("${command}", command)
-            prompt = prompt.replace("${raw_output}", raw_output)
+            prompt = prompt.replace("${output_file_path}", str(output_file_path))
         else:
             # Use the standard template manager
             prompt = create_tool_interpretation_prompt(
                 tool_name=tool_name,
                 command=command,
-                raw_output=raw_output,
+                output_file_path=output_file_path,
                 template_type=template_type,
             )
 
@@ -388,7 +398,7 @@ class ToolOutputInterpreter:
         self,
         tool_name: str,
         command: str,
-        raw_output: str,
+        output_file_path: Path,
         template_type: Optional[str] = None,
         dry_run: bool = False,
     ) -> Dict[str, Any]:
@@ -398,7 +408,7 @@ class ToolOutputInterpreter:
         Args:
             tool_name: Name of the tool that generated the output
             command: The command that was executed
-            raw_output: The raw output from the tool
+            output_file_path: Path to the file containing the tool output
             template_type: Optional template type
             dry_run: If True, don't actually create tasks
 
@@ -406,7 +416,7 @@ class ToolOutputInterpreter:
             Dict with interpretation result and execution count
         """
         result = await self.interpret_output(
-            tool_name, command, raw_output, template_type
+            tool_name, command, output_file_path, template_type
         )
 
         if not result.success:
