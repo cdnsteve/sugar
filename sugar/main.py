@@ -2832,5 +2832,11 @@ def import_task_types(ctx, file, overwrite):
         sys.exit(1)
 
 
+# Register discover command from cli module
+from .cli.discover import discover as discover_command
+
+cli.add_command(discover_command, name="discover")
+
+
 if __name__ == "__main__":
     cli()
