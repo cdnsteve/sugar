@@ -132,14 +132,53 @@ sugar:
       source_dirs: ["src", "lib", "app", "system", "sugar"]
       test_dirs: ["tests", "test", "__tests__", "spec"]
       excluded_dirs: [
-        "node_modules", ".git", "__pycache__", 
-        "venv", ".venv", "env", ".env", "ENV", 
+        "node_modules", ".git", "__pycache__",
+        "venv", ".venv", "env", ".env", "ENV",
         "env.bak", "venv.bak", "virtualenv",
         "build", "dist", ".tox", ".nox",
         "coverage", "htmlcov", ".pytest_cache",
         ".sugar", ".claude"
       ]
-      
+
+    # External Tool Output Interpretation
+    # Configures prompt templates for Claude Code to interpret tool output
+    external_tools:
+      enabled: true
+
+      # Directory for custom prompt templates (optional)
+      # Templates can be .txt or .md files with ${tool_name}, ${command}, ${raw_output} placeholders
+      templates_dir: ".sugar/templates"
+
+      # Default template to use when auto-detection fails
+      # Options: default, security, coverage, lint, or custom template name
+      default_template: "default"
+
+      # Tool-to-template mappings (override auto-detection)
+      # Maps tool names to specific template types
+      tool_mappings:
+        # Security tools -> security template
+        bandit: "security"
+        snyk: "security"
+        trivy: "security"
+        # Coverage tools -> coverage template
+        pytest-cov: "coverage"
+        coverage: "coverage"
+        # Linting tools -> lint template
+        eslint: "lint"
+        pylint: "lint"
+        ruff: "lint"
+        mypy: "lint"
+
+      # Maximum tasks to generate from a single tool run
+      max_tasks_per_tool: 50
+
+      # Grouping settings for task creation
+      grouping:
+        # Group issues by: file, directory, rule, or none
+        default_strategy: "rule"
+        # Minimum issues before grouping kicks in
+        min_issues_for_grouping: 5
+
   # Storage
   storage:
     database: "sugar.db"

@@ -34,6 +34,11 @@ a different source of potential work:
     - Detects complex functions that need additional testing
     - Prioritizes based on file importance and complexity metrics
 
+**Prompt Templates** (``PromptTemplateManager``):
+    - Manages templates for external tool output interpretation
+    - Supports security analysis, test coverage, and lint analysis templates
+    - Enables consistent AI-powered interpretation of tool outputs
+
 Usage Example
 -------------
 Basic discovery operations::
@@ -93,6 +98,14 @@ from .code_quality import CodeQualityScanner
 from .error_monitor import ErrorLogMonitor
 from .github_watcher import GitHubWatcher
 from .test_coverage import TestCoverageAnalyzer
+from .prompt_templates import (
+    PromptTemplateManager,
+    create_tool_interpretation_prompt,
+    DEFAULT_TOOL_INTERPRETATION_TEMPLATE,
+    SECURITY_ANALYSIS_TEMPLATE,
+    TEST_COVERAGE_TEMPLATE,
+    LINT_ANALYSIS_TEMPLATE,
+)
 
 __all__ = [
     # Error and log monitoring
@@ -103,4 +116,11 @@ __all__ = [
     "CodeQualityScanner",  # Scans source files for code quality issues
     # Test coverage analysis
     "TestCoverageAnalyzer",  # Identifies test coverage gaps and quality issues
+    # Prompt templates for external tool interpretation
+    "PromptTemplateManager",
+    "create_tool_interpretation_prompt",
+    "DEFAULT_TOOL_INTERPRETATION_TEMPLATE",
+    "SECURITY_ANALYSIS_TEMPLATE",
+    "TEST_COVERAGE_TEMPLATE",
+    "LINT_ANALYSIS_TEMPLATE",
 ]
