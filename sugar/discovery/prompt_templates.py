@@ -30,11 +30,12 @@ sugar add [OPTIONS] TITLE
 
 ## Tool: ${tool_name}
 ## Command: ${command}
-## Raw Output:
-${raw_output}
+## Output File: ${output_file_path}
+
+Please read the file at ${output_file_path} to analyze the tool output.
 
 ## Your Responsibilities
-1. Parse the raw tool output (any format: JSON, XML, plain text)
+1. Read and parse the raw tool output from the file (any format: JSON, XML, plain text)
 2. Group related issues into logical tasks (NOT one task per warning!)
 3. Prioritize based on severity and impact
 4. Output executable 'sugar add' shell commands
@@ -83,8 +84,9 @@ sugar add [OPTIONS] TITLE
 
 ## Security Tool: ${tool_name}
 ## Command: ${command}
-## Raw Output:
-${raw_output}
+## Output File: ${output_file_path}
+
+Please read the file at ${output_file_path} to analyze the security scan output.
 
 ## Security Priority Mapping
 | Severity      | CVSS Score | Priority |
@@ -127,8 +129,9 @@ sugar add [OPTIONS] TITLE
 
 ## Coverage Tool: ${tool_name}
 ## Command: ${command}
-## Raw Output:
-${raw_output}
+## Output File: ${output_file_path}
+
+Please read the file at ${output_file_path} to analyze the coverage report.
 
 ## Coverage Priority Mapping
 | Coverage Level | Priority |
@@ -169,8 +172,9 @@ sugar add [OPTIONS] TITLE
 
 ## Linter: ${tool_name}
 ## Command: ${command}
-## Raw Output:
-${raw_output}
+## Output File: ${output_file_path}
+
+Please read the file at ${output_file_path} to analyze the linter output.
 
 ## Lint Priority Mapping
 | Category                    | Priority |
@@ -276,7 +280,7 @@ class PromptTemplateManager:
         template_type: str = "default",
         tool_name: str = "",
         command: str = "",
-        raw_output: str = "",
+        output_file_path: Optional[Path] = None,
     ) -> str:
         """
         Get a prompt template with variables substituted.
@@ -285,7 +289,7 @@ class PromptTemplateManager:
             template_type: Type of template (default, security, coverage, lint) or custom name
             tool_name: Name of the tool that generated the output
             command: The command that was executed
-            raw_output: The raw output from the tool
+            output_file_path: Path to the file containing the tool output
 
         Returns:
             Rendered prompt template string
@@ -296,11 +300,14 @@ class PromptTemplateManager:
         # Use string.Template for safe substitution
         template = Template(template_str)
 
+        # Convert Path to string for template substitution
+        output_path_str = str(output_file_path) if output_file_path else ""
+
         try:
             return template.safe_substitute(
                 tool_name=tool_name,
                 command=command,
-                raw_output=raw_output,
+                output_file_path=output_path_str,
             )
         except Exception as e:
             logger.error(f"Error rendering template: {e}")
@@ -482,7 +489,7 @@ class PromptTemplateManager:
 def create_tool_interpretation_prompt(
     tool_name: str,
     command: str,
-    raw_output: str,
+    output_file_path: Path,
     template_type: Optional[str] = None,
     config: Optional[Dict[str, Any]] = None,
 ) -> str:
@@ -494,7 +501,7 @@ def create_tool_interpretation_prompt(
     Args:
         tool_name: Name of the tool that generated the output
         command: The command that was executed
-        raw_output: The raw output from the tool
+        output_file_path: Path to the file containing the tool output
         template_type: Optional specific template type (auto-detected if not provided)
         config: Optional configuration for template manager
 
@@ -511,7 +518,7 @@ def create_tool_interpretation_prompt(
         template_type=template_type,
         tool_name=tool_name,
         command=command,
-        raw_output=raw_output,
+        output_file_path=output_file_path,
     )
 
 

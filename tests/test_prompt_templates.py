@@ -19,6 +19,17 @@ from sugar.discovery.prompt_templates import (
 )
 
 
+# Helper to create temp output files for tests
+def create_temp_output_file(content: str = "test output") -> Path:
+    """Create a temporary file with given content and return its path."""
+    import tempfile
+
+    fd, path = tempfile.mkstemp(suffix=".txt")
+    with open(fd, "w") as f:
+        f.write(content)
+    return Path(path)
+
+
 class TestPromptTemplateManager:
     """Tests for PromptTemplateManager class"""
 
@@ -37,67 +48,76 @@ class TestPromptTemplateManager:
 
     def test_get_builtin_default_template(self):
         """Test getting the default built-in template"""
+        output_file = Path("/tmp/test_output.txt")
         manager = PromptTemplateManager()
         template = manager.get_template(
             template_type="default",
             tool_name="test-tool",
             command="test-cmd",
-            raw_output="test output",
+            output_file_path=output_file,
         )
 
         assert "test-tool" in template
         assert "test-cmd" in template
-        assert "test output" in template
+        assert "/tmp/test_output.txt" in template
         assert "sugar add" in template
+        assert "Please read the file at" in template
 
     def test_get_builtin_security_template(self):
         """Test getting the security template"""
+        output_file = Path("/tmp/security_output.txt")
         manager = PromptTemplateManager()
         template = manager.get_template(
             template_type="security",
             tool_name="bandit",
             command="bandit -r src/",
-            raw_output="High: SQL Injection in db.py",
+            output_file_path=output_file,
         )
 
         assert "bandit" in template
         assert "Security Priority Mapping" in template
         assert "CVSS Score" in template
+        assert "/tmp/security_output.txt" in template
 
     def test_get_builtin_coverage_template(self):
         """Test getting the coverage template"""
+        output_file = Path("/tmp/coverage_output.txt")
         manager = PromptTemplateManager()
         template = manager.get_template(
             template_type="coverage",
             tool_name="pytest-cov",
             command="pytest --cov=src",
-            raw_output="TOTAL 75%",
+            output_file_path=output_file,
         )
 
         assert "pytest-cov" in template
         assert "Coverage Priority Mapping" in template
+        assert "/tmp/coverage_output.txt" in template
 
     def test_get_builtin_lint_template(self):
         """Test getting the lint template"""
+        output_file = Path("/tmp/lint_output.txt")
         manager = PromptTemplateManager()
         template = manager.get_template(
             template_type="lint",
             tool_name="eslint",
             command="eslint src/",
-            raw_output="100 problems",
+            output_file_path=output_file,
         )
 
         assert "eslint" in template
         assert "Aggressive Grouping Rules" in template
+        assert "/tmp/lint_output.txt" in template
 
     def test_get_unknown_template_falls_back_to_default(self):
         """Test that unknown template type falls back to default"""
+        output_file = Path("/tmp/unknown_output.txt")
         manager = PromptTemplateManager()
         template = manager.get_template(
             template_type="nonexistent",
             tool_name="test",
             command="test",
-            raw_output="test",
+            output_file_path=output_file,
         )
 
         # Should contain default template content
@@ -106,18 +126,18 @@ class TestPromptTemplateManager:
 
     def test_template_variable_substitution(self):
         """Test that template variables are properly substituted"""
+        output_file = Path("/tmp/custom_output.txt")
         manager = PromptTemplateManager()
         template = manager.get_template(
             template_type="default",
             tool_name="my-custom-tool",
             command="my-custom-command --verbose",
-            raw_output="Custom output line 1\nCustom output line 2",
+            output_file_path=output_file,
         )
 
         assert "my-custom-tool" in template
         assert "my-custom-command --verbose" in template
-        assert "Custom output line 1" in template
-        assert "Custom output line 2" in template
+        assert "/tmp/custom_output.txt" in template
 
     def test_list_available_templates(self):
         """Test listing all available templates"""
@@ -137,7 +157,7 @@ class TestPromptTemplateManager:
             manager = PromptTemplateManager(config)
 
             custom_content = """Custom template for ${tool_name}
-Output: ${raw_output}
+Output File: ${output_file_path}
 Command: ${command}
 """
 
@@ -147,15 +167,16 @@ Command: ${command}
             assert "my_custom" in manager.custom_templates
 
             # Get the custom template
+            output_file = Path("/tmp/custom.txt")
             rendered = manager.get_template(
                 template_type="my_custom",
                 tool_name="test",
                 command="cmd",
-                raw_output="output",
+                output_file_path=output_file,
             )
 
             assert "Custom template for test" in rendered
-            assert "Output: output" in rendered
+            assert "Output File: /tmp/custom.txt" in rendered
 
     def test_save_custom_template_no_overwrite(self):
         """Test that saving won't overwrite existing template by default"""
@@ -283,35 +304,39 @@ class TestCreateToolInterpretationPrompt:
 
     def test_basic_prompt_creation(self):
         """Test basic prompt creation"""
+        output_file = Path("/tmp/test_output.txt")
         prompt = create_tool_interpretation_prompt(
             tool_name="test-tool",
             command="test-command",
-            raw_output="test output",
+            output_file_path=output_file,
         )
 
         assert "test-tool" in prompt
         assert "test-command" in prompt
-        assert "test output" in prompt
+        assert "/tmp/test_output.txt" in prompt
         assert "sugar add" in prompt
+        assert "Please read the file at" in prompt
 
     def test_auto_detect_template_type(self):
         """Test automatic template type detection"""
+        output_file = Path("/tmp/security_output.txt")
         # Security tool should get security template
         prompt = create_tool_interpretation_prompt(
             tool_name="bandit",
             command="bandit -r src/",
-            raw_output="Security issues found",
+            output_file_path=output_file,
         )
 
         assert "CVSS Score" in prompt
 
     def test_explicit_template_type(self):
         """Test explicit template type override"""
+        output_file = Path("/tmp/override_output.txt")
         # Even though tool name suggests default, we can override
         prompt = create_tool_interpretation_prompt(
             tool_name="unknown-tool",
             command="cmd",
-            raw_output="output",
+            output_file_path=output_file,
             template_type="security",
         )
 
@@ -322,17 +347,18 @@ class TestCreateToolInterpretationPrompt:
         with tempfile.TemporaryDirectory() as tmpdir:
             # Create a custom template file
             template_path = Path(tmpdir) / "custom.txt"
-            template_path.write_text("Custom: ${tool_name} - ${raw_output}")
+            template_path.write_text("Custom: ${tool_name} - ${output_file_path}")
 
+            output_file = Path("/tmp/custom_output.txt")
             prompt = create_tool_interpretation_prompt(
                 tool_name="my-tool",
                 command="cmd",
-                raw_output="my output",
+                output_file_path=output_file,
                 template_type="custom",
                 config={"templates_dir": tmpdir},
             )
 
-            assert "Custom: my-tool - my output" in prompt
+            assert "Custom: my-tool - /tmp/custom_output.txt" in prompt
 
 
 class TestTemplateContent:
@@ -367,11 +393,22 @@ class TestTemplateContent:
         assert "Output Format" in DEFAULT_TOOL_INTERPRETATION_TEMPLATE
         assert "executable shell commands" in DEFAULT_TOOL_INTERPRETATION_TEMPLATE
 
+    def test_default_template_has_file_read_instruction(self):
+        """Test that default template instructs Claude to read from file"""
+        assert "Output File:" in DEFAULT_TOOL_INTERPRETATION_TEMPLATE
+        assert "Please read the file at" in DEFAULT_TOOL_INTERPRETATION_TEMPLATE
+        assert "${output_file_path}" in DEFAULT_TOOL_INTERPRETATION_TEMPLATE
+
     def test_security_template_has_cvss_mapping(self):
         """Test that security template has CVSS score mapping"""
         assert "CVSS Score" in SECURITY_ANALYSIS_TEMPLATE
         assert "Critical" in SECURITY_ANALYSIS_TEMPLATE
         assert "9.0-10.0" in SECURITY_ANALYSIS_TEMPLATE
+
+    def test_security_template_has_file_read_instruction(self):
+        """Test that security template instructs Claude to read from file"""
+        assert "Output File:" in SECURITY_ANALYSIS_TEMPLATE
+        assert "Please read the file at" in SECURITY_ANALYSIS_TEMPLATE
 
     def test_coverage_template_has_coverage_levels(self):
         """Test that coverage template has coverage level mapping"""
@@ -379,10 +416,20 @@ class TestTemplateContent:
         assert "0-25%" in TEST_COVERAGE_TEMPLATE
         assert "76-100%" in TEST_COVERAGE_TEMPLATE
 
+    def test_coverage_template_has_file_read_instruction(self):
+        """Test that coverage template instructs Claude to read from file"""
+        assert "Output File:" in TEST_COVERAGE_TEMPLATE
+        assert "Please read the file at" in TEST_COVERAGE_TEMPLATE
+
     def test_lint_template_has_aggressive_grouping(self):
         """Test that lint template emphasizes aggressive grouping"""
         assert "Aggressive Grouping Rules" in LINT_ANALYSIS_TEMPLATE
         assert "NEVER create more than 30 tasks" in LINT_ANALYSIS_TEMPLATE
+
+    def test_lint_template_has_file_read_instruction(self):
+        """Test that lint template instructs Claude to read from file"""
+        assert "Output File:" in LINT_ANALYSIS_TEMPLATE
+        assert "Please read the file at" in LINT_ANALYSIS_TEMPLATE
 
 
 class TestTemplateVariables:
@@ -400,7 +447,7 @@ class TestTemplateVariables:
         for template in templates:
             assert "${tool_name}" in template
             assert "${command}" in template
-            assert "${raw_output}" in template
+            assert "${output_file_path}" in template
 
     def test_empty_values_handled_gracefully(self):
         """Test that empty values don't break template rendering"""
@@ -409,40 +456,35 @@ class TestTemplateVariables:
             template_type="default",
             tool_name="",
             command="",
-            raw_output="",
+            output_file_path=None,
         )
 
         # Should still render without errors
         assert "sugar add" in template
 
-    def test_special_characters_in_output(self):
-        """Test that special characters in output are handled"""
+    def test_special_characters_in_path(self):
+        """Test that special characters in file path are handled"""
         manager = PromptTemplateManager()
+        output_file = Path('/tmp/output with "quotes" and spaces.txt')
         template = manager.get_template(
             template_type="default",
             tool_name="tool",
             command="cmd",
-            raw_output='Output with "quotes" and $pecial chars',
+            output_file_path=output_file,
         )
 
-        assert '"quotes"' in template
-        assert "$pecial" in template
+        assert 'output with "quotes" and spaces.txt' in template
 
-    def test_multiline_output(self):
-        """Test that multiline output is preserved"""
+    def test_path_conversion_to_string(self):
+        """Test that Path objects are properly converted to strings"""
         manager = PromptTemplateManager()
-        multiline_output = """Line 1
-Line 2
-Line 3
-    Indented line"""
+        output_file = Path("/tmp/nested/path/to/output.txt")
 
         template = manager.get_template(
             template_type="default",
             tool_name="tool",
             command="cmd",
-            raw_output=multiline_output,
+            output_file_path=output_file,
         )
 
-        assert "Line 1" in template
-        assert "Line 2" in template
-        assert "Indented line" in template
+        assert "/tmp/nested/path/to/output.txt" in template
