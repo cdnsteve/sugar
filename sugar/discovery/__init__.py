@@ -119,6 +119,11 @@ from .external_tool_config import (
     expand_env_vars,
     get_external_tools_config_schema,
 )
+from .orchestrator import (
+    ToolOrchestrator,
+    ToolResult,
+    DEFAULT_TIMEOUT_SECONDS,
+)
 
 __all__ = [
     # Error and log monitoring
@@ -143,4 +148,8 @@ __all__ = [
     "parse_external_tools_from_code_quality_config",
     "expand_env_vars",
     "get_external_tools_config_schema",
+    # Tool orchestration
+    "ToolOrchestrator",
+    "ToolResult",
+    "DEFAULT_TIMEOUT_SECONDS",
 ]
