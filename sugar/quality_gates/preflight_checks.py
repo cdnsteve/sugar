@@ -11,6 +11,7 @@ Verifies environment is ready before starting task execution:
 
 import asyncio
 import socket
+from pathlib import Path
 from typing import Any, Dict, List, Tuple
 import logging
 
@@ -20,12 +21,17 @@ logger = logging.getLogger(__name__)
 class PreFlightCheckResult:
     """Result of a pre-flight check"""
 
-    def __init__(self, check_name: str, passed: bool, **kwargs):
+    def __init__(self, check_name: str, passed: bool, **kwargs: Any):
         self.name = check_name
         self.passed = passed
         self.metadata = kwargs
 
-    def to_dict(self) -> dict:
+    def __repr__(self) -> str:
+        """String representation for debugging"""
+        status = "✅" if self.passed else "❌"
+        return f"PreFlightCheckResult({status} {self.name})"
+
+    def to_dict(self) -> Dict[str, Any]:
         """Convert to dictionary"""
         return {
             "name": self.name,
@@ -134,17 +140,24 @@ class PreFlightChecker:
 
     async def _check_port(self, check_config: Dict[str, Any]) -> PreFlightCheckResult:
         """Check if a port is listening"""
-        check_name = check_config.get("name")
+        check_name = check_config.get("name", "port_check")
         port = check_config.get("port")
         host = check_config.get("host", "localhost")
 
+        if port is None:
+            return PreFlightCheckResult(
+                check_name=check_name,
+                passed=False,
+                host=host,
+                error="Port not specified in check configuration",
+            )
+
+        sock = None
         try:
             # Try to connect to the port
             sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
             sock.settimeout(2)
             result = sock.connect_ex((host, port))
-            sock.close()
-
             listening = result == 0
 
             if listening:
@@ -160,7 +173,7 @@ class PreFlightChecker:
                 message=f"Port {port} {'is' if listening else 'is not'} listening on {host}",
             )
 
-        except Exception as e:
+        except OSError as e:
             logger.error(f"Error checking port {port}: {e}")
             return PreFlightCheckResult(
                 check_name=check_name,
@@ -169,6 +182,9 @@ class PreFlightChecker:
                 host=host,
                 error=str(e),
             )
+        finally:
+            if sock is not None:
+                sock.close()
 
     async def _check_command(
         self, check_config: Dict[str, Any]
@@ -229,30 +245,36 @@ class PreFlightChecker:
 
     async def _check_tools(self, check_config: Dict[str, Any]) -> PreFlightCheckResult:
         """Check if required tools are available"""
-        check_name = check_config.get("name")
+        check_name = check_config.get("name", "tool_check")
         tools = check_config.get("tools", [])
 
-        # For now, we'll just check if tools are executable commands
-        # In the future, this could check for MCP tool availability
-        available_tools = []
-        missing_tools = []
+        if not tools:
+            return PreFlightCheckResult(
+                check_name=check_name,
+                passed=True,
+                available_tools=[],
+                missing_tools=[],
+                message="No tools to check",
+            )
 
-        for tool in tools:
-            # Check if tool is executable
+        async def check_single_tool(tool: str) -> Tuple[str, bool]:
+            """Check if a single tool is executable"""
             try:
                 process = await asyncio.create_subprocess_shell(
                     f"command -v {tool}",
                     stdout=asyncio.subprocess.PIPE,
                     stderr=asyncio.subprocess.PIPE,
                 )
-                stdout, stderr = await process.communicate()
+                await process.communicate()
+                return (tool, process.returncode == 0)
+            except OSError:
+                return (tool, False)
 
-                if process.returncode == 0:
-                    available_tools.append(tool)
-                else:
-                    missing_tools.append(tool)
-            except Exception:
-                missing_tools.append(tool)
+        # Run all tool checks in parallel for better performance
+        results = await asyncio.gather(*[check_single_tool(tool) for tool in tools])
+
+        available_tools = [tool for tool, available in results if available]
+        missing_tools = [tool for tool, available in results if not available]
 
         passed = len(missing_tools) == 0
 
@@ -343,10 +365,15 @@ class PreFlightChecker:
         self, check_config: Dict[str, Any]
     ) -> PreFlightCheckResult:
         """Check if a file exists"""
-        from pathlib import Path
-
-        check_name = check_config.get("name")
+        check_name = check_config.get("name", "file_exists_check")
         file_path = check_config.get("file_path")
+
+        if not file_path:
+            return PreFlightCheckResult(
+                check_name=check_name,
+                passed=False,
+                error="file_path not specified in check configuration",
+            )
 
         try:
             exists = Path(file_path).exists()
@@ -363,7 +390,7 @@ class PreFlightChecker:
                 message=f"File {'exists' if exists else 'not found'}: {file_path}",
             )
 
-        except Exception as e:
+        except OSError as e:
             logger.error(f"Error checking file existence: {e}")
             return PreFlightCheckResult(
                 check_name=check_name,

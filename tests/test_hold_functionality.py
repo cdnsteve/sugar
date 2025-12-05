@@ -3,12 +3,7 @@ Tests for Sugar hold/release functionality
 """
 
 import pytest
-import asyncio
-import tempfile
-from pathlib import Path
 from datetime import datetime
-
-from sugar.storage.work_queue import WorkQueue
 
 
 class TestHoldFunctionality:
@@ -210,7 +205,12 @@ class TestHoldFunctionality:
                 "priority": 4,
                 "source": "manual",
             },
-            {"type": "test", "title": "Hold task 2", "priority": 2, "source": "manual"},
+            {
+                "type": "test",
+                "title": "Hold task 2",
+                "priority": 2,
+                "source": "manual",
+            },
         ]
 
         task_ids = []
@@ -274,3 +274,125 @@ class TestHoldFunctionality:
         assert "hold_reason" not in context
         assert "held_at" not in context
         assert "released_at" in context
+
+    @pytest.mark.asyncio
+    async def test_hold_already_held_task(self, mock_work_queue):
+        """Test holding a task that's already on hold updates the reason"""
+        task_data = {
+            "type": "feature",
+            "title": "Already held task",
+            "priority": 3,
+            "source": "manual",
+        }
+
+        task_id = await mock_work_queue.add_work(task_data)
+
+        # Put task on hold first time
+        await mock_work_queue.hold_work(task_id, "First reason")
+        task = await mock_work_queue.get_work_by_id(task_id)
+        assert task["context"]["hold_reason"] == "First reason"
+
+        # Put task on hold again with different reason
+        success = await mock_work_queue.hold_work(task_id, "Updated reason")
+        assert success
+
+        task = await mock_work_queue.get_work_by_id(task_id)
+        assert task["status"] == "hold"
+        assert task["context"]["hold_reason"] == "Updated reason"
+
+    @pytest.mark.asyncio
+    async def test_hold_completed_task(self, mock_work_queue):
+        """Test that completed tasks can still be put on hold"""
+        task_data = {
+            "type": "test",
+            "title": "Completed task",
+            "priority": 2,
+            "source": "manual",
+        }
+
+        task_id = await mock_work_queue.add_work(task_data)
+
+        # Complete the task
+        await mock_work_queue.mark_work_active(task_id)
+        await mock_work_queue.mark_work_completed(task_id, {"success": True})
+
+        task = await mock_work_queue.get_work_by_id(task_id)
+        assert task["status"] == "completed"
+
+        # Try to put completed task on hold
+        success = await mock_work_queue.hold_work(task_id, "Needs review")
+        assert success
+
+        task = await mock_work_queue.get_work_by_id(task_id)
+        assert task["status"] == "hold"
+
+    @pytest.mark.asyncio
+    async def test_multiple_hold_release_cycles(self, mock_work_queue):
+        """Test multiple hold/release cycles on the same task"""
+        task_data = {
+            "type": "feature",
+            "title": "Cycling task",
+            "priority": 3,
+            "source": "manual",
+        }
+
+        task_id = await mock_work_queue.add_work(task_data)
+
+        # First cycle
+        await mock_work_queue.hold_work(task_id, "Cycle 1")
+        await mock_work_queue.release_work(task_id)
+
+        task = await mock_work_queue.get_work_by_id(task_id)
+        assert task["status"] == "pending"
+        assert "released_at" in task["context"]
+
+        # Second cycle
+        await mock_work_queue.hold_work(task_id, "Cycle 2")
+        task = await mock_work_queue.get_work_by_id(task_id)
+        assert task["status"] == "hold"
+        assert task["context"]["hold_reason"] == "Cycle 2"
+
+        await mock_work_queue.release_work(task_id)
+        task = await mock_work_queue.get_work_by_id(task_id)
+        assert task["status"] == "pending"
+
+    @pytest.mark.asyncio
+    async def test_held_at_timestamp_format(self, mock_work_queue):
+        """Test that held_at timestamp is valid ISO format"""
+        task_data = {
+            "type": "test",
+            "title": "Timestamp test",
+            "priority": 2,
+            "source": "manual",
+        }
+
+        task_id = await mock_work_queue.add_work(task_data)
+        await mock_work_queue.hold_work(task_id, "Testing timestamp")
+
+        task = await mock_work_queue.get_work_by_id(task_id)
+        held_at = task["context"]["held_at"]
+
+        # Verify it's a valid ISO format timestamp
+        parsed = datetime.fromisoformat(held_at)
+        assert isinstance(parsed, datetime)
+
+    @pytest.mark.asyncio
+    async def test_released_at_timestamp_format(self, mock_work_queue):
+        """Test that released_at timestamp is valid ISO format"""
+        task_data = {
+            "type": "test",
+            "title": "Release timestamp test",
+            "priority": 2,
+            "source": "manual",
+        }
+
+        task_id = await mock_work_queue.add_work(task_data)
+        await mock_work_queue.hold_work(task_id, "Testing release")
+        await mock_work_queue.release_work(task_id)
+
+        task = await mock_work_queue.get_work_by_id(task_id)
+        released_at = task["context"]["released_at"]
+
+        # Verify it's a valid ISO format timestamp
+        parsed = datetime.fromisoformat(released_at)
+        assert isinstance(parsed, datetime)

@@ -6,8 +6,8 @@ Tasks cannot complete until all success criteria are verified.
 """
 
 import asyncio
-import subprocess
-from typing import Any, Dict, List, Optional, Tuple
+from pathlib import Path
+from typing import Any, Callable, Coroutine, Dict, List, Optional, Tuple
 import logging
 import re
 
@@ -89,11 +89,29 @@ class SuccessCriteriaVerifier:
 
         return all_verified, verified_criteria
 
+    def _get_verifiers(
+        self,
+    ) -> Dict[str, Callable[[Dict[str, Any]], Coroutine[Any, Any, SuccessCriterion]]]:
+        """
+        Get the mapping of criterion types to their verification methods.
+
+        Returns:
+            Dictionary mapping criterion type strings to async verification methods
+        """
+        return {
+            "http_status": self._verify_http_status,
+            "http_no_redirect": self._verify_http_no_redirect,
+            "test_suite": self._verify_test_suite,
+            "browser_element_exists": self._verify_browser_element,
+            "file_exists": self._verify_file_exists,
+            "string_in_file": self._verify_string_in_file,
+        }
+
     async def _verify_criterion(
         self, criterion_def: Dict[str, Any]
     ) -> SuccessCriterion:
         """
-        Verify a single success criterion
+        Verify a single success criterion.
 
         Args:
             criterion_def: Criterion definition dictionary
@@ -102,39 +120,24 @@ class SuccessCriteriaVerifier:
             SuccessCriterion with verification result
         """
         criterion_type = criterion_def.get("type")
+        verifiers = self._get_verifiers()
 
-        if criterion_type == "http_status":
-            return await self._verify_http_status(criterion_def)
+        if criterion_type in verifiers:
+            return await verifiers[criterion_type](criterion_def)
 
-        elif criterion_type == "http_no_redirect":
-            return await self._verify_http_no_redirect(criterion_def)
-
-        elif criterion_type == "test_suite":
-            return await self._verify_test_suite(criterion_def)
-
-        elif criterion_type == "browser_element_exists":
-            return await self._verify_browser_element(criterion_def)
-
-        elif criterion_type == "file_exists":
-            return await self._verify_file_exists(criterion_def)
-
-        elif criterion_type == "string_in_file":
-            return await self._verify_string_in_file(criterion_def)
-
-        else:
-            logger.error(f"Unknown criterion type: {criterion_type}")
-            return SuccessCriterion(
-                criterion_type=criterion_type,
-                expected=criterion_def.get("expected"),
-                actual=None,
-                verified=False,
-                error=f"Unsupported criterion type: {criterion_type}",
-            )
+        logger.error(f"Unknown criterion type: {criterion_type}")
+        return SuccessCriterion(
+            criterion_type=criterion_type,
+            expected=criterion_def.get("expected"),
+            actual=None,
+            verified=False,
+            error=f"Unsupported criterion type: {criterion_type}",
+        )
 
     async def _verify_http_status(
         self, criterion_def: Dict[str, Any]
     ) -> SuccessCriterion:
-        """Verify HTTP status code"""
+        """Verify HTTP status code matches expected value."""
         url = criterion_def.get("url")
         expected = criterion_def.get("expected")
 
@@ -179,14 +182,14 @@ class SuccessCriteriaVerifier:
     async def _verify_http_no_redirect(
         self, criterion_def: Dict[str, Any]
     ) -> SuccessCriterion:
-        """Verify that URL does not redirect"""
+        """Verify that URL does not redirect."""
         url = criterion_def.get("url")
         disallowed_status = criterion_def.get(
             "disallowed_status", [301, 302, 303, 307, 308]
         )
 
         try:
-            # Use curl to check if there's a redirect
+            # Use curl WITHOUT -L to get the initial response status (not following redirects)
             process = await asyncio.create_subprocess_exec(
                 "curl",
                 "-s",
@@ -194,13 +197,12 @@ class SuccessCriteriaVerifier:
                 "/dev/null",
                 "-w",
                 "%{http_code}",
-                "-L",  # Don't follow redirects, just report status
                 url,
                 stdout=asyncio.subprocess.PIPE,
                 stderr=asyncio.subprocess.PIPE,
             )
 
-            stdout, stderr = await process.communicate()
+            stdout, _ = await process.communicate()
             status_code = int(stdout.decode("utf-8").strip())
 
             verified = status_code not in disallowed_status
@@ -227,7 +229,7 @@ class SuccessCriteriaVerifier:
     async def _verify_test_suite(
         self, criterion_def: Dict[str, Any]
     ) -> SuccessCriterion:
-        """Verify test suite passes"""
+        """Verify test suite passes with expected failure/error counts."""
         command = criterion_def.get("command")
         expected_failures = criterion_def.get("expected_failures", 0)
         expected_errors = criterion_def.get("expected_errors", 0)
@@ -273,7 +275,7 @@ class SuccessCriteriaVerifier:
             )
 
     def _parse_test_failures(self, output: str) -> Tuple[int, int]:
-        """Parse test output for failures and errors"""
+        """Parse test output for failures and errors from common test frameworks."""
         failures = 0
         errors = 0
 
@@ -298,10 +300,10 @@ class SuccessCriteriaVerifier:
         self, criterion_def: Dict[str, Any]
     ) -> SuccessCriterion:
         """
-        Verify browser element exists (placeholder for MCP integration)
+        Verify browser element exists.
 
-        In the future, this will use Chrome DevTools MCP to verify elements.
-        For now, this is a placeholder that always returns unverified.
+        Note: This is a placeholder for future MCP integration.
+        Currently always returns unverified until Chrome DevTools MCP is available.
         """
         url = criterion_def.get("url")
         selector = criterion_def.get("selector")
@@ -321,9 +323,7 @@ class SuccessCriteriaVerifier:
     async def _verify_file_exists(
         self, criterion_def: Dict[str, Any]
     ) -> SuccessCriterion:
-        """Verify file exists"""
-        from pathlib import Path
-
+        """Verify file exists."""
         file_path = criterion_def.get("file_path")
         expected = True
 
@@ -353,9 +353,7 @@ class SuccessCriteriaVerifier:
     async def _verify_string_in_file(
         self, criterion_def: Dict[str, Any]
     ) -> SuccessCriterion:
-        """Verify string exists in file"""
-        from pathlib import Path
-
+        """Verify string exists in file."""
         file_path = criterion_def.get("file_path")
         search_string = criterion_def.get("search_string")
 

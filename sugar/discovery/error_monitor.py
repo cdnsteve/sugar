@@ -2,14 +2,14 @@
 Error Log Monitor - Discover work by analyzing error logs and feedback
 """
 
-import asyncio
+import glob
 import json
 import logging
-from datetime import datetime, timedelta
-from pathlib import Path
-from typing import List, Dict, Any
-import glob
 import os
+import random
+from datetime import datetime, timedelta, timezone
+from pathlib import Path
+from typing import Any, Dict, List, Optional
 
 logger = logging.getLogger(__name__)
 
@@ -17,12 +17,57 @@ logger = logging.getLogger(__name__)
 class ErrorLogMonitor:
     """Monitor error logs and feedback to discover bug fix tasks"""
 
+    # Error indicators for detecting issues
+    ERROR_INDICATORS = frozenset(["error", "exception", "failed", "bug", "issue"])
+    FEEDBACK_INDICATORS = frozenset(
+        ["feedback", "improvement", "suggestion", "request"]
+    )
+
+    # Title fields to look for in JSON logs
+    TITLE_FIELDS = ("title", "summary", "message", "error", "issue", "subject")
+
+    # Context fields to include in descriptions
+    CONTEXT_FIELDS = ("file", "function", "line", "component", "module")
+
+    # Error patterns for text log parsing
+    TEXT_ERROR_PATTERNS = frozenset(
+        [
+            "error:",
+            "critical:",
+            "fatal:",
+            "exception:",
+            "traceback",
+            "failed",
+            "error",
+            "crash",
+            "bug",
+        ]
+    )
+
+    # Directories to skip during file discovery
+    SKIP_DIRECTORIES = frozenset(
+        [
+            ".git",
+            "__pycache__",
+            "venv",
+            ".venv",
+            "node_modules",
+            ".sugar",
+            ".claude",
+            "env",
+            ".env",
+            "ENV",
+            "build",
+            "dist",
+        ]
+    )
+
     def __init__(self, config: dict):
         self.config = config
         self.paths = config["paths"]
         self.patterns = config["patterns"]
         self.max_age_hours = config["max_age_hours"]
-        self.processed_files = set()  # Track processed files to avoid duplicates
+        self.processed_files: set = set()  # Track processed files to avoid duplicates
         self.work_queue = None  # Will be set by the main loop
 
     async def discover(self) -> List[Dict[str, Any]]:
@@ -93,7 +138,7 @@ class ErrorLogMonitor:
         work_items = []
 
         try:
-            with open(file_path, "r") as f:
+            with open(file_path, "r", encoding="utf-8") as f:
                 log_data = json.load(f)
 
             # Handle different JSON log formats
@@ -103,36 +148,33 @@ class ErrorLogMonitor:
                     work_items.append(work_item)
             elif isinstance(log_data, list):
                 for entry in log_data:
-                    work_item = self._create_work_item_from_json(entry, file_path)
-                    if work_item:
-                        work_items.append(work_item)
+                    if isinstance(entry, dict):
+                        work_item = self._create_work_item_from_json(entry, file_path)
+                        if work_item:
+                            work_items.append(work_item)
 
         except json.JSONDecodeError as e:
-            logger.error(f"Invalid JSON in {file_path}: {e}")
-        except Exception as e:
+            logger.warning(f"Invalid JSON in {file_path}: {e}")
+        except OSError as e:
             logger.error(f"Error reading JSON file {file_path}: {e}")
 
         return work_items
 
     def _create_work_item_from_json(
         self, log_entry: dict, source_file: str
-    ) -> Dict[str, Any]:
+    ) -> Optional[Dict[str, Any]]:
         """Create a work item from a JSON log entry"""
-
-        # Look for error indicators
-        error_indicators = ["error", "exception", "failed", "bug", "issue"]
-        feedback_indicators = ["feedback", "improvement", "suggestion", "request"]
-
-        entry_text = json.dumps(log_entry).lower()
+        # Search for indicators in dict values (more efficient than json.dumps)
+        entry_text = self._extract_searchable_text(log_entry)
 
         # Determine work item type and priority
         work_type = "bug_fix"
         priority = 3
 
-        if any(indicator in entry_text for indicator in error_indicators):
+        if any(indicator in entry_text for indicator in self.ERROR_INDICATORS):
             work_type = "bug_fix"
             priority = 4  # High priority for errors
-        elif any(indicator in entry_text for indicator in feedback_indicators):
+        elif any(indicator in entry_text for indicator in self.FEEDBACK_INDICATORS):
             work_type = "feature"
             priority = 2  # Lower priority for feature requests
 
@@ -152,19 +194,26 @@ class ErrorLogMonitor:
             "source_file": source_file,
             "context": {
                 "log_entry": log_entry,
-                "discovered_at": datetime.utcnow().isoformat(),
+                "discovered_at": datetime.now(timezone.utc).isoformat(),
                 "source_type": "json_log",
             },
         }
 
         return work_item
 
+    def _extract_searchable_text(self, log_entry: dict) -> str:
+        """Extract searchable text from log entry values efficiently."""
+        parts = []
+        for value in log_entry.values():
+            if isinstance(value, str):
+                parts.append(value.lower())
+            elif isinstance(value, dict):
+                parts.append(self._extract_searchable_text(value))
+        return " ".join(parts)
+
     def _extract_title_from_json(self, log_entry: dict) -> str:
         """Extract a meaningful title from JSON log entry"""
-        # Common title fields
-        title_fields = ["title", "summary", "message", "error", "issue", "subject"]
-
-        for field in title_fields:
+        for field in self.TITLE_FIELDS:
             if field in log_entry and isinstance(log_entry[field], str):
                 title = log_entry[field].strip()
                 if title:
@@ -204,8 +253,7 @@ class ErrorLogMonitor:
             description_parts.append(f"Message: {log_entry['message']}")
 
         # Add context information
-        context_fields = ["file", "function", "line", "component", "module"]
-        for field in context_fields:
+        for field in self.CONTEXT_FIELDS:
             if field in log_entry:
                 description_parts.append(f"{field.title()}: {log_entry[field]}")
 
@@ -216,31 +264,18 @@ class ErrorLogMonitor:
         work_items = []
 
         try:
-            with open(file_path, "r") as f:
+            with open(file_path, "r", encoding="utf-8") as f:
                 content = f.read()
 
-            # Look for error patterns in text logs
-            error_patterns = [
-                "ERROR:",
-                "CRITICAL:",
-                "FATAL:",
-                "Exception:",
-                "Traceback",
-                "failed",
-                "error",
-                "crash",
-                "bug",
-            ]
-
             lines = content.split("\n")
-            current_error = []
+            current_error: List[str] = []
             in_error_block = False
 
             for line in lines:
                 line_lower = line.lower()
 
                 # Start of error block
-                if any(pattern.lower() in line_lower for pattern in error_patterns):
+                if any(pattern in line_lower for pattern in self.TEXT_ERROR_PATTERNS):
                     if current_error:  # Save previous error
                         work_item = self._create_work_item_from_text(
                             current_error, file_path
@@ -276,7 +311,7 @@ class ErrorLogMonitor:
 
     def _create_work_item_from_text(
         self, error_lines: List[str], source_file: str
-    ) -> Dict[str, Any]:
+    ) -> Optional[Dict[str, Any]]:
         """Create work item from text log error lines"""
         if not error_lines:
             return None
@@ -300,14 +335,14 @@ class ErrorLogMonitor:
             "source_file": source_file,
             "context": {
                 "error_lines": error_lines,
-                "discovered_at": datetime.utcnow().isoformat(),
+                "discovered_at": datetime.now(timezone.utc).isoformat(),
                 "source_type": "text_log",
             },
         }
 
         return work_item
 
-    async def _get_active_task_files(self) -> set:
+    async def _get_active_task_files(self) -> set[str]:
         """Get files that already have pending or active tasks"""
         active_files = set()
 
@@ -340,25 +375,7 @@ class ErrorLogMonitor:
 
             for root, dirs, files in os.walk(current_dir):
                 # Skip certain directories (including Sugar's own directory)
-                dirs[:] = [
-                    d
-                    for d in dirs
-                    if d
-                    not in [
-                        ".git",
-                        "__pycache__",
-                        "venv",
-                        ".venv",
-                        "node_modules",
-                        ".sugar",
-                        ".claude",
-                        "env",
-                        ".env",
-                        "ENV",
-                        "build",
-                        "dist",
-                    ]
-                ]
+                dirs[:] = [d for d in dirs if d not in self.SKIP_DIRECTORIES]
 
                 for file in files:
                     if file.endswith(".py") and not file.startswith("."):
@@ -370,8 +387,6 @@ class ErrorLogMonitor:
                             project_files.append(file_path)
 
             # Select a few files for maintenance tasks
-            import random
-
             selected_files = random.sample(project_files, min(3, len(project_files)))
 
             maintenance_types = [
@@ -412,7 +427,7 @@ class ErrorLogMonitor:
                         "context": {
                             "maintenance_task": True,
                             "task_type": task_type["type"],
-                            "discovered_at": datetime.utcnow().isoformat(),
+                            "discovered_at": datetime.now(timezone.utc).isoformat(),
                             "source_type": "maintenance",
                         },
                     }

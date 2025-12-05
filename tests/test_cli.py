@@ -648,3 +648,378 @@ class TestSugarCleanup:
 
             # Should not error out
             assert result.exit_code in [0, 1]
+
+
+class TestSugarHold:
+    """Test sugar hold command"""
+
+    @patch("sugar.storage.work_queue.WorkQueue")
+    def test_hold_task_success(self, mock_queue_class, cli_runner):
+        """Test putting a task on hold successfully"""
+        mock_queue = MagicMock()
+        mock_queue_class.return_value = mock_queue
+        mock_queue.initialize = AsyncMock()
+        mock_queue.hold_work = AsyncMock(return_value=True)
+
+        with cli_runner.isolated_filesystem():
+            (Path.cwd() / ".sugar").mkdir()
+            with open(".sugar/config.yaml", "w") as f:
+                yaml.dump({"sugar": {"storage": {"database": ".sugar/sugar.db"}}}, f)
+
+            result = cli_runner.invoke(cli, ["hold", "task-123"])
+
+            assert result.exit_code == 0
+            assert "put on hold" in result.output
+            assert "task-123" in result.output
+
+    @patch("sugar.storage.work_queue.WorkQueue")
+    def test_hold_task_with_reason(self, mock_queue_class, cli_runner):
+        """Test putting a task on hold with a reason"""
+        mock_queue = MagicMock()
+        mock_queue_class.return_value = mock_queue
+        mock_queue.initialize = AsyncMock()
+        mock_queue.hold_work = AsyncMock(return_value=True)
+
+        with cli_runner.isolated_filesystem():
+            (Path.cwd() / ".sugar").mkdir()
+            with open(".sugar/config.yaml", "w") as f:
+                yaml.dump({"sugar": {"storage": {"database": ".sugar/sugar.db"}}}, f)
+
+            result = cli_runner.invoke(
+                cli, ["hold", "task-123", "--reason", "Waiting for code review"]
+            )
+
+            assert result.exit_code == 0
+            assert "put on hold" in result.output
+            assert "Waiting for code review" in result.output
+
+    @patch("sugar.storage.work_queue.WorkQueue")
+    def test_hold_task_not_found(self, mock_queue_class, cli_runner):
+        """Test holding a non-existent task"""
+        mock_queue = MagicMock()
+        mock_queue_class.return_value = mock_queue
+        mock_queue.initialize = AsyncMock()
+        mock_queue.hold_work = AsyncMock(return_value=False)
+
+        with cli_runner.isolated_filesystem():
+            (Path.cwd() / ".sugar").mkdir()
+            with open(".sugar/config.yaml", "w") as f:
+                yaml.dump({"sugar": {"storage": {"database": ".sugar/sugar.db"}}}, f)
+
+            result = cli_runner.invoke(cli, ["hold", "nonexistent"])
+
+            assert result.exit_code == 1
+            assert "not found" in result.output
+
+
+class TestSugarRelease:
+    """Test sugar release command"""
+
+    @patch("sugar.storage.work_queue.WorkQueue")
+    def test_release_task_success(self, mock_queue_class, cli_runner):
+        """Test releasing a task from hold successfully"""
+        mock_queue = MagicMock()
+        mock_queue_class.return_value = mock_queue
+        mock_queue.initialize = AsyncMock()
+        mock_queue.release_work = AsyncMock(return_value=True)
+
+        with cli_runner.isolated_filesystem():
+            (Path.cwd() / ".sugar").mkdir()
+            with open(".sugar/config.yaml", "w") as f:
+                yaml.dump({"sugar": {"storage": {"database": ".sugar/sugar.db"}}}, f)
+
+            result = cli_runner.invoke(cli, ["release", "task-123"])
+
+            assert result.exit_code == 0
+            assert "released from hold" in result.output
+            assert "task-123" in result.output
+
+    @patch("sugar.storage.work_queue.WorkQueue")
+    def test_release_task_not_found(self, mock_queue_class, cli_runner):
+        """Test releasing a task that doesn't exist or isn't on hold"""
+        mock_queue = MagicMock()
+        mock_queue_class.return_value = mock_queue
+        mock_queue.initialize = AsyncMock()
+        mock_queue.release_work = AsyncMock(return_value=False)
+
+        with cli_runner.isolated_filesystem():
+            (Path.cwd() / ".sugar").mkdir()
+            with open(".sugar/config.yaml", "w") as f:
+                yaml.dump({"sugar": {"storage": {"database": ".sugar/sugar.db"}}}, f)
+
+            result = cli_runner.invoke(cli, ["release", "nonexistent"])
+
+            assert result.exit_code == 1
+            assert "not found or not on hold" in result.output
+
+
+class TestSugarDebug:
+    """Test sugar debug command"""
+
+    @patch("sugar.storage.work_queue.WorkQueue")
+    def test_debug_json_format(self, mock_queue_class, cli_runner):
+        """Test debug command with JSON output format"""
+        # Mock work queue
+        mock_queue = MagicMock()
+        mock_queue_class.return_value = mock_queue
+        mock_queue.initialize = AsyncMock()
+        mock_queue.get_pending_work = AsyncMock(return_value=[])
+
+        with cli_runner.isolated_filesystem():
+            (Path.cwd() / ".sugar").mkdir()
+            with open(".sugar/config.yaml", "w") as f:
+                yaml.dump(
+                    {
+                        "sugar": {
+                            "storage": {"database": ".sugar/sugar.db"},
+                            "execution": {"dry_run": True},
+                        }
+                    },
+                    f,
+                )
+
+            result = cli_runner.invoke(cli, ["debug", "--format", "json"])
+
+            assert result.exit_code == 0
+            # Check it outputs valid JSON
+            output_data = json.loads(result.output)
+            assert "timestamp" in output_data
+            assert "sugar_version" in output_data
+            assert "system_info" in output_data
+            assert "tool_status" in output_data
+
+    @patch("sugar.storage.work_queue.WorkQueue")
+    def test_debug_text_format(self, mock_queue_class, cli_runner):
+        """Test debug command with text output format"""
+        # Mock work queue
+        mock_queue = MagicMock()
+        mock_queue_class.return_value = mock_queue
+        mock_queue.initialize = AsyncMock()
+        mock_queue.get_pending_work = AsyncMock(return_value=[])
+
+        with cli_runner.isolated_filesystem():
+            (Path.cwd() / ".sugar").mkdir()
+            with open(".sugar/config.yaml", "w") as f:
+                yaml.dump(
+                    {
+                        "sugar": {
+                            "storage": {"database": ".sugar/sugar.db"},
+                            "execution": {"dry_run": True},
+                        }
+                    },
+                    f,
+                )
+
+            result = cli_runner.invoke(cli, ["debug", "--format", "text"])
+
+            assert result.exit_code == 0
+            assert "Sugar Diagnostic Report" in result.output
+            assert "SYSTEM INFO" in result.output
+            assert "TOOL STATUS" in result.output
+
+    @patch("sugar.storage.work_queue.WorkQueue")
+    def test_debug_yaml_format(self, mock_queue_class, cli_runner):
+        """Test debug command with YAML output format"""
+        # Mock work queue
+        mock_queue = MagicMock()
+        mock_queue_class.return_value = mock_queue
+        mock_queue.initialize = AsyncMock()
+        mock_queue.get_pending_work = AsyncMock(return_value=[])
+
+        with cli_runner.isolated_filesystem():
+            (Path.cwd() / ".sugar").mkdir()
+            with open(".sugar/config.yaml", "w") as f:
+                yaml.dump(
+                    {
+                        "sugar": {
+                            "storage": {"database": ".sugar/sugar.db"},
+                            "execution": {"dry_run": True},
+                        }
+                    },
+                    f,
+                )
+
+            result = cli_runner.invoke(cli, ["debug", "--format", "yaml"])
+
+            assert result.exit_code == 0
+            # Check it outputs valid YAML
+            output_data = yaml.safe_load(result.output)
+            assert "timestamp" in output_data
+            assert "sugar_version" in output_data
+
+    @patch("sugar.storage.work_queue.WorkQueue")
+    def test_debug_output_to_file(self, mock_queue_class, cli_runner):
+        """Test debug command writing output to a file"""
+        # Mock work queue
+        mock_queue = MagicMock()
+        mock_queue_class.return_value = mock_queue
+        mock_queue.initialize = AsyncMock()
+        mock_queue.get_pending_work = AsyncMock(return_value=[])
+
+        with cli_runner.isolated_filesystem():
+            (Path.cwd() / ".sugar").mkdir()
+            with open(".sugar/config.yaml", "w") as f:
+                yaml.dump(
+                    {
+                        "sugar": {
+                            "storage": {"database": ".sugar/sugar.db"},
+                            "execution": {"dry_run": True},
+                        }
+                    },
+                    f,
+                )
+
+            result = cli_runner.invoke(
+                cli, ["debug", "--format", "json", "--output", "diagnostic.json"]
+            )
+
+            assert result.exit_code == 0
+            assert "written to" in result.output
+            assert Path("diagnostic.json").exists()
+
+            # Verify file contents
+            with open("diagnostic.json") as f:
+                output_data = json.load(f)
+            assert "timestamp" in output_data
+
+
+class TestSugarTaskType:
+    """Test sugar task-type command group"""
+
+    @patch("sugar.storage.task_type_manager.TaskTypeManager")
+    def test_list_task_types_table_format(self, mock_manager_class, cli_runner):
+        """Test listing task types in table format"""
+        mock_manager = MagicMock()
+        mock_manager_class.return_value = mock_manager
+        mock_manager.get_all_task_types = AsyncMock(
+            return_value=[
+                {
+                    "id": "bug_fix",
+                    "name": "Bug Fix",
+                    "description": "Fix bugs in the codebase",
+                    "agent": "general-purpose",
+                    "commit_template": "fix: {title}",
+                    "emoji": "🐛",
+                    "is_default": True,
+                },
+                {
+                    "id": "feature",
+                    "name": "Feature",
+                    "description": "Add new features",
+                    "agent": "general-purpose",
+                    "commit_template": "feat: {title}",
+                    "emoji": "✨",
+                    "is_default": True,
+                },
+            ]
+        )
+
+        with cli_runner.isolated_filesystem():
+            (Path.cwd() / ".sugar").mkdir()
+            with open(".sugar/config.yaml", "w") as f:
+                yaml.dump({"sugar": {"storage": {"database": ".sugar/sugar.db"}}}, f)
+
+            result = cli_runner.invoke(cli, ["task-type", "list"])
+
+            assert result.exit_code == 0
+            assert "bug_fix" in result.output
+            assert "Bug Fix" in result.output
+            assert "(default)" in result.output
+
+    @patch("sugar.storage.task_type_manager.TaskTypeManager")
+    def test_list_task_types_json_format(self, mock_manager_class, cli_runner):
+        """Test listing task types in JSON format"""
+        mock_manager = MagicMock()
+        mock_manager_class.return_value = mock_manager
+        mock_manager.get_all_task_types = AsyncMock(
+            return_value=[
+                {
+                    "id": "bug_fix",
+                    "name": "Bug Fix",
+                    "description": "Fix bugs",
+                    "agent": "general-purpose",
+                    "commit_template": "fix: {title}",
+                    "emoji": "🐛",
+                    "is_default": True,
+                }
+            ]
+        )
+
+        with cli_runner.isolated_filesystem():
+            (Path.cwd() / ".sugar").mkdir()
+            with open(".sugar/config.yaml", "w") as f:
+                yaml.dump({"sugar": {"storage": {"database": ".sugar/sugar.db"}}}, f)
+
+            result = cli_runner.invoke(cli, ["task-type", "list", "--format", "json"])
+
+            assert result.exit_code == 0
+            output_data = json.loads(result.output)
+            assert len(output_data) == 1
+            assert output_data[0]["id"] == "bug_fix"
+
+    @patch("sugar.storage.task_type_manager.TaskTypeManager")
+    def test_list_task_types_empty(self, mock_manager_class, cli_runner):
+        """Test listing task types when none exist"""
+        mock_manager = MagicMock()
+        mock_manager_class.return_value = mock_manager
+        mock_manager.get_all_task_types = AsyncMock(return_value=[])
+
+        with cli_runner.isolated_filesystem():
+            (Path.cwd() / ".sugar").mkdir()
+            with open(".sugar/config.yaml", "w") as f:
+                yaml.dump({"sugar": {"storage": {"database": ".sugar/sugar.db"}}}, f)
+
+            result = cli_runner.invoke(cli, ["task-type", "list"])
+
+            assert result.exit_code == 0
+            assert "No task types found" in result.output
+
+    @patch("sugar.storage.task_type_manager.TaskTypeManager")
+    def test_add_task_type_success(self, mock_manager_class, cli_runner):
+        """Test adding a new task type successfully"""
+        mock_manager = MagicMock()
+        mock_manager_class.return_value = mock_manager
+        mock_manager.add_task_type = AsyncMock(return_value=True)
+
+        with cli_runner.isolated_filesystem():
+            (Path.cwd() / ".sugar").mkdir()
+            with open(".sugar/config.yaml", "w") as f:
+                yaml.dump({"sugar": {"storage": {"database": ".sugar/sugar.db"}}}, f)
+
+            result = cli_runner.invoke(
+                cli,
+                [
+                    "task-type",
+                    "add",
+                    "security_fix",
+                    "--name",
+                    "Security Fix",
+                    "--description",
+                    "Fix security vulnerabilities",
+                    "--emoji",
+                    "🔒",
+                ],
+            )
+
+            assert result.exit_code == 0
+            assert "Added task type" in result.output
+            assert "security_fix" in result.output
+
+    @patch("sugar.storage.task_type_manager.TaskTypeManager")
+    def test_add_task_type_already_exists(self, mock_manager_class, cli_runner):
+        """Test adding a task type that already exists"""
+        mock_manager = MagicMock()
+        mock_manager_class.return_value = mock_manager
+        mock_manager.add_task_type = AsyncMock(return_value=False)
+
+        with cli_runner.isolated_filesystem():
+            (Path.cwd() / ".sugar").mkdir()
+            with open(".sugar/config.yaml", "w") as f:
+                yaml.dump({"sugar": {"storage": {"database": ".sugar/sugar.db"}}}, f)
+
+            result = cli_runner.invoke(cli, ["task-type", "add", "bug_fix"])
+
+            assert result.exit_code == 1
+            assert (
+                "Failed to add" in result.output or "may already exist" in result.output
+            )

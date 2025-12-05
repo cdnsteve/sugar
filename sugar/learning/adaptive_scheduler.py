@@ -2,86 +2,116 @@
 Adaptive Scheduler - Adjust system behavior based on learning insights
 """
 
-import asyncio
 import logging
-from datetime import datetime, timedelta
-from typing import Dict, Any, List
+from typing import Any, Dict, List
+
+
 from .feedback_processor import FeedbackProcessor
 
 logger = logging.getLogger(__name__)
 
 
 class AdaptiveScheduler:
-    """Adapt system scheduling and behavior based on learning"""
+    """Adapt system scheduling and behavior based on learning.
 
-    def __init__(self, work_queue, feedback_processor: FeedbackProcessor):
+    This class acts as the bridge between the learning system (FeedbackProcessor)
+    and the execution system (work queue). It translates learning insights into
+    concrete behavioral adaptations for the system.
+
+    Attributes:
+        work_queue: The work queue containing pending tasks.
+        feedback_processor: The processor that generates learning insights.
+        adaptations: Cache of currently active adaptations.
+    """
+
+    # Score multipliers for work ordering optimization
+    SOURCE_EFFECTIVENESS_WEIGHT = 0.1
+    PRIORITY_EFFECTIVENESS_WEIGHT = 0.05
+
+    def __init__(self, work_queue, feedback_processor: FeedbackProcessor) -> None:
+        """Initialize the adaptive scheduler.
+
+        Args:
+            work_queue: The work queue to schedule tasks from.
+            feedback_processor: The feedback processor providing learning insights.
+        """
         self.work_queue = work_queue
         self.feedback_processor = feedback_processor
-        self.adaptations = {}
+        self.adaptations: Dict[str, Any] = {}
 
     async def adapt_system_behavior(self) -> Dict[str, Any]:
-        """Adapt system behavior based on learning insights"""
+        """Adapt system behavior based on learning insights.
 
+        Fetches adaptive recommendations from the feedback processor and
+        applies them to modify system behavior accordingly.
+
+        Returns:
+            Dictionary of adaptations that were applied, empty dict on error.
+        """
         try:
-            # Get adaptive recommendations
             recommendations = (
                 await self.feedback_processor.get_adaptive_recommendations()
             )
-
-            # Apply adaptations
             adaptations_applied = await self._apply_adaptations(recommendations)
 
-            logger.info(f"🎯 Applied {len(adaptations_applied)} behavioral adaptations")
+            if adaptations_applied:
+                logger.info(
+                    f"🎯 Applied {len(adaptations_applied)} behavioral adaptations"
+                )
+
             return adaptations_applied
 
         except Exception as e:
-            logger.error(f"Error adapting system behavior: {e}")
+            logger.error(f"Error adapting system behavior: {e}", exc_info=True)
             return {}
 
     async def _apply_adaptations(
         self, recommendations: Dict[str, Any]
     ) -> Dict[str, Any]:
-        """Apply specific adaptations based on recommendations"""
-        applied = {}
+        """Apply specific adaptations based on recommendations.
 
-        # Priority adjustments
-        if recommendations.get("priority_adjustments"):
-            priority_changes = await self._adapt_priority_system(
-                recommendations["priority_adjustments"]
-            )
-            applied.update(priority_changes)
+        Args:
+            recommendations: Dictionary containing adaptation recommendations
+                organized by category (priority, discovery, execution).
 
-        # Discovery adjustments
-        if recommendations.get("discovery_adjustments"):
-            discovery_changes = await self._adapt_discovery_behavior(
-                recommendations["discovery_adjustments"]
-            )
-            applied.update(discovery_changes)
+        Returns:
+            Dictionary of all adaptations that were successfully applied.
+        """
+        applied: Dict[str, Any] = {}
 
-        # Execution adjustments
-        if recommendations.get("execution_adjustments"):
-            execution_changes = await self._adapt_execution_parameters(
-                recommendations["execution_adjustments"]
-            )
-            applied.update(execution_changes)
+        adaptation_handlers = [
+            ("priority_adjustments", self._adapt_priority_system),
+            ("discovery_adjustments", self._adapt_discovery_behavior),
+            ("execution_adjustments", self._adapt_execution_parameters),
+        ]
+
+        for key, handler in adaptation_handlers:
+            if adjustments := recommendations.get(key):
+                changes = await handler(adjustments)
+                applied.update(changes)
 
         return applied
 
     async def _adapt_priority_system(
         self, adjustments: Dict[str, Any]
     ) -> Dict[str, Any]:
-        """Adapt priority system based on learning"""
-        changes = {}
+        """Adapt priority system based on learning.
+
+        Args:
+            adjustments: Dictionary of priority adjustments to apply.
+
+        Returns:
+            Dictionary indicating which priority changes were applied.
+        """
+        changes: Dict[str, Any] = {}
 
         if adjustments.get("reduce_complexity"):
-            # Lower priority for complex tasks
             changes["priority_reduction_applied"] = True
             logger.info(
                 "🔽 Reducing priority for complex tasks due to low success rate"
             )
 
         if adjustments.get("increase_complexity"):
-            # Boost priority for more challenging tasks
             changes["priority_boost_applied"] = True
             logger.info(
                 "🔼 Increasing priority for complex tasks due to high success rate"
@@ -92,8 +122,15 @@ class AdaptiveScheduler:
     async def _adapt_discovery_behavior(
         self, adjustments: Dict[str, Any]
     ) -> Dict[str, Any]:
-        """Adapt discovery module behavior"""
-        changes = {}
+        """Adapt discovery module behavior.
+
+        Args:
+            adjustments: Dictionary of discovery behavior adjustments.
+
+        Returns:
+            Dictionary indicating which discovery changes were applied.
+        """
+        changes: Dict[str, Any] = {}
 
         if adjustments.get("boost_error_monitoring"):
             changes["error_monitoring_boosted"] = True
@@ -108,8 +145,15 @@ class AdaptiveScheduler:
     async def _adapt_execution_parameters(
         self, adjustments: Dict[str, Any]
     ) -> Dict[str, Any]:
-        """Adapt execution parameters"""
-        changes = {}
+        """Adapt execution parameters.
+
+        Args:
+            adjustments: Dictionary of execution parameter adjustments.
+
+        Returns:
+            Dictionary indicating which execution changes were applied.
+        """
+        changes: Dict[str, Any] = {}
 
         if adjustments.get("increase_timeout"):
             changes["timeout_increased"] = True
@@ -120,56 +164,85 @@ class AdaptiveScheduler:
     async def get_optimized_work_order(
         self, available_work: List[Dict[str, Any]]
     ) -> List[Dict[str, Any]]:
-        """Optimize work order based on learning insights"""
+        """Optimize work order based on learning insights.
 
+        Takes a list of available work items and reorders them based on
+        learned patterns about effectiveness of different sources and priorities.
+
+        Args:
+            available_work: List of work items to optimize ordering for.
+
+        Returns:
+            Reordered list of work items, or original list on error.
+        """
         if not available_work:
             return []
 
         try:
-            # Get insights from feedback processor
             insights = self.feedback_processor.learning_cache.get("last_insights", {})
-
-            # Apply learned optimizations
-            optimized_work = await self._apply_learned_ordering(
-                available_work, insights
-            )
-
-            return optimized_work
+            return await self._apply_learned_ordering(available_work, insights)
 
         except Exception as e:
-            logger.error(f"Error optimizing work order: {e}")
-            return available_work  # Return original order on error
+            logger.error(f"Error optimizing work order: {e}", exc_info=True)
+            return available_work
 
     async def _apply_learned_ordering(
         self, work: List[Dict[str, Any]], insights: Dict[str, Any]
     ) -> List[Dict[str, Any]]:
-        """Apply learned patterns to optimize work ordering"""
+        """Apply learned patterns to optimize work ordering.
 
-        # Get effectiveness metrics
+        Scores each work item based on its base priority plus learned
+        effectiveness metrics for its source and priority level.
+
+        Args:
+            work: List of work items to order.
+            insights: Dictionary of learning insights including effectiveness metrics.
+
+        Returns:
+            Work items sorted by computed score (highest first).
+        """
         source_effectiveness = insights.get("discovery_source_effectiveness", {})
         priority_effectiveness = insights.get("priority_effectiveness", {})
 
-        # Score each work item based on learned patterns
-        scored_work = []
-        for item in work:
-            score = item["priority"]  # Base score from priority
+        scored_work = [
+            (
+                self._compute_work_score(
+                    item, source_effectiveness, priority_effectiveness
+                ),
+                item,
+            )
+            for item in work
+        ]
 
-            # Boost score based on source effectiveness
-            source = item.get("source", "")
-            if source in source_effectiveness:
-                source_score = source_effectiveness[source].get("value_score", 1)
-                score += source_score * 0.1  # Small boost from source effectiveness
-
-            # Adjust based on priority effectiveness
-            priority = item["priority"]
-            if priority in priority_effectiveness:
-                efficiency = priority_effectiveness[priority].get("efficiency_score", 1)
-                score += efficiency * 0.05  # Small boost from priority effectiveness
-
-            scored_work.append((score, item))
-
-        # Sort by score (highest first)
         scored_work.sort(key=lambda x: x[0], reverse=True)
+        return [item for _, item in scored_work]
 
-        # Return just the work items
-        return [item for score, item in scored_work]
+    def _compute_work_score(
+        self,
+        item: Dict[str, Any],
+        source_effectiveness: Dict[str, Any],
+        priority_effectiveness: Dict[str, Any],
+    ) -> float:
+        """Compute a score for a work item based on learned patterns.
+
+        Args:
+            item: The work item to score.
+            source_effectiveness: Effectiveness metrics by source type.
+            priority_effectiveness: Effectiveness metrics by priority level.
+
+        Returns:
+            Computed score for the work item.
+        """
+        score = float(item.get("priority", 0))
+
+        source = item.get("source", "")
+        if source in source_effectiveness:
+            source_score = source_effectiveness[source].get("value_score", 1.0)
+            score += source_score * self.SOURCE_EFFECTIVENESS_WEIGHT
+
+        priority = item.get("priority")
+        if priority in priority_effectiveness:
+            efficiency = priority_effectiveness[priority].get("efficiency_score", 1.0)
+            score += efficiency * self.PRIORITY_EFFECTIVENESS_WEIGHT
+
+        return score
