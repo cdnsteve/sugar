@@ -139,7 +139,7 @@ class TestDiscoverCliBasic:
                     {
                         "sugar": {
                             "storage": {"database": ".sugar/sugar.db"},
-                            "discovery": {"code_quality": {}},
+                            "discovery": {"external_tools": {}},
                         }
                     },
                     f,
@@ -159,7 +159,7 @@ class TestDiscoverCliBasic:
                     {
                         "sugar": {
                             "storage": {"database": ".sugar/sugar.db"},
-                            "discovery": {"code_quality": {"external_tools": []}},
+                            "discovery": {"external_tools": {"tools": []}},
                         }
                     },
                     f,
@@ -180,8 +180,8 @@ class TestDiscoverCliBasic:
                         "sugar": {
                             "storage": {"database": ".sugar/sugar.db"},
                             "discovery": {
-                                "code_quality": {
-                                    "external_tools": [
+                                "external_tools": {
+                                    "tools": [
                                         {"name": "eslint"}  # Missing command
                                     ]
                                 }
@@ -225,8 +225,8 @@ class TestDiscoverToolFiltering:
                             "storage": {"database": ".sugar/sugar.db"},
                             "claude": {"command": "claude", "timeout": 300},
                             "discovery": {
-                                "code_quality": {
-                                    "external_tools": [
+                                "external_tools": {
+                                    "tools": [
                                         {"name": "eslint", "command": "npx eslint ."},
                                         {"name": "ruff", "command": "ruff check ."},
                                     ]
@@ -253,8 +253,8 @@ class TestDiscoverToolFiltering:
                             "storage": {"database": ".sugar/sugar.db"},
                             "claude": {"command": "claude", "timeout": 300},
                             "discovery": {
-                                "code_quality": {
-                                    "external_tools": [
+                                "external_tools": {
+                                    "tools": [
                                         {"name": "eslint", "command": "npx eslint ."},
                                     ]
                                 }
@@ -281,8 +281,8 @@ class TestDiscoverToolFiltering:
                             "storage": {"database": ".sugar/sugar.db"},
                             "claude": {"command": "claude", "timeout": 300},
                             "discovery": {
-                                "code_quality": {
-                                    "external_tools": [
+                                "external_tools": {
+                                    "tools": [
                                         {"name": "ESLint", "command": "npx eslint ."},
                                     ]
                                 }
@@ -321,8 +321,8 @@ class TestDiscoverDryRun:
                             "storage": {"database": ".sugar/sugar.db"},
                             "claude": {"command": "claude", "timeout": 300},
                             "discovery": {
-                                "code_quality": {
-                                    "external_tools": [
+                                "external_tools": {
+                                    "tools": [
                                         {"name": "echo", "command": "echo test"},
                                     ]
                                 }
@@ -366,8 +366,8 @@ class TestDiscoverDryRun:
                             "storage": {"database": ".sugar/sugar.db"},
                             "claude": {"command": "claude", "timeout": 300},
                             "discovery": {
-                                "code_quality": {
-                                    "external_tools": [
+                                "external_tools": {
+                                    "tools": [
                                         {"name": "echo", "command": "echo test"},
                                     ]
                                 }
@@ -380,7 +380,7 @@ class TestDiscoverDryRun:
             result = cli_runner.invoke(cli, ["discover", "--dry-run"])
 
             # Should show dry-run messages
-            assert "[DRY-RUN]" in result.output
+            assert "(DRY-RUN)" in result.output or "DRY-RUN" in result.output
             assert "dry-run complete" in result.output.lower()
 
             # Should NOT call add_work
@@ -418,8 +418,8 @@ class TestDiscoverTimeout:
                             "storage": {"database": ".sugar/sugar.db"},
                             "claude": {"command": "claude", "timeout": 300},
                             "discovery": {
-                                "code_quality": {
-                                    "external_tools": [
+                                "external_tools": {
+                                    "tools": [
                                         {"name": "echo", "command": "echo test"},
                                     ]
                                 }
@@ -455,8 +455,8 @@ class TestDiscoverTimeout:
                             "storage": {"database": ".sugar/sugar.db"},
                             "claude": {"command": "claude", "timeout": 300},
                             "discovery": {
-                                "code_quality": {
-                                    "external_tools": [
+                                "external_tools": {
+                                    "tools": [
                                         {"name": "echo", "command": "echo test"},
                                     ]
                                 }
@@ -505,8 +505,8 @@ class TestDiscoverIntegrationWithOrchestrator:
                             "storage": {"database": ".sugar/sugar.db"},
                             "claude": {"command": "claude", "timeout": 300},
                             "discovery": {
-                                "code_quality": {
-                                    "external_tools": [
+                                "external_tools": {
+                                    "tools": [
                                         {
                                             "name": "eslint",
                                             "command": "npx eslint . --format json",
@@ -554,8 +554,8 @@ class TestDiscoverIntegrationWithOrchestrator:
                             "storage": {"database": ".sugar/sugar.db"},
                             "claude": {"command": "claude", "timeout": 300},
                             "discovery": {
-                                "code_quality": {
-                                    "external_tools": [
+                                "external_tools": {
+                                    "tools": [
                                         {
                                             "name": "nonexistent_tool",
                                             "command": "nonexistent_tool --check",
@@ -624,8 +624,8 @@ class TestDiscoverIntegrationWithClaudeCode:
                 "storage": {"database": ".sugar/sugar.db"},
                 "claude": {"command": "claude", "timeout": 300},
                 "discovery": {
-                    "code_quality": {
-                        "external_tools": [{"name": tool_name, "command": tool_command}]
+                    "external_tools": {
+                        "tools": [{"name": tool_name, "command": tool_command}]
                     }
                 },
             }
@@ -779,8 +779,8 @@ class TestDiscoverMultipleTools:
                             "storage": {"database": ".sugar/sugar.db"},
                             "claude": {"command": "claude", "timeout": 300},
                             "discovery": {
-                                "code_quality": {
-                                    "external_tools": [
+                                "external_tools": {
+                                    "tools": [
                                         {"name": "eslint", "command": "npx eslint ."},
                                         {"name": "ruff", "command": "ruff check ."},
                                         {"name": "mypy", "command": "mypy ."},
@@ -846,8 +846,8 @@ class TestDiscoverMultipleTools:
                             "storage": {"database": ".sugar/sugar.db"},
                             "claude": {"command": "claude", "timeout": 300},
                             "discovery": {
-                                "code_quality": {
-                                    "external_tools": [
+                                "external_tools": {
+                                    "tools": [
                                         {"name": "eslint", "command": "npx eslint ."},
                                         {"name": "bad", "command": "bad_tool --check"},
                                         {"name": "ruff", "command": "ruff check ."},

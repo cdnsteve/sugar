@@ -6,6 +6,7 @@ and captures their raw output via subprocess.
 """
 
 import subprocess
+import tempfile
 from pathlib import Path
 from unittest.mock import Mock, patch, MagicMock
 
@@ -19,15 +20,51 @@ from sugar.discovery.orchestrator import (
 from sugar.discovery.external_tool_config import ExternalToolConfig
 
 
+def create_tool_result_with_output(
+    name: str,
+    command: str,
+    stdout_content: str,
+    stderr: str = "",
+    exit_code: int = 0,
+    success: bool = True,
+    duration_seconds: float = 0.0,
+    error_message: str = None,
+    timed_out: bool = False,
+    tool_not_found: bool = False,
+) -> ToolResult:
+    """Helper to create ToolResult with stdout content written to a temp file."""
+    # Create a temp file with the stdout content
+    if stdout_content:
+        tmp = tempfile.NamedTemporaryFile(mode="w", delete=False, suffix=".txt")
+        tmp.write(stdout_content)
+        tmp.close()
+        output_path = Path(tmp.name)
+    else:
+        output_path = None
+
+    return ToolResult(
+        name=name,
+        command=command,
+        output_path=output_path,
+        stderr=stderr,
+        exit_code=exit_code,
+        success=success,
+        duration_seconds=duration_seconds,
+        error_message=error_message,
+        timed_out=timed_out,
+        tool_not_found=tool_not_found,
+    )
+
+
 class TestToolResult:
     """Tests for the ToolResult dataclass"""
 
     def test_tool_result_creation(self):
         """Test basic ToolResult creation"""
-        result = ToolResult(
+        result = create_tool_result_with_output(
             name="eslint",
             command="npx eslint .",
-            stdout="output",
+            stdout_content="output",
             stderr="",
             exit_code=0,
             success=True,
@@ -41,10 +78,10 @@ class TestToolResult:
 
     def test_tool_result_defaults(self):
         """Test ToolResult default values"""
-        result = ToolResult(
+        result = create_tool_result_with_output(
             name="test",
             command="test cmd",
-            stdout="",
+            stdout_content="",
             stderr="",
             exit_code=0,
             success=True,
@@ -56,10 +93,10 @@ class TestToolResult:
 
     def test_has_output_with_stdout(self):
         """Test has_output property with stdout"""
-        result = ToolResult(
+        result = create_tool_result_with_output(
             name="test",
             command="cmd",
-            stdout="some output",
+            stdout_content="some output",
             stderr="",
             exit_code=0,
             success=True,
@@ -68,10 +105,10 @@ class TestToolResult:
 
     def test_has_output_with_stderr(self):
         """Test has_output property with stderr"""
-        result = ToolResult(
+        result = create_tool_result_with_output(
             name="test",
             command="cmd",
-            stdout="",
+            stdout_content="",
             stderr="error output",
             exit_code=0,
             success=True,
@@ -80,10 +117,10 @@ class TestToolResult:
 
     def test_has_output_with_whitespace_only(self):
         """Test has_output property with whitespace only"""
-        result = ToolResult(
+        result = create_tool_result_with_output(
             name="test",
             command="cmd",
-            stdout="   \n\t  ",
+            stdout_content="   \n\t  ",
             stderr="",
             exit_code=0,
             success=True,
@@ -92,10 +129,10 @@ class TestToolResult:
 
     def test_has_output_empty(self):
         """Test has_output property with no output"""
-        result = ToolResult(
+        result = create_tool_result_with_output(
             name="test",
             command="cmd",
-            stdout="",
+            stdout_content="",
             stderr="",
             exit_code=0,
             success=True,
@@ -104,10 +141,10 @@ class TestToolResult:
 
     def test_to_dict(self):
         """Test to_dict serialization"""
-        result = ToolResult(
+        result = create_tool_result_with_output(
             name="eslint",
             command="npx eslint .",
-            stdout="output",
+            stdout_content="output",
             stderr="errors",
             exit_code=1,
             success=True,
@@ -186,17 +223,10 @@ class TestToolOrchestratorExecuteTool:
         tool = ExternalToolConfig(name="echo", command="echo hello")
         orchestrator = ToolOrchestrator([tool], working_dir=temp_dir)
 
-        with patch("subprocess.run") as mock_run:
-            mock_run.return_value = Mock(
-                stdout="hello\n",
-                stderr="",
-                returncode=0,
-            )
-            result = orchestrator.execute_tool(tool)
+        result = orchestrator.execute_tool(tool)
 
         assert result.name == "echo"
-        assert result.stdout == "hello\n"
-        assert result.stderr == ""
+        assert "hello" in result.stdout
         assert result.exit_code == 0
         assert result.success is True
         assert result.timed_out is False
@@ -204,22 +234,17 @@ class TestToolOrchestratorExecuteTool:
 
     def test_execute_tool_with_findings(self, temp_dir):
         """Test tool execution with non-zero exit (findings)"""
-        tool = ExternalToolConfig(name="eslint", command="npx eslint .")
+        # Use a command that will output something and fail with exit code 1
+        tool = ExternalToolConfig(name="test_exit", command="echo 'found issue' && false")
         orchestrator = ToolOrchestrator([tool], working_dir=temp_dir)
 
-        with patch("subprocess.run") as mock_run:
-            mock_run.return_value = Mock(
-                stdout='[{"ruleId":"no-unused-vars","message":"x is defined but never used"}]',
-                stderr="",
-                returncode=1,  # Linters exit 1 when they find issues
-            )
-            result = orchestrator.execute_tool(tool)
+        result = orchestrator.execute_tool(tool)
 
         # Success should be True because the tool ran successfully
         # (non-zero exit just means issues were found)
         assert result.success is True
         assert result.exit_code == 1
-        assert "no-unused-vars" in result.stdout
+        assert "found issue" in result.stdout
 
     def test_execute_tool_timeout(self, temp_dir):
         """Test tool execution timeout"""
@@ -296,26 +321,18 @@ class TestToolOrchestratorExecuteTool:
         tool = ExternalToolConfig(name="echo", command="echo hello")
         orchestrator = ToolOrchestrator([tool], working_dir=temp_dir)
 
-        with patch("subprocess.run") as mock_run:
-            mock_run.return_value = Mock(stdout="hello\n", stderr="", returncode=0)
-            orchestrator.execute_tool(tool)
-
-        call_kwargs = mock_run.call_args[1]
-        assert call_kwargs["shell"] is True
-        assert call_kwargs["capture_output"] is True
-        assert call_kwargs["text"] is True
+        # Use real execution and check the result instead of mocking
+        result = orchestrator.execute_tool(tool)
+        assert result.success is True
+        assert "hello" in result.stdout
 
     def test_execute_tool_uses_working_dir(self, temp_dir):
         """Test that tool execution uses specified working directory"""
         tool = ExternalToolConfig(name="pwd", command="pwd")
         orchestrator = ToolOrchestrator([tool], working_dir=temp_dir)
 
-        with patch("subprocess.run") as mock_run:
-            mock_run.return_value = Mock(stdout=str(temp_dir), stderr="", returncode=0)
-            orchestrator.execute_tool(tool)
-
-        call_kwargs = mock_run.call_args[1]
-        assert call_kwargs["cwd"] == temp_dir
+        result = orchestrator.execute_tool(tool)
+        assert str(temp_dir) in result.stdout
 
     def test_execute_tool_with_env_vars(self, temp_dir):
         """Test tool execution with environment variables in command"""
@@ -352,21 +369,15 @@ class TestToolOrchestratorExecuteAll:
         ]
         orchestrator = ToolOrchestrator(tools, working_dir=temp_dir)
 
-        with patch("subprocess.run") as mock_run:
-            mock_run.side_effect = [
-                Mock(stdout="one\n", stderr="", returncode=0),
-                Mock(stdout="two\n", stderr="", returncode=0),
-                Mock(stdout="three\n", stderr="", returncode=0),
-            ]
-            results = orchestrator.execute_all()
+        results = orchestrator.execute_all()
 
         assert len(results) == 3
         assert results[0].name == "tool1"
-        assert results[0].stdout == "one\n"
+        assert "one" in results[0].stdout
         assert results[1].name == "tool2"
-        assert results[1].stdout == "two\n"
+        assert "two" in results[1].stdout
         assert results[2].name == "tool3"
-        assert results[2].stdout == "three\n"
+        assert "three" in results[2].stdout
 
     def test_execute_all_continues_after_failure(self, temp_dir):
         """Test that execute_all continues after a tool failure"""
@@ -401,18 +412,12 @@ class TestToolOrchestratorExecuteAll:
     def test_execute_all_with_mixed_exit_codes(self, temp_dir):
         """Test execute_all with tools having different exit codes"""
         tools = [
-            ExternalToolConfig(name="linter1", command="linter1 ."),
-            ExternalToolConfig(name="linter2", command="linter2 ."),
+            ExternalToolConfig(name="linter1", command="echo 'no issues'"),
+            ExternalToolConfig(name="linter2", command="echo 'found issues' && exit 1"),
         ]
         orchestrator = ToolOrchestrator(tools, working_dir=temp_dir)
 
-        with patch("subprocess.run") as mock_run:
-            with patch("shutil.which", return_value="/usr/bin/linter"):
-                mock_run.side_effect = [
-                    Mock(stdout="no issues", stderr="", returncode=0),
-                    Mock(stdout="found 3 issues", stderr="", returncode=1),
-                ]
-                results = orchestrator.execute_all()
+        results = orchestrator.execute_all()
 
         # Both should be marked as success (tool ran, captured output)
         assert results[0].success is True
@@ -534,10 +539,10 @@ class TestToolResultSerialization:
 
     def test_to_dict_complete(self):
         """Test complete serialization of ToolResult"""
-        result = ToolResult(
+        result = create_tool_result_with_output(
             name="test_tool",
             command="test --verbose",
-            stdout="Test output\nLine 2",
+            stdout_content="Test output\nLine 2",
             stderr="Warning: something",
             exit_code=2,
             success=True,
@@ -570,10 +575,10 @@ class TestToolResultSerialization:
 
     def test_to_dict_with_error(self):
         """Test serialization of failed ToolResult"""
-        result = ToolResult(
+        result = create_tool_result_with_output(
             name="failed_tool",
             command="fail",
-            stdout="",
+            stdout_content="",
             stderr="Error occurred",
             exit_code=-1,
             success=False,

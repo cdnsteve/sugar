@@ -8,6 +8,8 @@ interpreting tool output via Claude Code.
 import pytest
 import pytest_asyncio
 import asyncio
+import tempfile
+from pathlib import Path
 from unittest.mock import Mock, patch, AsyncMock, MagicMock
 from dataclasses import asdict
 
@@ -16,6 +18,14 @@ from sugar.quality.claude_invoker import (
     ParsedCommand,
     InterpretationResult,
 )
+
+
+def create_temp_output_file(content: str) -> Path:
+    """Helper to create a temporary file with the given content."""
+    tmp = tempfile.NamedTemporaryFile(mode="w", delete=False, suffix=".txt")
+    tmp.write(content)
+    tmp.close()
+    return Path(tmp.name)
 
 
 class TestParsedCommand:
@@ -396,6 +406,8 @@ class TestInterpretOutput:
     @pytest.mark.asyncio
     async def test_interpret_output_success(self):
         """Test successful interpretation of tool output"""
+        output_file = create_temp_output_file("10 problems found")
+
         # Mock the internal Claude execution
         with patch.object(
             self.interpreter, "_execute_claude_prompt", new_callable=AsyncMock
@@ -410,7 +422,7 @@ class TestInterpretOutput:
             result = await self.interpreter.interpret_output(
                 tool_name="eslint",
                 command="eslint src/",
-                raw_output="10 problems found",
+                output_file_path=output_file,
             )
 
             assert result.success is True
@@ -421,6 +433,8 @@ class TestInterpretOutput:
     @pytest.mark.asyncio
     async def test_interpret_output_failure(self):
         """Test failed interpretation"""
+        output_file = create_temp_output_file("output")
+
         with patch.object(
             self.interpreter, "_execute_claude_prompt", new_callable=AsyncMock
         ) as mock_exec:
@@ -434,7 +448,7 @@ class TestInterpretOutput:
             result = await self.interpreter.interpret_output(
                 tool_name="test",
                 command="test",
-                raw_output="output",
+                output_file_path=output_file,
             )
 
             assert result.success is False
@@ -443,7 +457,8 @@ class TestInterpretOutput:
     @pytest.mark.asyncio
     async def test_interpret_output_with_custom_template(self):
         """Test interpretation with custom template"""
-        custom_template = "Analyze: ${tool_name}\nOutput: ${raw_output}"
+        output_file = create_temp_output_file("test output")
+        custom_template = "Analyze: ${tool_name}\nFile: ${output_file_path}"
         interpreter = ToolOutputInterpreter(prompt_template=custom_template)
 
         with patch.object(
@@ -459,17 +474,19 @@ class TestInterpretOutput:
             await interpreter.interpret_output(
                 tool_name="test-tool",
                 command="test-cmd",
-                raw_output="test output",
+                output_file_path=output_file,
             )
 
             # Verify the prompt was built with custom template
             call_args = mock_exec.call_args[0][0]
             assert "Analyze: test-tool" in call_args
-            assert "Output: test output" in call_args
+            assert str(output_file) in call_args
 
     @pytest.mark.asyncio
     async def test_interpret_output_exception_handling(self):
         """Test exception handling during interpretation"""
+        output_file = create_temp_output_file("output")
+
         with patch.object(
             self.interpreter, "_execute_claude_prompt", new_callable=AsyncMock
         ) as mock_exec:
@@ -478,7 +495,7 @@ class TestInterpretOutput:
             result = await self.interpreter.interpret_output(
                 tool_name="test",
                 command="test",
-                raw_output="output",
+                output_file_path=output_file,
             )
 
             assert result.success is False
@@ -495,6 +512,8 @@ class TestInterpretAndExecute:
     @pytest.mark.asyncio
     async def test_interpret_and_execute_success(self):
         """Test successful interpretation and execution"""
+        output_file = create_temp_output_file("20 problems")
+
         with patch.object(
             self.interpreter, "_execute_claude_prompt", new_callable=AsyncMock
         ) as mock_prompt:
@@ -509,7 +528,7 @@ sugar add "Task 2" --type feature""",
             result = await self.interpreter.interpret_and_execute(
                 tool_name="eslint",
                 command="eslint src/",
-                raw_output="20 problems",
+                output_file_path=output_file,
                 dry_run=True,
             )
 
@@ -521,6 +540,8 @@ sugar add "Task 2" --type feature""",
     @pytest.mark.asyncio
     async def test_interpret_and_execute_interpretation_failure(self):
         """Test handling of interpretation failure"""
+        output_file = create_temp_output_file("output")
+
         with patch.object(
             self.interpreter, "_execute_claude_prompt", new_callable=AsyncMock
         ) as mock_prompt:
@@ -534,7 +555,7 @@ sugar add "Task 2" --type feature""",
             result = await self.interpreter.interpret_and_execute(
                 tool_name="test",
                 command="test",
-                raw_output="output",
+                output_file_path=output_file,
             )
 
             assert result["success"] is False
@@ -548,6 +569,7 @@ class TestIntegration:
     async def test_full_interpretation_flow(self):
         """Test the full flow from raw output to task commands"""
         interpreter = ToolOutputInterpreter()
+        output_file = create_temp_output_file('{"errorCount": 23, "warningCount": 15}')
 
         # Mock Claude response with realistic output
         mock_response = """Based on the eslint output, I've identified the following tasks:
@@ -571,7 +593,7 @@ These tasks group related issues for efficient resolution."""
             result = await interpreter.interpret_and_execute(
                 tool_name="eslint",
                 command="eslint src/ --format json",
-                raw_output='{"errorCount": 23, "warningCount": 15}',
+                output_file_path=output_file,
                 dry_run=True,
             )
 

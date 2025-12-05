@@ -80,7 +80,7 @@ class TestToolOrchestratorCleanup:
         assert orchestrator.temp_dir is not None
         assert result_dir == orchestrator.temp_dir
         assert result_dir.exists()
-        assert "sugar_discover_" in result_dir.name
+        assert "discover_" in result_dir.name
 
         # Cleanup
         orchestrator.cleanup()

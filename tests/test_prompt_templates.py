@@ -61,7 +61,7 @@ class TestPromptTemplateManager:
         assert "test-cmd" in template
         assert "/tmp/test_output.txt" in template
         assert "sugar add" in template
-        assert "Please read the file at" in template
+        assert "Read the file at" in template
 
     def test_get_builtin_security_template(self):
         """Test getting the security template"""
@@ -315,7 +315,7 @@ class TestCreateToolInterpretationPrompt:
         assert "test-command" in prompt
         assert "/tmp/test_output.txt" in prompt
         assert "sugar add" in prompt
-        assert "Please read the file at" in prompt
+        assert "Read the file at" in prompt
 
     def test_auto_detect_template_type(self):
         """Test automatic template type detection"""
@@ -396,7 +396,7 @@ class TestTemplateContent:
     def test_default_template_has_file_read_instruction(self):
         """Test that default template instructs Claude to read from file"""
         assert "Output File:" in DEFAULT_TOOL_INTERPRETATION_TEMPLATE
-        assert "Please read the file at" in DEFAULT_TOOL_INTERPRETATION_TEMPLATE
+        assert "Read the file at" in DEFAULT_TOOL_INTERPRETATION_TEMPLATE
         assert "${output_file_path}" in DEFAULT_TOOL_INTERPRETATION_TEMPLATE
 
     def test_security_template_has_cvss_mapping(self):
@@ -408,7 +408,7 @@ class TestTemplateContent:
     def test_security_template_has_file_read_instruction(self):
         """Test that security template instructs Claude to read from file"""
         assert "Output File:" in SECURITY_ANALYSIS_TEMPLATE
-        assert "Please read the file at" in SECURITY_ANALYSIS_TEMPLATE
+        assert "Read the file at" in SECURITY_ANALYSIS_TEMPLATE
 
     def test_coverage_template_has_coverage_levels(self):
         """Test that coverage template has coverage level mapping"""
@@ -419,7 +419,7 @@ class TestTemplateContent:
     def test_coverage_template_has_file_read_instruction(self):
         """Test that coverage template instructs Claude to read from file"""
         assert "Output File:" in TEST_COVERAGE_TEMPLATE
-        assert "Please read the file at" in TEST_COVERAGE_TEMPLATE
+        assert "Read the file at" in TEST_COVERAGE_TEMPLATE
 
     def test_lint_template_has_aggressive_grouping(self):
         """Test that lint template emphasizes aggressive grouping"""
@@ -429,7 +429,7 @@ class TestTemplateContent:
     def test_lint_template_has_file_read_instruction(self):
         """Test that lint template instructs Claude to read from file"""
         assert "Output File:" in LINT_ANALYSIS_TEMPLATE
-        assert "Please read the file at" in LINT_ANALYSIS_TEMPLATE
+        assert "Read the file at" in LINT_ANALYSIS_TEMPLATE
 
 
 class TestTemplateVariables:
