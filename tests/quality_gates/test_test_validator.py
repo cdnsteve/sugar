@@ -1,12 +1,58 @@
 """
-Tests for TestExecutionValidator and TestExecutionResult
+Tests for TestExecutionValidator and TestExecutionResult.
 
-Comprehensive test coverage for test execution validation including:
-- TestExecutionResult data class and properties
-- TestExecutionValidator initialization and configuration
-- Test command execution and parsing
-- Evidence storage and commit message generation
-- Pattern matching for automatic test detection
+This module provides comprehensive test coverage for the test execution validation
+system, which enforces mandatory testing before commits in Sugar's quality gates.
+
+Test Categories
+---------------
+1. **TestExecutionResult Tests** (TestTestExecutionResult):
+   - Data class attribute initialization and defaults
+   - `passed` property logic (exit_code, failures, errors)
+   - `to_dict()` serialization behavior
+
+2. **Validator Initialization Tests** (TestTestExecutionValidatorInit):
+   - Configuration parsing (enabled, block_commits, test_commands)
+   - Default behavior with empty/missing configuration
+
+3. **Validation Flow Tests** (TestTestExecutionValidatorValidation):
+   - Pre-commit test validation workflow
+   - Blocking vs non-blocking failure modes
+   - Integration with test execution pipeline
+
+4. **Test Detection Tests** (TestTestExecutionValidatorDetermineTests):
+   - Auto-detection of required tests based on file patterns
+   - Pattern-to-command mapping
+   - Deduplication of test commands
+
+5. **Pattern Matching Tests** (TestTestExecutionValidatorPatternMatching):
+   - Glob-style pattern matching (*, **.py, directory/*)
+   - Exact path matching
+
+6. **Output Parsing Tests** (TestTestExecutionValidatorParsing):
+   - Multi-framework support (pytest, RSpec, Jest)
+   - Extraction of failures, errors, pending, examples counts
+
+7. **Test Execution Tests** (TestTestExecutionValidatorExecution):
+   - Subprocess execution and result capture
+   - Exception handling during test runs
+   - Evidence storage integration
+
+8. **Evidence Storage Tests** (TestTestExecutionValidatorEvidence):
+   - File-based evidence persistence
+   - Directory creation for nested paths
+   - Handling of missing task IDs
+
+9. **Commit Message Tests** (TestTestExecutionValidatorCommitMessage):
+   - Evidence formatting for commit messages
+   - Pass/fail status indicators
+
+Key Test Patterns Used
+----------------------
+- **Fixtures**: `temp_dir` for isolated file system operations
+- **Factory Functions**: `make_mandatory_testing_config()` for DRY configuration
+- **Parametrized Tests**: Multi-format output parsing validation
+- **Async Mocking**: `AsyncMock` for subprocess and I/O operations
 """
 
 import asyncio
@@ -24,12 +70,23 @@ from sugar.quality_gates.test_validator import (
 )
 
 
-# --- Fixtures ---
+# =============================================================================
+# Fixtures and Test Utilities
+# =============================================================================
 
 
 @pytest.fixture
 def temp_dir() -> Generator[Path, None, None]:
-    """Create a temporary directory for test outputs."""
+    """
+    Create a temporary directory for test outputs.
+
+    Yields a Path object to a temporary directory that is automatically
+    cleaned up after the test completes. Used for evidence storage tests
+    and other file system operations.
+
+    Yields:
+        Path: Path to the temporary directory.
+    """
     with tempfile.TemporaryDirectory() as td:
         yield Path(td)
 
@@ -42,7 +99,27 @@ def make_mandatory_testing_config(
     evidence: Dict[str, Any] = None,
     **kwargs: Any,
 ) -> Dict[str, Any]:
-    """Factory function for mandatory testing configuration."""
+    """
+    Factory function to create mandatory testing configuration dictionaries.
+
+    This utility provides a clean way to create configuration dictionaries
+    matching Sugar's quality_gates.mandatory_testing schema, with sensible
+    defaults that can be selectively overridden.
+
+    Args:
+        enabled: Whether mandatory testing is enabled. Defaults to True.
+        block_commits: Whether to block commits on test failure. Defaults to True.
+        test_commands: Dict mapping test type names to command strings.
+            Example: {"unit": "pytest tests/unit/", "integration": "pytest tests/integration/"}
+        auto_detect: Configuration for automatic test detection based on file patterns.
+            Example: {"enabled": True, "patterns": [{"pattern": "src/*.py", "required_tests": ["unit"]}]}
+        evidence: Configuration for test evidence storage.
+            Example: {"store_test_output": True, "path": ".sugar/evidence/{task_id}.txt"}
+        **kwargs: Additional configuration keys to include in mandatory_testing section.
+
+    Returns:
+        Dict with structure: {"quality_gates": {"mandatory_testing": {...}}}
+    """
     config: Dict[str, Any] = {
         "enabled": enabled,
         "block_commits": block_commits,
@@ -57,11 +134,24 @@ def make_mandatory_testing_config(
     return {"quality_gates": {"mandatory_testing": config}}
 
 
-# --- TestExecutionResult Tests ---
+# =============================================================================
+# TestExecutionResult Tests
+# =============================================================================
 
 
 class TestTestExecutionResult:
-    """Tests for TestExecutionResult data class."""
+    """
+    Tests for the TestExecutionResult data class.
+
+    TestExecutionResult is a data container that captures the outcome of
+    running a test command, including exit code, output, timing, and
+    parsed statistics (failures, errors, pending, examples).
+
+    The class provides:
+    - `passed` property: Computed pass/fail status
+    - `to_dict()`: Serialization for storage (excludes stdout/stderr)
+    - Automatic timestamp generation
+    """
 
     def test_init_sets_all_attributes(self) -> None:
         """TestExecutionResult should store all provided attributes."""
@@ -252,11 +342,21 @@ class TestTestExecutionResult:
         assert failing_result.to_dict()["passed"] is False
 
 
-# --- TestExecutionValidator Initialization Tests ---
+# =============================================================================
+# TestExecutionValidator Initialization Tests
+# =============================================================================
 
 
 class TestTestExecutionValidatorInit:
-    """Tests for TestExecutionValidator initialization."""
+    """
+    Tests for TestExecutionValidator initialization and configuration parsing.
+
+    The validator reads configuration from Sugar's quality_gates.mandatory_testing
+    section and initializes its state accordingly. These tests verify:
+    - Correct enabled/disabled state based on config
+    - Proper storage of test commands, validation rules, and evidence config
+    - Graceful handling of empty or missing configuration
+    """
 
     def test_init_with_config_enabled(self) -> None:
         """Validator should be enabled and block commits when configured."""
@@ -299,7 +399,9 @@ class TestTestExecutionValidatorInit:
 
     def test_init_stores_validation_config(self) -> None:
         """Validator should store validation config."""
-        config = make_mandatory_testing_config(enabled=True, validation={"strict": True})
+        config = make_mandatory_testing_config(
+            enabled=True, validation={"strict": True}
+        )
         validator = TestExecutionValidator(config)
 
         assert validator.validation == {"strict": True}
@@ -316,11 +418,28 @@ class TestTestExecutionValidatorInit:
         assert validator.evidence_config == evidence_config
 
 
-# --- TestExecutionValidator Validation Tests ---
+# =============================================================================
+# TestExecutionValidator Validation Flow Tests
+# =============================================================================
 
 
 class TestTestExecutionValidatorValidation:
-    """Tests for validate_tests_before_commit method."""
+    """
+    Tests for the validate_tests_before_commit method.
+
+    This is the main entry point for test validation in the commit workflow.
+    The method:
+    1. Checks if validation is enabled (returns early if not)
+    2. Determines which test commands to run based on changed files
+    3. Executes tests and captures results
+    4. Returns (can_commit, result, message) tuple
+
+    Key behaviors tested:
+    - Disabled validation allows all commits
+    - Passing tests allow commits with success message
+    - Failing tests block commits when block_commits=True
+    - Failing tests allow commits (with warning) when block_commits=False
+    """
 
     @pytest.mark.asyncio
     async def test_validate_tests_when_disabled_allows_commit(self) -> None:
@@ -501,11 +620,26 @@ class TestTestExecutionValidatorValidation:
             assert "passed" in message.lower() or "✅" in message
 
 
-# --- Test Command Determination Tests ---
+# =============================================================================
+# Test Command Determination Tests
+# =============================================================================
 
 
 class TestTestExecutionValidatorDetermineTests:
-    """Tests for _determine_required_tests method."""
+    """
+    Tests for the _determine_required_tests method.
+
+    This method analyzes a list of changed files and determines which test
+    commands need to be run based on configured patterns. It implements the
+    auto-detection feature that maps file patterns to test suites.
+
+    Key behaviors:
+    - Returns empty list when auto_detect is disabled
+    - Matches files against glob patterns to find required test types
+    - Looks up test type names in test_commands to get actual commands
+    - Deduplicates commands when multiple files match the same pattern
+    - Ignores unknown test type names (not in test_commands)
+    """
 
     def test_determine_tests_returns_empty_when_auto_detect_disabled(self) -> None:
         """Should return empty list when auto_detect is disabled."""
@@ -553,7 +687,10 @@ class TestTestExecutionValidatorDetermineTests:
                 "enabled": True,
                 "patterns": [
                     {"pattern": "src/*.py", "required_tests": ["unit"]},
-                    {"pattern": "src/api/*.py", "required_tests": ["unit", "integration"]},
+                    {
+                        "pattern": "src/api/*.py",
+                        "required_tests": ["unit", "integration"],
+                    },
                 ],
             },
         )
@@ -607,11 +744,24 @@ class TestTestExecutionValidatorDetermineTests:
         assert result[0] == "pytest tests/unit/"
 
 
-# --- Pattern Matching Tests ---
+# =============================================================================
+# Pattern Matching Tests
+# =============================================================================
 
 
 class TestTestExecutionValidatorPatternMatching:
-    """Tests for _matches_pattern method."""
+    """
+    Tests for the _matches_pattern method.
+
+    The pattern matcher supports glob-style patterns for matching file paths:
+    - Exact paths: "src/main.py" matches only that file
+    - Extension wildcards: "*.py" matches any Python file
+    - Directory wildcards: "src/*" matches files in src directory
+    - Combined patterns: "src/*.py" matches Python files in src
+
+    This enables flexible configuration of which test suites to run
+    based on which files have been modified.
+    """
 
     def test_matches_pattern_exact_match(self) -> None:
         """Should match exact file paths."""
@@ -646,11 +796,25 @@ class TestTestExecutionValidatorPatternMatching:
         assert validator._matches_pattern("tests/main.py", "src/*.py") is False
 
 
-# --- Test Output Parsing Tests ---
+# =============================================================================
+# Test Output Parsing Tests
+# =============================================================================
 
 
 class TestTestExecutionValidatorParsing:
-    """Tests for _parse_test_output method."""
+    """
+    Tests for the _parse_test_output method.
+
+    The parser extracts test statistics from command output, supporting
+    multiple test framework formats:
+
+    - **pytest**: "X passed, Y failed in Z.XXs"
+    - **RSpec**: "X examples, Y failures, Z pending"
+    - **Jest**: "Tests: X failed, Y passed, Z total"
+
+    Returns a tuple of (failures, errors, pending, examples) counts.
+    Falls back to (0, 0, 0, 0) for unrecognized or empty output.
+    """
 
     @pytest.mark.parametrize(
         "output,expected_failures,expected_errors,expected_pending,expected_examples",
@@ -662,7 +826,13 @@ class TestTestExecutionValidatorParsing:
             # Pytest format - only failures reported
             ("3 failed in 1.0s", 3, 0, 0, 0),
             # RSpec format
-            ("150 examples, 0 failures, 2 pending\nFinished in 45.3 seconds", 0, 0, 2, 150),
+            (
+                "150 examples, 0 failures, 2 pending\nFinished in 45.3 seconds",
+                0,
+                0,
+                2,
+                150,
+            ),
             # RSpec with failures
             ("100 examples, 5 failures\nFinished in 30 seconds", 5, 0, 0, 100),
             # RSpec singular
@@ -709,11 +879,25 @@ class TestTestExecutionValidatorParsing:
         assert examples == expected_examples
 
 
-# --- Test Execution Tests ---
+# =============================================================================
+# Test Execution Tests
+# =============================================================================
 
 
 class TestTestExecutionValidatorExecution:
-    """Tests for _execute_test_command method."""
+    """
+    Tests for the _execute_test_command method.
+
+    This method handles the actual subprocess execution of test commands:
+    1. Spawns a shell subprocess with the test command
+    2. Captures stdout and stderr
+    3. Parses output to extract test statistics
+    4. Optionally stores evidence to a file
+    5. Returns a TestExecutionResult with all captured data
+
+    Exception handling ensures that subprocess failures (e.g., command not found)
+    are converted to failed TestExecutionResult objects rather than propagating.
+    """
 
     @pytest.mark.asyncio
     async def test_execute_test_command_success(self) -> None:
@@ -721,7 +905,9 @@ class TestTestExecutionValidatorExecution:
         config = make_mandatory_testing_config(enabled=True)
         validator = TestExecutionValidator(config)
 
-        with patch("asyncio.create_subprocess_shell", new_callable=AsyncMock) as mock_proc:
+        with patch(
+            "asyncio.create_subprocess_shell", new_callable=AsyncMock
+        ) as mock_proc:
             mock_process = AsyncMock()
             mock_process.communicate.return_value = (
                 b"5 passed in 1.0s",
@@ -746,7 +932,9 @@ class TestTestExecutionValidatorExecution:
         config = make_mandatory_testing_config(enabled=True)
         validator = TestExecutionValidator(config)
 
-        with patch("asyncio.create_subprocess_shell", new_callable=AsyncMock) as mock_proc:
+        with patch(
+            "asyncio.create_subprocess_shell", new_callable=AsyncMock
+        ) as mock_proc:
             mock_process = AsyncMock()
             mock_process.communicate.return_value = (
                 b"3 failed, 7 passed",
@@ -797,7 +985,9 @@ class TestTestExecutionValidatorExecution:
         )
         validator = TestExecutionValidator(config)
 
-        with patch("asyncio.create_subprocess_shell", new_callable=AsyncMock) as mock_proc:
+        with patch(
+            "asyncio.create_subprocess_shell", new_callable=AsyncMock
+        ) as mock_proc:
             mock_process = AsyncMock()
             mock_process.communicate.return_value = (b"5 passed", b"")
             mock_process.returncode = 0
@@ -815,11 +1005,29 @@ class TestTestExecutionValidatorExecution:
             assert "Command: pytest" in content
 
 
-# --- Evidence Storage Tests ---
+# =============================================================================
+# Evidence Storage Tests
+# =============================================================================
 
 
 class TestTestExecutionValidatorEvidence:
-    """Tests for evidence storage functionality."""
+    """
+    Tests for the _store_test_evidence method.
+
+    Evidence storage creates persistent records of test executions, useful for:
+    - Audit trails of what tests were run for each commit
+    - Debugging failed builds by reviewing historical test output
+    - Compliance requirements that mandate test execution proof
+
+    Evidence files contain:
+    - Task ID and timestamp
+    - Command executed and duration
+    - Exit code and pass/fail status
+    - Test statistics (examples, failures, errors, pending)
+    - Full stdout output
+
+    The path template supports {task_id} placeholder for organization.
+    """
 
     @pytest.mark.asyncio
     async def test_store_test_evidence_creates_file(self, temp_dir: Path) -> None:
@@ -907,11 +1115,24 @@ class TestTestExecutionValidatorEvidence:
         assert expected_file.exists()
 
 
-# --- Commit Message Evidence Tests ---
+# =============================================================================
+# Commit Message Evidence Tests
+# =============================================================================
 
 
 class TestTestExecutionValidatorCommitMessage:
-    """Tests for get_commit_message_evidence method."""
+    """
+    Tests for the get_commit_message_evidence method.
+
+    When include_in_commit_message is enabled in evidence config, this method
+    generates a formatted string to append to commit messages, providing:
+    - Test command and duration
+    - Pass/fail status with emoji indicator (✅/❌)
+    - Statistics (examples, failures, errors)
+
+    This embeds test execution proof directly in the git history, making it
+    easy to verify that tests were run for any given commit.
+    """
 
     def test_get_commit_message_evidence_when_enabled(self) -> None:
         """Should return formatted evidence when include_in_commit_message=True."""
