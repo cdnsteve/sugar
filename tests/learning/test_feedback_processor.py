@@ -757,3 +757,254 @@ class TestAnalyzeExecutionTimes:
         processor = FeedbackProcessor(mock_work_queue_empty)
         patterns = await processor._analyze_execution_times([])
         assert patterns == {}
+
+
+class TestCategorizeFailureAdditional:
+    """Additional tests for _categorize_failure method covering all categories."""
+
+    @pytest.mark.asyncio
+    async def test_categorize_validation_error(self, mock_work_queue_empty):
+        """Test categorization of validation errors."""
+        processor = FeedbackProcessor(mock_work_queue_empty)
+        category = await processor._categorize_failure(
+            "Validation error: input does not match expected format"
+        )
+        assert category == "validation_error"
+
+    @pytest.mark.asyncio
+    async def test_categorize_resource_error(self, mock_work_queue_empty):
+        """Test categorization of resource errors."""
+        processor = FeedbackProcessor(mock_work_queue_empty)
+        category = await processor._categorize_failure(
+            "Out of memory: cannot allocate additional resources"
+        )
+        assert category == "resource_error"
+
+    @pytest.mark.asyncio
+    async def test_categorize_disk_space_error(self, mock_work_queue_empty):
+        """Test categorization of disk space errors."""
+        processor = FeedbackProcessor(mock_work_queue_empty)
+        category = await processor._categorize_failure("No disk space left on device")
+        assert category == "resource_error"
+
+    @pytest.mark.asyncio
+    async def test_categorize_http_api_error(self, mock_work_queue_empty):
+        """Test categorization of HTTP/API errors."""
+        processor = FeedbackProcessor(mock_work_queue_empty)
+        category = await processor._categorize_failure(
+            "HTTP Error 500: Internal Server Error from API"
+        )
+        assert category == "network_error"
+
+    @pytest.mark.asyncio
+    async def test_categorize_invalid_format_error(self, mock_work_queue_empty):
+        """Test categorization of invalid format errors."""
+        processor = FeedbackProcessor(mock_work_queue_empty)
+        category = await processor._categorize_failure(
+            "Invalid format error in configuration file"
+        )
+        assert category == "validation_error"
+
+
+class TestExtractExecutionTimeAdditional:
+    """Additional edge case tests for _extract_execution_time method."""
+
+    @pytest.mark.asyncio
+    async def test_extract_time_zero_value(self, mock_work_queue_empty):
+        """Test that zero execution time is not returned."""
+        processor = FeedbackProcessor(mock_work_queue_empty)
+        result = {"result": {"execution_time": 0}}
+        time = await processor._extract_execution_time(result)
+        assert time is None
+
+    @pytest.mark.asyncio
+    async def test_extract_time_negative_value(self, mock_work_queue_empty):
+        """Test that negative execution time is not returned."""
+        processor = FeedbackProcessor(mock_work_queue_empty)
+        result = {"result": {"execution_time": -5.0}}
+        time = await processor._extract_execution_time(result)
+        assert time is None
+
+    @pytest.mark.asyncio
+    async def test_extract_time_from_integer(self, mock_work_queue_empty):
+        """Test extraction of execution time as integer."""
+        processor = FeedbackProcessor(mock_work_queue_empty)
+        result = {"result": {"execution_time": 45}}
+        time = await processor._extract_execution_time(result)
+        assert time == 45.0
+        assert isinstance(time, float)
+
+
+class TestCalculatePerformanceMetricsAdditional:
+    """Additional tests for _calculate_performance_metrics edge cases."""
+
+    @pytest.mark.asyncio
+    async def test_velocity_with_no_completed_at_dates(self, mock_work_queue_empty):
+        """Test velocity calculation when tasks have no completed_at field."""
+        processor = FeedbackProcessor(mock_work_queue_empty)
+        tasks_no_dates = [
+            {
+                "id": "task-1",
+                "type": "bug_fix",
+                "priority": 5,
+                "status": "completed",
+                "source": "error_monitor",
+                "attempts": 1,
+                "result": '{"result": {"execution_time": 45.0}}',
+            },
+        ]
+        metrics = await processor._calculate_performance_metrics(tasks_no_dates, [])
+
+        # Without dates, velocity should fall back to task count
+        assert metrics["task_completion_velocity_per_day"] == 1
+
+    @pytest.mark.asyncio
+    async def test_metrics_with_multiple_dates_same_day(self, mock_work_queue_empty):
+        """Test velocity when all completed_at dates are the same day."""
+        processor = FeedbackProcessor(mock_work_queue_empty)
+        tasks_same_day = [
+            {
+                "id": "task-1",
+                "type": "bug_fix",
+                "priority": 5,
+                "status": "completed",
+                "source": "error_monitor",
+                "attempts": 1,
+                "completed_at": "2024-01-15T10:00:00Z",
+                "result": '{"result": {"execution_time": 45.0}}',
+            },
+            {
+                "id": "task-2",
+                "type": "bug_fix",
+                "priority": 5,
+                "status": "completed",
+                "source": "error_monitor",
+                "attempts": 1,
+                "completed_at": "2024-01-15T14:00:00Z",
+                "result": '{"result": {"execution_time": 30.0}}',
+            },
+        ]
+        metrics = await processor._calculate_performance_metrics(tasks_same_day, [])
+
+        # Same day, so time_span is 0, max(1, 0) = 1, velocity = 2
+        assert metrics["task_completion_velocity_per_day"] == 2
+
+
+class TestAnalyzeFailurePatternsAdditional:
+    """Additional tests for _analyze_failure_patterns edge cases."""
+
+    @pytest.mark.asyncio
+    async def test_analyze_failure_no_error_message(self, mock_work_queue_empty):
+        """Test failure analysis for tasks without error_message field."""
+        processor = FeedbackProcessor(mock_work_queue_empty)
+        tasks_no_error = [
+            {
+                "id": "task-fail-1",
+                "type": "feature",
+                "priority": 4,
+                "status": "failed",
+                "source": "manual",
+                "attempts": 1,
+                # No error_message field
+            },
+        ]
+        patterns = await processor._analyze_failure_patterns(tasks_no_error)
+
+        assert patterns["failed_task_types"]["feature"] == 1
+        # common_failure_reasons should be empty since no error messages
+        assert len(patterns["common_failure_reasons"]) == 0
+
+    @pytest.mark.asyncio
+    async def test_analyze_failure_single_attempt(self, mock_work_queue_empty):
+        """Test that single-attempt failures don't appear in retry_effectiveness."""
+        processor = FeedbackProcessor(mock_work_queue_empty)
+        tasks_single_attempt = [
+            {
+                "id": "task-fail-1",
+                "type": "feature",
+                "priority": 4,
+                "status": "failed",
+                "source": "manual",
+                "attempts": 1,  # Only 1 attempt
+                "error_message": "Some error",
+            },
+        ]
+        patterns = await processor._analyze_failure_patterns(tasks_single_attempt)
+
+        # Single attempt tasks should not appear in retry_effectiveness
+        assert "task-fail-1" not in patterns["retry_effectiveness"]
+
+
+class TestAnalyzeSuccessPatternsAdditional:
+    """Additional tests for _analyze_success_patterns edge cases."""
+
+    @pytest.mark.asyncio
+    async def test_analyze_success_with_no_result(self, mock_work_queue_empty):
+        """Test success patterns when tasks have no result field."""
+        processor = FeedbackProcessor(mock_work_queue_empty)
+        tasks_no_result = [
+            {
+                "id": "task-1",
+                "type": "bug_fix",
+                "priority": 5,
+                "status": "completed",
+                "source": "error_monitor",
+                "attempts": 1,
+                # No result field
+            },
+        ]
+        patterns = await processor._analyze_success_patterns(tasks_no_result)
+
+        assert patterns["successful_task_types"]["bug_fix"] == 1
+        # common_success_indicators should be empty
+        assert len(patterns["common_success_indicators"]) == 0
+
+    @pytest.mark.asyncio
+    async def test_analyze_success_counts_priorities(
+        self, mock_work_queue_empty, sample_completed_tasks
+    ):
+        """Test that success patterns correctly count priorities."""
+        processor = FeedbackProcessor(mock_work_queue_empty)
+        patterns = await processor._analyze_success_patterns(sample_completed_tasks)
+
+        # Verify priority counting from sample data
+        assert 5 in patterns["successful_priorities"]
+        assert 3 in patterns["successful_priorities"]
+
+
+class TestGenerateRecommendationsAdditional:
+    """Additional tests for _generate_recommendations edge cases."""
+
+    @pytest.mark.asyncio
+    async def test_recommendations_failure_without_error_message(
+        self, mock_work_queue_empty
+    ):
+        """Test recommendations when failed tasks have no error_message."""
+        processor = FeedbackProcessor(mock_work_queue_empty)
+        completed = [
+            {
+                "id": f"task-{i}",
+                "type": "bug_fix",
+                "priority": 5,
+                "status": "completed",
+                "source": "error_monitor",
+                "attempts": 1,
+            }
+            for i in range(5)
+        ]
+        failed = [
+            {
+                "id": "task-fail-1",
+                "type": "feature",
+                "priority": 4,
+                "status": "failed",
+                "source": "manual",
+                "attempts": 1,
+                # No error_message
+            },
+        ]
+        recs = await processor._generate_recommendations(completed, failed)
+
+        # Should not have failure_prevention recommendation without error messages
+        failure_rec = next((r for r in recs if r["type"] == "failure_prevention"), None)
+        assert failure_rec is None
