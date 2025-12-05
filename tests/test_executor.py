@@ -526,7 +526,7 @@ class TestClaudeWrapper:
             "description": "Clean up the code",
             "priority": 2,
         }
-        agent = wrapper._select_agent_for_work(work_item)
+        agent = asyncio.run(wrapper._select_agent_for_work(work_item))
         assert agent == AgentType.CODE_REVIEWER
 
     def test_select_agent_for_social_media(self, claude_config):
@@ -538,7 +538,7 @@ class TestClaudeWrapper:
             "description": "Twitter engagement strategy",
             "priority": 2,
         }
-        agent = wrapper._select_agent_for_work(work_item)
+        agent = asyncio.run(wrapper._select_agent_for_work(work_item))
         assert agent is not None
         assert agent.value == "social-media-growth-strategist"
 
@@ -551,7 +551,7 @@ class TestClaudeWrapper:
             "description": "System is down",
             "priority": 5,
         }
-        agent = wrapper._select_agent_for_work(work_item)
+        agent = asyncio.run(wrapper._select_agent_for_work(work_item))
         assert agent == AgentType.TECH_LEAD
 
     def test_select_agent_disabled(self, claude_config):
@@ -564,7 +564,7 @@ class TestClaudeWrapper:
             "description": "Description",
             "priority": 3,
         }
-        agent = wrapper._select_agent_for_work(work_item)
+        agent = asyncio.run(wrapper._select_agent_for_work(work_item))
         assert agent is None
 
     def test_get_agent_type_with_available_agents(self, claude_config):

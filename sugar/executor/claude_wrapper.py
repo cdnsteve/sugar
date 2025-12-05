@@ -700,7 +700,7 @@ Please implement this task by:
         """Execute work using structured request format with agent selection"""
         try:
             # Select agent based on work item characteristics
-            agent_type = self._select_agent_for_work(work_item)
+            agent_type = await self._select_agent_for_work(work_item)
             execution_mode = ExecutionMode.AGENT if agent_type else ExecutionMode.BASIC
 
             # Create structured request
@@ -816,7 +816,7 @@ Please implement this task by:
             "actions_taken": parsed_output.get("actions_taken", []),
         }
 
-    def _select_agent_for_work(
+    async def _select_agent_for_work(
         self, work_item: Dict[str, Any]
     ) -> Optional[Union[AgentType, DynamicAgentType]]:
         """Select the best agent for a work item based on task characteristics"""
@@ -831,8 +831,8 @@ Please implement this task by:
         selected_agent_name = None
         if self.task_type_manager:
             try:
-                selected_agent_name = asyncio.run(
-                    self.task_type_manager.get_agent_for_type(task_type)
+                selected_agent_name = await self.task_type_manager.get_agent_for_type(
+                    task_type
                 )
             except Exception as e:
                 logger.debug(f"Could not get agent from TaskTypeManager: {e}")
