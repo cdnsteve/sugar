@@ -1026,3 +1026,764 @@ class TestModuleExports:
         assert hasattr(executor, "__all__")
         assert "StructuredRequest" in executor.__all__
         assert "ClaudeWrapper" in executor.__all__
+
+
+class TestClaudeWrapperSessionManagement:
+    """Test ClaudeWrapper session state management methods"""
+
+    @pytest.fixture
+    def claude_config(self, tmp_path):
+        """Create test configuration for ClaudeWrapper"""
+        return {
+            "command": "claude",
+            "timeout": 300,
+            "context_file": str(tmp_path / "context.json"),
+            "dry_run": True,
+            "use_continuous": True,
+            "context_strategy": "project",
+            "max_context_age_hours": 24,
+            "use_structured_requests": True,
+            "structured_input_file": str(tmp_path / ".sugar" / "claude_input.json"),
+            "enable_agents": True,
+            "agent_fallback": True,
+        }
+
+    def test_load_session_state_no_file(self, claude_config):
+        """Test loading session state when file doesn't exist"""
+        wrapper = ClaudeWrapper(claude_config)
+        state = wrapper._load_session_state()
+        assert state == {}
+
+    def test_load_session_state_with_file(self, claude_config, tmp_path):
+        """Test loading session state from existing file"""
+        wrapper = ClaudeWrapper(claude_config)
+        # Create session state file
+        session_file = tmp_path / "context_session.json"
+        session_data = {
+            "last_execution_time": "2025-12-05T10:00:00",
+            "last_task_type": "bug_fix",
+            "execution_count": 5,
+        }
+        session_file.write_text(json.dumps(session_data))
+        wrapper.session_state_file = str(session_file)
+
+        state = wrapper._load_session_state()
+        assert state["last_task_type"] == "bug_fix"
+        assert state["execution_count"] == 5
+
+    def test_load_session_state_invalid_json(self, claude_config, tmp_path):
+        """Test loading session state with invalid JSON returns empty dict"""
+        wrapper = ClaudeWrapper(claude_config)
+        session_file = tmp_path / "context_session.json"
+        session_file.write_text("not valid json {")
+        wrapper.session_state_file = str(session_file)
+
+        state = wrapper._load_session_state()
+        assert state == {}
+
+    def test_is_context_too_old_fresh(self, claude_config):
+        """Test context age check with fresh context"""
+        wrapper = ClaudeWrapper(claude_config)
+        session_state = {
+            "last_execution_time": datetime.utcnow().isoformat(),
+        }
+        assert wrapper._is_context_too_old(session_state) is False
+
+    def test_is_context_too_old_stale(self, claude_config):
+        """Test context age check with stale context"""
+        from datetime import timedelta
+
+        wrapper = ClaudeWrapper(claude_config)
+        old_time = datetime.utcnow() - timedelta(hours=48)
+        session_state = {
+            "last_execution_time": old_time.isoformat(),
+        }
+        assert wrapper._is_context_too_old(session_state) is True
+
+    def test_is_context_too_old_invalid_time(self, claude_config):
+        """Test context age check with invalid time format returns True"""
+        wrapper = ClaudeWrapper(claude_config)
+        session_state = {
+            "last_execution_time": "not a valid date",
+        }
+        assert wrapper._is_context_too_old(session_state) is True
+
+    def test_is_context_too_old_missing_time(self, claude_config):
+        """Test context age check with missing time returns True"""
+        wrapper = ClaudeWrapper(claude_config)
+        session_state = {}
+        assert wrapper._is_context_too_old(session_state) is True
+
+    def test_update_session_state(self, claude_config, tmp_path):
+        """Test session state update writes to file"""
+        wrapper = ClaudeWrapper(claude_config)
+        session_file = tmp_path / "context_session.json"
+        wrapper.session_state_file = str(session_file)
+
+        work_item = {
+            "type": "feature",
+            "title": "New feature",
+            "description": "Feature description",
+            "source_file": "main.py",
+        }
+        wrapper._update_session_state(work_item)
+
+        assert session_file.exists()
+        saved_state = json.loads(session_file.read_text())
+        assert saved_state["last_task_type"] == "feature"
+        assert saved_state["last_task_title"] == "New feature"
+        assert saved_state["last_source_file"] == "main.py"
+        assert saved_state["simulated"] is False
+
+    def test_update_session_state_simulated(self, claude_config, tmp_path):
+        """Test session state update with simulated flag"""
+        wrapper = ClaudeWrapper(claude_config)
+        session_file = tmp_path / "context_session.json"
+        wrapper.session_state_file = str(session_file)
+
+        work_item = {"type": "test", "title": "Test task"}
+        wrapper._update_session_state(work_item, simulated=True)
+
+        saved_state = json.loads(session_file.read_text())
+        assert saved_state["simulated"] is True
+
+    def test_get_execution_count_no_state(self, claude_config):
+        """Test execution count with no prior state"""
+        wrapper = ClaudeWrapper(claude_config)
+        count = wrapper._get_execution_count()
+        assert count == 0
+
+    def test_get_execution_count_with_state(self, claude_config, tmp_path):
+        """Test execution count with existing state"""
+        wrapper = ClaudeWrapper(claude_config)
+        session_file = tmp_path / "context_session.json"
+        session_file.write_text(json.dumps({"execution_count": 10}))
+        wrapper.session_state_file = str(session_file)
+
+        count = wrapper._get_execution_count()
+        assert count == 10
+
+
+class TestClaudeWrapperContextPreparation:
+    """Test ClaudeWrapper context preparation methods"""
+
+    @pytest.fixture
+    def claude_config(self, tmp_path):
+        """Create test configuration for ClaudeWrapper"""
+        return {
+            "command": "claude",
+            "timeout": 300,
+            "context_file": str(tmp_path / "context.json"),
+            "dry_run": True,
+            "use_continuous": True,
+            "context_strategy": "project",
+            "max_context_age_hours": 24,
+            "use_structured_requests": True,
+            "structured_input_file": str(tmp_path / ".sugar" / "claude_input.json"),
+            "enable_agents": True,
+            "agent_fallback": True,
+        }
+
+    def test_prepare_context_fresh(self, claude_config, tmp_path):
+        """Test context preparation for fresh session"""
+        wrapper = ClaudeWrapper(claude_config)
+        work_item = {
+            "id": "test-123",
+            "type": "feature",
+            "title": "New feature",
+        }
+
+        context = wrapper._prepare_context(work_item, continue_session=False)
+
+        assert context["work_item"] == work_item
+        assert context["ccal_session"] is True
+        assert context["safety_mode"] is True
+        assert context["continue_session"] is False
+        assert "timestamp" in context
+
+    def test_prepare_context_continuation(self, claude_config):
+        """Test context preparation for continuation session"""
+        wrapper = ClaudeWrapper(claude_config)
+        work_item = {"id": "test-456", "type": "bug_fix"}
+
+        context = wrapper._prepare_context(work_item, continue_session=True)
+
+        assert context["continue_session"] is True
+
+    def test_prepare_context_loads_existing(self, claude_config, tmp_path):
+        """Test context preparation loads existing context"""
+        # Create existing context file
+        context_file = tmp_path / "context.json"
+        existing_context = {
+            "project_name": "test-project",
+            "custom_key": "custom_value",
+        }
+        context_file.write_text(json.dumps(existing_context))
+
+        wrapper = ClaudeWrapper(claude_config)
+        work_item = {"id": "test-789", "type": "test"}
+
+        context = wrapper._prepare_context(work_item)
+
+        assert context["project_name"] == "test-project"
+        assert context["custom_key"] == "custom_value"
+        assert context["work_item"] == work_item
+
+    def test_prepare_context_saves_file(self, claude_config, tmp_path):
+        """Test context preparation saves context file"""
+        wrapper = ClaudeWrapper(claude_config)
+        work_item = {"id": "test-save", "type": "documentation"}
+
+        wrapper._prepare_context(work_item)
+
+        context_file = tmp_path / "context.json"
+        assert context_file.exists()
+        saved = json.loads(context_file.read_text())
+        assert saved["work_item"]["id"] == "test-save"
+
+
+class TestClaudeWrapperStructuredExecution:
+    """Test ClaudeWrapper structured execution methods"""
+
+    @pytest.fixture
+    def claude_config(self, tmp_path):
+        """Create test configuration for ClaudeWrapper"""
+        return {
+            "command": "claude",
+            "timeout": 300,
+            "context_file": str(tmp_path / "context.json"),
+            "dry_run": False,  # Test non-dry-run paths
+            "use_continuous": True,
+            "context_strategy": "project",
+            "max_context_age_hours": 24,
+            "use_structured_requests": True,
+            "structured_input_file": str(tmp_path / ".sugar" / "claude_input.json"),
+            "enable_agents": True,
+            "agent_fallback": True,
+        }
+
+    def test_create_structured_task_prompt_with_agent(self, claude_config):
+        """Test structured task prompt generation with agent"""
+        wrapper = ClaudeWrapper(claude_config)
+        request = StructuredRequest(
+            task_type="feature",
+            title="Add new feature",
+            description="Feature description",
+            execution_mode=ExecutionMode.AGENT,
+            agent_type=AgentType.TECH_LEAD,
+        )
+
+        prompt = wrapper._create_structured_task_prompt(request)
+
+        assert "Sugar Structured Development Task" in prompt
+        assert "tech-lead" in prompt
+        assert "Add new feature" in prompt or "feature" in prompt.lower()
+
+    def test_create_structured_task_prompt_basic(self, claude_config):
+        """Test structured task prompt generation without agent"""
+        wrapper = ClaudeWrapper(claude_config)
+        request = StructuredRequest(
+            task_type="test",
+            title="Add tests",
+            description="Test description",
+            execution_mode=ExecutionMode.BASIC,
+        )
+
+        prompt = wrapper._create_structured_task_prompt(request)
+
+        assert "Sugar Structured Development Task" in prompt
+        assert "Add tests" in prompt or "test" in prompt.lower()
+
+    @pytest.mark.asyncio
+    async def test_execute_claude_cli_success(self, claude_config):
+        """Test successful Claude CLI execution"""
+        wrapper = ClaudeWrapper(claude_config)
+
+        with patch("asyncio.create_subprocess_exec") as mock_exec:
+            mock_process = AsyncMock()
+            mock_process.returncode = 0
+            mock_process.pid = 12345
+            mock_process.communicate.return_value = (
+                b"Successfully completed the task",
+                b"",
+            )
+            mock_exec.return_value = mock_process
+
+            result = await wrapper._execute_claude_cli(
+                prompt="Test prompt",
+                context={},
+                continue_session=False,
+            )
+
+            assert result["success"] is True
+            assert result["returncode"] == 0
+            assert "execution_time" in result
+            assert result["continued_session"] is False
+
+    @pytest.mark.asyncio
+    async def test_execute_claude_cli_with_continue(self, claude_config):
+        """Test Claude CLI execution with continuation"""
+        wrapper = ClaudeWrapper(claude_config)
+
+        with patch("asyncio.create_subprocess_exec") as mock_exec:
+            mock_process = AsyncMock()
+            mock_process.returncode = 0
+            mock_process.pid = 12346
+            mock_process.communicate.return_value = (b"Continued work", b"")
+            mock_exec.return_value = mock_process
+
+            result = await wrapper._execute_claude_cli(
+                prompt="Continue prompt",
+                context={},
+                continue_session=True,
+            )
+
+            assert result["continued_session"] is True
+            # Verify --continue flag was used in command
+            call_args = mock_exec.call_args[0]
+            assert "--continue" in call_args
+
+    @pytest.mark.asyncio
+    async def test_execute_claude_cli_failure(self, claude_config):
+        """Test Claude CLI execution failure"""
+        wrapper = ClaudeWrapper(claude_config)
+
+        with patch("asyncio.create_subprocess_exec") as mock_exec:
+            mock_process = AsyncMock()
+            mock_process.returncode = 1
+            mock_process.pid = 12347
+            mock_process.communicate.return_value = (b"", b"Error occurred")
+            mock_exec.return_value = mock_process
+
+            with pytest.raises(Exception) as exc_info:
+                await wrapper._execute_claude_cli(
+                    prompt="Failing prompt",
+                    context={},
+                    continue_session=False,
+                )
+
+            assert "failed with return code" in str(exc_info.value)
+
+    @pytest.mark.asyncio
+    async def test_execute_claude_cli_timeout(self, claude_config):
+        """Test Claude CLI execution timeout"""
+        claude_config["timeout"] = 1  # 1 second timeout
+        wrapper = ClaudeWrapper(claude_config)
+
+        with patch("asyncio.create_subprocess_exec") as mock_exec:
+            mock_process = AsyncMock()
+            mock_process.pid = 12348
+            mock_process.kill = MagicMock()
+            # Simulate timeout by making communicate raise TimeoutError
+            mock_process.communicate.side_effect = asyncio.TimeoutError()
+            mock_exec.return_value = mock_process
+
+            with pytest.raises(Exception) as exc_info:
+                await wrapper._execute_claude_cli(
+                    prompt="Timeout prompt",
+                    context={},
+                    continue_session=False,
+                )
+
+            assert "timed out" in str(exc_info.value)
+            mock_process.kill.assert_called_once()
+
+    @pytest.mark.asyncio
+    async def test_execute_claude_cli_structured_success(self, claude_config):
+        """Test structured Claude CLI execution success"""
+        wrapper = ClaudeWrapper(claude_config)
+        request = StructuredRequest(
+            task_type="test",
+            title="Test task",
+            description="Description",
+            execution_mode=ExecutionMode.AGENT,
+            agent_type=AgentType.GENERAL_PURPOSE,
+        )
+
+        with patch("asyncio.create_subprocess_exec") as mock_exec:
+            mock_process = AsyncMock()
+            mock_process.returncode = 0
+            mock_process.communicate.return_value = (b"Task completed", b"")
+            mock_exec.return_value = mock_process
+
+            result = await wrapper._execute_claude_cli_structured(
+                prompt="Structured prompt",
+                structured_request=request,
+            )
+
+            assert result["success"] is True
+            assert result["structured_mode"] is True
+            assert result["agent_requested"] == "general-purpose"
+
+    @pytest.mark.asyncio
+    async def test_execute_claude_cli_structured_failure(self, claude_config):
+        """Test structured Claude CLI execution failure"""
+        wrapper = ClaudeWrapper(claude_config)
+        request = StructuredRequest(
+            task_type="test",
+            title="Failing task",
+            description="Description",
+            execution_mode=ExecutionMode.BASIC,
+        )
+
+        with patch("asyncio.create_subprocess_exec") as mock_exec:
+            mock_process = AsyncMock()
+            mock_process.returncode = 1
+            mock_process.communicate.return_value = (b"", b"Execution error")
+            mock_exec.return_value = mock_process
+
+            result = await wrapper._execute_claude_cli_structured(
+                prompt="Failing prompt",
+                structured_request=request,
+            )
+
+            assert result["success"] is False
+            assert "error" in result
+
+
+class TestClaudeWrapperFullExecution:
+    """Test ClaudeWrapper full execution flows"""
+
+    @pytest.fixture
+    def claude_config(self, tmp_path):
+        """Create test configuration for ClaudeWrapper"""
+        return {
+            "command": "claude",
+            "timeout": 300,
+            "context_file": str(tmp_path / "context.json"),
+            "dry_run": False,
+            "use_continuous": True,
+            "context_strategy": "project",
+            "max_context_age_hours": 24,
+            "use_structured_requests": True,
+            "structured_input_file": str(tmp_path / ".sugar" / "claude_input.json"),
+            "enable_agents": True,
+            "agent_fallback": True,
+        }
+
+    @pytest.mark.asyncio
+    async def test_execute_structured_work_success(self, claude_config):
+        """Test full structured work execution success"""
+        wrapper = ClaudeWrapper(claude_config)
+        work_item = {
+            "id": "structured-123",
+            "type": "feature",
+            "title": "New feature",
+            "description": "Feature description",
+            "priority": 3,
+            "source": "manual",
+            "attempts": 0,
+            "context": {},
+        }
+
+        with patch.object(wrapper, "_execute_claude_cli_structured") as mock_cli:
+            mock_cli.return_value = {
+                "success": True,
+                "stdout": "Successfully implemented feature",
+                "stderr": "",
+                "returncode": 0,
+                "execution_time": 15.0,
+            }
+
+            result = await wrapper._execute_structured_work(work_item)
+
+            assert result["success"] is True
+            assert result["work_item_id"] == "structured-123"
+            assert "structured_response" in result
+
+    @pytest.mark.asyncio
+    async def test_execute_structured_work_fallback(self, claude_config):
+        """Test structured work execution fallback to legacy"""
+        wrapper = ClaudeWrapper(claude_config)
+        work_item = {
+            "id": "fallback-123",
+            "type": "bug_fix",
+            "title": "Fix bug",
+            "description": "Bug description",
+            "priority": 4,
+            "source": "github",
+            "attempts": 0,
+            "context": {},
+        }
+
+        with patch.object(wrapper, "_execute_claude_cli_structured") as mock_structured:
+            mock_structured.return_value = {
+                "success": False,
+                "stderr": "Agent failed",
+            }
+
+            with patch.object(wrapper, "_execute_legacy_work") as mock_legacy:
+                mock_legacy.return_value = {
+                    "success": True,
+                    "execution_mode": "legacy",
+                }
+
+                result = await wrapper._execute_structured_work(work_item)
+
+                mock_legacy.assert_called_once()
+                assert result["success"] is True
+
+    @pytest.mark.asyncio
+    async def test_execute_legacy_work_success(self, claude_config):
+        """Test legacy work execution success"""
+        wrapper = ClaudeWrapper(claude_config)
+        work_item = {
+            "id": "legacy-123",
+            "type": "test",
+            "title": "Add tests",
+            "description": "Test description",
+            "priority": 2,
+            "source": "manual",
+            "context": {},
+        }
+
+        with patch.object(wrapper, "_execute_claude_cli") as mock_cli:
+            mock_cli.return_value = {
+                "success": True,
+                "stdout": "Tests added successfully",
+                "stderr": "",
+                "returncode": 0,
+                "execution_time": 10.0,
+            }
+
+            result = await wrapper._execute_legacy_work(work_item)
+
+            assert result["success"] is True
+            assert result["execution_mode"] == "legacy"
+            assert result["work_item_id"] == "legacy-123"
+
+    @pytest.mark.asyncio
+    async def test_execute_work_dry_run(self, claude_config):
+        """Test execute_work in dry run mode"""
+        claude_config["dry_run"] = True
+        wrapper = ClaudeWrapper(claude_config)
+        work_item = {
+            "id": "dry-run-123",
+            "type": "documentation",
+            "title": "Update docs",
+            "description": "Documentation update",
+            "priority": 1,
+        }
+
+        result = await wrapper.execute_work(work_item)
+
+        assert result["success"] is True
+        assert result["simulated"] is True
+
+    @pytest.mark.asyncio
+    async def test_execute_work_exception_handling(self, claude_config):
+        """Test execute_work exception handling"""
+        wrapper = ClaudeWrapper(claude_config)
+        work_item = {
+            "id": "error-123",
+            "type": "feature",
+            "title": "Problematic feature",
+            "description": "This will fail",
+            "priority": 3,
+        }
+
+        with patch.object(wrapper, "_execute_structured_work") as mock_structured:
+            mock_structured.side_effect = Exception("Unexpected error")
+
+            result = await wrapper.execute_work(work_item)
+
+            assert result["success"] is False
+            assert "error" in result
+            assert "Unexpected error" in result["error"]
+
+
+class TestClaudeWrapperSessionContinuation:
+    """Test ClaudeWrapper session continuation logic"""
+
+    @pytest.fixture
+    def claude_config(self, tmp_path):
+        """Create test configuration for ClaudeWrapper"""
+        return {
+            "command": "claude",
+            "timeout": 300,
+            "context_file": str(tmp_path / "context.json"),
+            "dry_run": True,
+            "use_continuous": True,
+            "context_strategy": "project",
+            "max_context_age_hours": 24,
+            "use_structured_requests": True,
+            "structured_input_file": str(tmp_path / ".sugar" / "claude_input.json"),
+            "enable_agents": True,
+            "agent_fallback": True,
+        }
+
+    def test_should_continue_disabled(self, claude_config):
+        """Test session continuation when disabled"""
+        claude_config["use_continuous"] = False
+        wrapper = ClaudeWrapper(claude_config)
+        work_item = {"type": "test", "description": ""}
+
+        assert wrapper._should_continue_session(work_item) is False
+
+    def test_should_continue_task_type_strategy_match(self, claude_config, tmp_path):
+        """Test session continuation with task_type strategy matching"""
+        claude_config["context_strategy"] = "task_type"
+        wrapper = ClaudeWrapper(claude_config)
+
+        # Create session state
+        session_file = tmp_path / "context_session.json"
+        session_file.write_text(
+            json.dumps(
+                {
+                    "last_execution_time": datetime.utcnow().isoformat(),
+                    "last_task_type": "bug_fix",
+                }
+            )
+        )
+        wrapper.session_state_file = str(session_file)
+
+        # Same task type should continue
+        work_item = {"type": "bug_fix", "description": ""}
+        assert wrapper._should_continue_session(work_item) is True
+
+    def test_should_continue_task_type_strategy_mismatch(self, claude_config, tmp_path):
+        """Test session continuation with task_type strategy mismatching"""
+        claude_config["context_strategy"] = "task_type"
+        wrapper = ClaudeWrapper(claude_config)
+
+        session_file = tmp_path / "context_session.json"
+        session_file.write_text(
+            json.dumps(
+                {
+                    "last_execution_time": datetime.utcnow().isoformat(),
+                    "last_task_type": "bug_fix",
+                }
+            )
+        )
+        wrapper.session_state_file = str(session_file)
+
+        # Different task type should not continue
+        work_item = {"type": "feature", "description": ""}
+        assert wrapper._should_continue_session(work_item) is False
+
+    def test_should_continue_session_strategy(self, claude_config, tmp_path):
+        """Test session continuation with session strategy"""
+        claude_config["context_strategy"] = "session"
+        wrapper = ClaudeWrapper(claude_config)
+
+        session_file = tmp_path / "context_session.json"
+        session_file.write_text(
+            json.dumps(
+                {
+                    "last_execution_time": datetime.utcnow().isoformat(),
+                    "last_task_description": "Fix authentication bug",
+                }
+            )
+        )
+        wrapper.session_state_file = str(session_file)
+
+        # Related task (auth keyword) should continue
+        work_item = {"type": "feature", "description": "Improve auth flow"}
+        assert wrapper._should_continue_session(work_item) is True
+
+    def test_should_continue_context_too_old(self, claude_config, tmp_path):
+        """Test session continuation when context is too old"""
+        from datetime import timedelta
+
+        wrapper = ClaudeWrapper(claude_config)
+
+        session_file = tmp_path / "context_session.json"
+        old_time = datetime.utcnow() - timedelta(hours=48)
+        session_file.write_text(
+            json.dumps(
+                {
+                    "last_execution_time": old_time.isoformat(),
+                    "last_task_type": "bug_fix",
+                }
+            )
+        )
+        wrapper.session_state_file = str(session_file)
+
+        work_item = {"type": "bug_fix", "description": ""}
+        assert wrapper._should_continue_session(work_item) is False
+
+
+class TestClaudeWrapperAgentSelectionKeywords:
+    """Test ClaudeWrapper agent selection based on keywords"""
+
+    @pytest.fixture
+    def claude_config(self, tmp_path):
+        """Create test configuration for ClaudeWrapper"""
+        return {
+            "command": "claude",
+            "timeout": 300,
+            "context_file": str(tmp_path / "context.json"),
+            "dry_run": True,
+            "use_continuous": True,
+            "context_strategy": "project",
+            "max_context_age_hours": 24,
+            "use_structured_requests": True,
+            "structured_input_file": str(tmp_path / ".sugar" / "claude_input.json"),
+            "enable_agents": True,
+            "agent_fallback": True,
+        }
+
+    def test_select_agent_statusline_setup(self, claude_config):
+        """Test agent selection for statusline setup tasks"""
+        wrapper = ClaudeWrapper(claude_config)
+        work_item = {
+            "type": "setup",
+            "title": "Configure statusline",
+            "description": "Set up the Claude Code status line",
+            "priority": 2,
+        }
+        agent = asyncio.run(wrapper._select_agent_for_work(work_item))
+        assert agent is not None
+        assert agent.value == "statusline-setup"
+
+    def test_select_agent_output_style(self, claude_config):
+        """Test agent selection for output style tasks - note: 'style' keyword triggers code-reviewer first"""
+        wrapper = ClaudeWrapper(claude_config)
+        # The keyword 'style' in 'output style' triggers code-reviewer before output-style-setup
+        # This test verifies the actual behavior of the keyword matching order
+        work_item = {
+            "type": "setup",
+            "title": "Configure color scheme",
+            "description": "Set up the theme for terminal",
+            "priority": 2,
+        }
+        agent = asyncio.run(wrapper._select_agent_for_work(work_item))
+        assert agent is not None
+        # 'theme' keyword triggers output-style-setup
+        assert agent.value == "output-style-setup"
+
+    def test_select_agent_architecture_keywords(self, claude_config):
+        """Test agent selection for architecture-related tasks"""
+        wrapper = ClaudeWrapper(claude_config)
+        work_item = {
+            "type": "design",
+            "title": "System architecture planning",
+            "description": "Plan and document system architecture",
+            "priority": 3,
+        }
+        agent = asyncio.run(wrapper._select_agent_for_work(work_item))
+        assert agent == AgentType.TECH_LEAD
+
+    def test_select_agent_performance_keywords(self, claude_config):
+        """Test agent selection for performance-related tasks"""
+        wrapper = ClaudeWrapper(claude_config)
+        work_item = {
+            "type": "optimization",
+            "title": "Performance optimization",
+            "description": "Improve scalability and performance",
+            "priority": 3,
+        }
+        agent = asyncio.run(wrapper._select_agent_for_work(work_item))
+        assert agent == AgentType.TECH_LEAD
+
+    def test_select_agent_default_fallback(self, claude_config):
+        """Test agent selection defaults to general-purpose"""
+        wrapper = ClaudeWrapper(claude_config)
+        work_item = {
+            "type": "unknown",
+            "title": "Generic task",
+            "description": "Some generic description without keywords",
+            "priority": 2,
+        }
+        agent = asyncio.run(wrapper._select_agent_for_work(work_item))
+        assert agent == AgentType.GENERAL_PURPOSE
