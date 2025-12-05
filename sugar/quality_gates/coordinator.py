@@ -64,7 +64,7 @@ class QualityGateResult:
 
         if self.evidence_collector:
             result["evidence_summary"] = self.evidence_collector.get_evidence_summary()
-            result["evidence_urls"] = self.evidence_collector.generate_evidence_urls()
+            result["evidence_urls"] = self.evidence_collector.get_evidence_file_paths()
 
         if self.failure_report:
             result["failure_report"] = (
@@ -280,7 +280,7 @@ class QualityGatesCoordinator:
         footer += f"- Claims Proven: {'✅ YES' if quality_gate_result.claims_proven else '⏭️ NONE'}\n"
         footer += f"- Total Evidence: {summary.get('total_evidence_items', 0)} items\n"
 
-        evidence_urls = quality_gate_result.evidence_collector.generate_evidence_urls()
+        evidence_urls = quality_gate_result.evidence_collector.get_evidence_file_paths()
         if evidence_urls:
             footer += f"\nEvidence:\n"
             for url in evidence_urls[:3]:  # First 3 URLs

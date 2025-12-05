@@ -9,31 +9,28 @@ Collects and stores proof for all quality gate verifications:
 """
 
 import json
-from datetime import datetime
+from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any, Dict, List, Optional
+from dataclasses import dataclass, field
+from typing import Any, Optional
 import logging
 
 logger = logging.getLogger(__name__)
 
 
+@dataclass
 class Evidence:
-    """A single piece of evidence"""
+    """A single piece of evidence."""
 
-    def __init__(
-        self,
-        evidence_type: str,
-        data: Dict[str, Any],
-        verified: bool,
-        timestamp: Optional[str] = None,
-    ):
-        self.type = evidence_type
-        self.data = data
-        self.verified = verified
-        self.timestamp = timestamp or datetime.utcnow().isoformat()
+    type: str
+    data: dict[str, Any]
+    verified: bool
+    timestamp: str = field(
+        default_factory=lambda: datetime.now(timezone.utc).isoformat()
+    )
 
-    def to_dict(self) -> dict:
-        """Convert to dictionary"""
+    def to_dict(self) -> dict[str, Any]:
+        """Convert to dictionary."""
         return {
             "type": self.type,
             "data": self.data,
@@ -58,7 +55,7 @@ class EvidenceCollector:
         self.task_id = task_id
         self.evidence_dir = Path(evidence_dir)
         self.evidence_dir.mkdir(parents=True, exist_ok=True)
-        self.evidence_items: List[Evidence] = []
+        self.evidence_items: list[Evidence] = []
 
     def add_test_evidence(
         self,
@@ -90,7 +87,7 @@ class EvidenceCollector:
         verified = exit_code == 0 and failures == 0 and errors == 0
 
         evidence = Evidence(
-            evidence_type="test_execution",
+            type="test_execution",
             data={
                 "command": command,
                 "exit_code": exit_code,
@@ -111,7 +108,7 @@ class EvidenceCollector:
         return evidence
 
     def add_functional_verification_evidence(
-        self, verification_type: str, details: Dict[str, Any], verified: bool
+        self, verification_type: str, details: dict[str, Any], verified: bool
     ) -> Evidence:
         """
         Add functional verification evidence
@@ -125,7 +122,7 @@ class EvidenceCollector:
             Evidence object
         """
         evidence = Evidence(
-            evidence_type="functional_verification",
+            type="functional_verification",
             data={"verification_type": verification_type, **details},
             verified=verified,
         )
@@ -155,7 +152,7 @@ class EvidenceCollector:
         verified = expected == actual
 
         evidence = Evidence(
-            evidence_type="success_criteria",
+            type="success_criteria",
             data={
                 "criterion_id": criterion_id,
                 "criterion_type": criterion_type,
@@ -187,7 +184,7 @@ class EvidenceCollector:
             Evidence object
         """
         evidence = Evidence(
-            evidence_type="screenshot",
+            type="screenshot",
             data={"url": url, "screenshot_path": screenshot_path},
             verified=verified,
         )
@@ -210,7 +207,7 @@ class EvidenceCollector:
 
         return all(evidence.verified for evidence in self.evidence_items)
 
-    def get_evidence_summary(self) -> Dict[str, Any]:
+    def get_evidence_summary(self) -> dict[str, Any]:
         """
         Get summary of all evidence
 
@@ -238,27 +235,37 @@ class EvidenceCollector:
 
     def save_evidence_report(self) -> str:
         """
-        Save evidence report to disk
+        Save evidence report to disk.
 
         Returns:
             Path to saved report
+
+        Raises:
+            OSError: If the report cannot be written to disk
         """
         report_path = self.evidence_dir / f"{self.task_id}_evidence.json"
 
         report = {
             "task_id": self.task_id,
-            "timestamp": datetime.utcnow().isoformat(),
+            "timestamp": datetime.now(timezone.utc).isoformat(),
             "summary": self.get_evidence_summary(),
             "evidence": [e.to_dict() for e in self.evidence_items],
         }
 
-        with open(report_path, "w") as f:
-            json.dump(report, f, indent=2)
+        try:
+            # Write to temp file first, then rename for atomicity
+            temp_path = report_path.with_suffix(".json.tmp")
+            with open(temp_path, "w", encoding="utf-8") as f:
+                json.dump(report, f, indent=2)
+            temp_path.replace(report_path)
+        except OSError as e:
+            logger.error(f"Failed to save evidence report {report_path}: {e}")
+            raise
 
         logger.info(f"Saved evidence report: {report_path}")
         return str(report_path)
 
-    def get_failed_evidence(self) -> List[Evidence]:
+    def get_failed_evidence(self) -> list[Evidence]:
         """
         Get all evidence items that failed verification
 
@@ -267,9 +274,9 @@ class EvidenceCollector:
         """
         return [e for e in self.evidence_items if not e.verified]
 
-    def generate_evidence_urls(self) -> List[str]:
+    def get_evidence_file_paths(self) -> list[str]:
         """
-        Generate list of file paths containing evidence
+        Get list of file paths containing evidence.
 
         Returns:
             List of evidence file paths
