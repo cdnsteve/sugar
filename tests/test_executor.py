@@ -1,132 +1,195 @@
 """
-Tests for Sugar executor module
+Tests for Sugar executor module.
 
-Tests cover:
-- StructuredRequest creation and serialization
-- StructuredResponse parsing and quality assessment
-- RequestBuilder factory methods
-- AgentType and DynamicAgentType handling
-- ClaudeWrapper configuration and execution
+This module provides comprehensive test coverage for the executor components:
+
+- ExecutionMode: Enum values for basic, agent, and continuation modes
+- AgentType/DynamicAgentType: Agent type handling and custom agent support
+- TaskContext: Task metadata and context management
+- StructuredRequest: Request creation, serialization, and work item conversion
+- StructuredResponse: Response parsing, quality assessment, and output extraction
+- RequestBuilder: Factory methods for creating different request types
+- ClaudeWrapper: CLI execution, session management, and agent selection
 """
 
-import pytest
-import json
-from datetime import datetime
-from unittest.mock import AsyncMock, MagicMock, patch
 import asyncio
+import json
+from datetime import datetime, timedelta
+from unittest.mock import AsyncMock, MagicMock, patch
+
+import pytest
 
 from sugar.executor import (
+    AgentType,
+    ClaudeWrapper,
+    DynamicAgentType,
+    ExecutionMode,
+    RequestBuilder,
     StructuredRequest,
     StructuredResponse,
-    RequestBuilder,
-    ExecutionMode,
-    AgentType,
-    DynamicAgentType,
     TaskContext,
-    ClaudeWrapper,
 )
 
 
-class TestExecutionMode:
-    """Test ExecutionMode enum"""
+# =============================================================================
+# Shared Fixtures
+# =============================================================================
 
-    def test_execution_mode_values(self):
-        """Test ExecutionMode enum has expected values"""
-        assert ExecutionMode.BASIC.value == "basic"
-        assert ExecutionMode.AGENT.value == "agent"
-        assert ExecutionMode.CONTINUATION.value == "continuation"
+
+@pytest.fixture
+def claude_config(tmp_path):
+    """
+    Create standard test configuration for ClaudeWrapper.
+
+    This fixture provides a consistent configuration dict for ClaudeWrapper
+    tests, with all paths pointing to the temporary directory.
+
+    Args:
+        tmp_path: pytest's temporary directory fixture
+
+    Returns:
+        dict: Configuration suitable for ClaudeWrapper initialization
+    """
+    return {
+        "command": "claude",
+        "timeout": 300,
+        "context_file": str(tmp_path / "context.json"),
+        "dry_run": True,
+        "use_continuous": True,
+        "context_strategy": "project",
+        "max_context_age_hours": 24,
+        "use_structured_requests": True,
+        "structured_input_file": str(tmp_path / ".sugar" / "claude_input.json"),
+        "enable_agents": True,
+        "agent_fallback": True,
+    }
+
+
+# =============================================================================
+# ExecutionMode Tests
+# =============================================================================
+
+
+class TestExecutionMode:
+    """Tests for ExecutionMode enum values and completeness."""
+
+    @pytest.mark.parametrize(
+        "mode,expected_value",
+        [
+            (ExecutionMode.BASIC, "basic"),
+            (ExecutionMode.AGENT, "agent"),
+            (ExecutionMode.CONTINUATION, "continuation"),
+        ],
+    )
+    def test_execution_mode_values(self, mode, expected_value):
+        """Verify each ExecutionMode has the correct string value."""
+        assert mode.value == expected_value
 
     def test_execution_mode_count(self):
-        """Test ExecutionMode has expected number of modes"""
+        """Verify ExecutionMode has exactly 3 modes defined."""
         assert len(ExecutionMode) == 3
 
 
-class TestAgentType:
-    """Test AgentType enum and DynamicAgentType"""
+# =============================================================================
+# AgentType Tests
+# =============================================================================
 
-    def test_agent_type_values(self):
-        """Test AgentType enum has expected values"""
-        assert AgentType.GENERAL_PURPOSE.value == "general-purpose"
-        assert AgentType.CODE_REVIEWER.value == "code-reviewer"
-        assert AgentType.TECH_LEAD.value == "tech-lead"
-        assert (
-            AgentType.SOCIAL_MEDIA_STRATEGIST.value == "social-media-growth-strategist"
-        )
+
+class TestAgentType:
+    """Tests for AgentType enum and from_string conversion."""
+
+    @pytest.mark.parametrize(
+        "agent_type,expected_value",
+        [
+            (AgentType.GENERAL_PURPOSE, "general-purpose"),
+            (AgentType.CODE_REVIEWER, "code-reviewer"),
+            (AgentType.TECH_LEAD, "tech-lead"),
+            (AgentType.SOCIAL_MEDIA_STRATEGIST, "social-media-growth-strategist"),
+        ],
+    )
+    def test_agent_type_values(self, agent_type, expected_value):
+        """Verify each AgentType has the correct string value."""
+        assert agent_type.value == expected_value
 
     def test_from_string_known_agent(self):
-        """Test from_string with known agent"""
+        """Verify from_string returns matching AgentType for known agents."""
         result = AgentType.from_string("general-purpose")
         assert result == AgentType.GENERAL_PURPOSE
 
     def test_from_string_unknown_agent(self):
-        """Test from_string with unknown agent returns DynamicAgentType"""
+        """Verify from_string returns DynamicAgentType for unknown agents."""
         result = AgentType.from_string("custom-agent")
         assert isinstance(result, DynamicAgentType)
         assert result.value == "custom-agent"
 
     def test_get_available_agents(self):
-        """Test get_available_agents returns list of values"""
+        """Verify get_available_agents returns all known agent values."""
         agents = AgentType.get_available_agents()
         assert "general-purpose" in agents
         assert "code-reviewer" in agents
         assert "tech-lead" in agents
 
 
+# =============================================================================
+# DynamicAgentType Tests
+# =============================================================================
+
+
 class TestDynamicAgentType:
-    """Test DynamicAgentType for custom agents"""
+    """Tests for DynamicAgentType custom agent handling."""
 
     def test_dynamic_agent_creation(self):
-        """Test DynamicAgentType creation"""
+        """Verify DynamicAgentType correctly stores value and generates name."""
         agent = DynamicAgentType("my-custom-agent")
         assert agent.value == "my-custom-agent"
         assert agent.name == "MY_CUSTOM_AGENT"
 
     def test_dynamic_agent_str(self):
-        """Test DynamicAgentType string representation"""
+        """Verify str() returns the agent value."""
         agent = DynamicAgentType("custom-agent")
         assert str(agent) == "custom-agent"
 
     def test_dynamic_agent_repr(self):
-        """Test DynamicAgentType repr"""
+        """Verify repr() returns a reconstructible representation."""
         agent = DynamicAgentType("custom-agent")
         assert repr(agent) == "DynamicAgentType('custom-agent')"
 
-    def test_dynamic_agent_equality_with_same(self):
-        """Test DynamicAgentType equality with same type"""
-        agent1 = DynamicAgentType("test-agent")
-        agent2 = DynamicAgentType("test-agent")
-        assert agent1 == agent2
-
-    def test_dynamic_agent_equality_with_string(self):
-        """Test DynamicAgentType equality with string"""
+    @pytest.mark.parametrize(
+        "other,expected_equal",
+        [
+            (DynamicAgentType("test-agent"), True),
+            ("test-agent", True),
+            (DynamicAgentType("other-agent"), False),
+            ("other-agent", False),
+            (12345, False),
+            (None, False),
+            (["test-agent"], False),
+        ],
+    )
+    def test_dynamic_agent_equality(self, other, expected_equal):
+        """Verify equality comparison with various types."""
         agent = DynamicAgentType("test-agent")
-        assert agent == "test-agent"
-
-    def test_dynamic_agent_inequality(self):
-        """Test DynamicAgentType inequality"""
-        agent1 = DynamicAgentType("agent-a")
-        agent2 = DynamicAgentType("agent-b")
-        assert agent1 != agent2
+        if expected_equal:
+            assert agent == other
+        else:
+            assert agent != other
 
     def test_dynamic_agent_equality_with_agent_type(self):
-        """Test DynamicAgentType equality with AgentType enum"""
-        # Create a dynamic agent with the same value as a known AgentType
+        """Verify DynamicAgentType equals matching AgentType enum member."""
         dynamic = DynamicAgentType("general-purpose")
         assert dynamic == AgentType.GENERAL_PURPOSE
 
-    def test_dynamic_agent_inequality_with_different_type(self):
-        """Test DynamicAgentType returns False for non-matching types"""
-        agent = DynamicAgentType("test-agent")
-        assert agent != 12345  # Not a string, AgentType, or DynamicAgentType
-        assert agent != None
-        assert agent != ["test-agent"]
+
+# =============================================================================
+# TaskContext Tests
+# =============================================================================
 
 
 class TestTaskContext:
-    """Test TaskContext dataclass"""
+    """Tests for TaskContext dataclass initialization and defaults."""
 
     def test_task_context_creation(self):
-        """Test TaskContext creation with required fields"""
+        """Verify TaskContext initializes required fields and defaults optional ones."""
         context = TaskContext(
             work_item_id="test-123",
             source_type="github",
@@ -141,7 +204,7 @@ class TestTaskContext:
         assert context.repository_info is None
 
     def test_task_context_with_optional_fields(self):
-        """Test TaskContext with optional fields"""
+        """Verify TaskContext accepts and stores optional fields correctly."""
         context = TaskContext(
             work_item_id="test-456",
             source_type="manual",
@@ -154,11 +217,16 @@ class TestTaskContext:
         assert context.session_context == {"key": "value"}
 
 
+# =============================================================================
+# StructuredRequest Tests
+# =============================================================================
+
+
 class TestStructuredRequest:
-    """Test StructuredRequest dataclass"""
+    """Tests for StructuredRequest creation, serialization, and work item conversion."""
 
     def test_structured_request_creation(self):
-        """Test StructuredRequest creation"""
+        """Verify StructuredRequest initializes with required fields and auto-generates timestamp."""
         request = StructuredRequest(
             task_type="bug_fix",
             title="Fix authentication bug",
@@ -268,8 +336,13 @@ class TestStructuredRequest:
         assert request.context.attempts == 0  # Default
 
 
+# =============================================================================
+# StructuredResponse Tests
+# =============================================================================
+
+
 class TestStructuredResponse:
-    """Test StructuredResponse dataclass"""
+    """Tests for StructuredResponse parsing, quality assessment, and output extraction."""
 
     def test_structured_response_creation(self):
         """Test StructuredResponse creation"""
@@ -644,8 +717,13 @@ Completed the work successfully.
         assert response.stdout == stdout
 
 
+# =============================================================================
+# RequestBuilder Tests
+# =============================================================================
+
+
 class TestRequestBuilder:
-    """Test RequestBuilder factory class"""
+    """Tests for RequestBuilder factory methods for creating different request types."""
 
     def test_create_basic_request(self):
         """Test creating basic request"""
@@ -760,25 +838,13 @@ class TestRequestBuilder:
         assert request.context.previous_attempts[0]["success"] is False
 
 
-class TestClaudeWrapper:
-    """Test ClaudeWrapper class"""
+# =============================================================================
+# ClaudeWrapper Tests
+# =============================================================================
 
-    @pytest.fixture
-    def claude_config(self, tmp_path):
-        """Create test configuration for ClaudeWrapper"""
-        return {
-            "command": "claude",
-            "timeout": 300,
-            "context_file": str(tmp_path / "context.json"),
-            "dry_run": True,
-            "use_continuous": True,
-            "context_strategy": "project",
-            "max_context_age_hours": 24,
-            "use_structured_requests": True,
-            "structured_input_file": str(tmp_path / ".sugar" / "claude_input.json"),
-            "enable_agents": True,
-            "agent_fallback": True,
-        }
+
+class TestClaudeWrapper:
+    """Tests for ClaudeWrapper initialization, configuration, and basic execution."""
 
     def test_claude_wrapper_init(self, claude_config):
         """Test ClaudeWrapper initialization"""
@@ -994,8 +1060,13 @@ Created new_feature.py
             assert result is False
 
 
+# =============================================================================
+# Module Export Tests
+# =============================================================================
+
+
 class TestModuleExports:
-    """Test that module exports work correctly"""
+    """Tests for verifying module exports are accessible and complete."""
 
     def test_import_from_executor_module(self):
         """Test importing from sugar.executor"""
@@ -1028,25 +1099,13 @@ class TestModuleExports:
         assert "ClaudeWrapper" in executor.__all__
 
 
-class TestClaudeWrapperSessionManagement:
-    """Test ClaudeWrapper session state management methods"""
+# =============================================================================
+# ClaudeWrapper Session Management Tests
+# =============================================================================
 
-    @pytest.fixture
-    def claude_config(self, tmp_path):
-        """Create test configuration for ClaudeWrapper"""
-        return {
-            "command": "claude",
-            "timeout": 300,
-            "context_file": str(tmp_path / "context.json"),
-            "dry_run": True,
-            "use_continuous": True,
-            "context_strategy": "project",
-            "max_context_age_hours": 24,
-            "use_structured_requests": True,
-            "structured_input_file": str(tmp_path / ".sugar" / "claude_input.json"),
-            "enable_agents": True,
-            "agent_fallback": True,
-        }
+
+class TestClaudeWrapperSessionManagement:
+    """Tests for ClaudeWrapper session state loading, saving, and age checking."""
 
     def test_load_session_state_no_file(self, claude_config):
         """Test loading session state when file doesn't exist"""
@@ -1090,9 +1149,7 @@ class TestClaudeWrapperSessionManagement:
         assert wrapper._is_context_too_old(session_state) is False
 
     def test_is_context_too_old_stale(self, claude_config):
-        """Test context age check with stale context"""
-        from datetime import timedelta
-
+        """Verify stale context (>24h) is detected as too old."""
         wrapper = ClaudeWrapper(claude_config)
         old_time = datetime.utcnow() - timedelta(hours=48)
         session_state = {
@@ -1164,25 +1221,13 @@ class TestClaudeWrapperSessionManagement:
         assert count == 10
 
 
-class TestClaudeWrapperContextPreparation:
-    """Test ClaudeWrapper context preparation methods"""
+# =============================================================================
+# ClaudeWrapper Context Preparation Tests
+# =============================================================================
 
-    @pytest.fixture
-    def claude_config(self, tmp_path):
-        """Create test configuration for ClaudeWrapper"""
-        return {
-            "command": "claude",
-            "timeout": 300,
-            "context_file": str(tmp_path / "context.json"),
-            "dry_run": True,
-            "use_continuous": True,
-            "context_strategy": "project",
-            "max_context_age_hours": 24,
-            "use_structured_requests": True,
-            "structured_input_file": str(tmp_path / ".sugar" / "claude_input.json"),
-            "enable_agents": True,
-            "agent_fallback": True,
-        }
+
+class TestClaudeWrapperContextPreparation:
+    """Tests for ClaudeWrapper context preparation and file management."""
 
     def test_prepare_context_fresh(self, claude_config, tmp_path):
         """Test context preparation for fresh session"""
@@ -1242,17 +1287,22 @@ class TestClaudeWrapperContextPreparation:
         assert saved["work_item"]["id"] == "test-save"
 
 
+# =============================================================================
+# ClaudeWrapper Structured Execution Tests
+# =============================================================================
+
+
 class TestClaudeWrapperStructuredExecution:
-    """Test ClaudeWrapper structured execution methods"""
+    """Tests for ClaudeWrapper structured CLI execution and prompt generation."""
 
     @pytest.fixture
-    def claude_config(self, tmp_path):
-        """Create test configuration for ClaudeWrapper"""
+    def non_dry_run_config(self, tmp_path):
+        """Create non-dry-run configuration for testing actual CLI paths."""
         return {
             "command": "claude",
             "timeout": 300,
             "context_file": str(tmp_path / "context.json"),
-            "dry_run": False,  # Test non-dry-run paths
+            "dry_run": False,
             "use_continuous": True,
             "context_strategy": "project",
             "max_context_age_hours": 24,
@@ -1262,9 +1312,9 @@ class TestClaudeWrapperStructuredExecution:
             "agent_fallback": True,
         }
 
-    def test_create_structured_task_prompt_with_agent(self, claude_config):
-        """Test structured task prompt generation with agent"""
-        wrapper = ClaudeWrapper(claude_config)
+    def test_create_structured_task_prompt_with_agent(self, non_dry_run_config):
+        """Verify structured task prompt includes agent type when specified."""
+        wrapper = ClaudeWrapper(non_dry_run_config)
         request = StructuredRequest(
             task_type="feature",
             title="Add new feature",
@@ -1279,9 +1329,9 @@ class TestClaudeWrapperStructuredExecution:
         assert "tech-lead" in prompt
         assert "Add new feature" in prompt or "feature" in prompt.lower()
 
-    def test_create_structured_task_prompt_basic(self, claude_config):
-        """Test structured task prompt generation without agent"""
-        wrapper = ClaudeWrapper(claude_config)
+    def test_create_structured_task_prompt_basic(self, non_dry_run_config):
+        """Verify structured task prompt without agent uses basic format."""
+        wrapper = ClaudeWrapper(non_dry_run_config)
         request = StructuredRequest(
             task_type="test",
             title="Add tests",
@@ -1295,9 +1345,9 @@ class TestClaudeWrapperStructuredExecution:
         assert "Add tests" in prompt or "test" in prompt.lower()
 
     @pytest.mark.asyncio
-    async def test_execute_claude_cli_success(self, claude_config):
-        """Test successful Claude CLI execution"""
-        wrapper = ClaudeWrapper(claude_config)
+    async def test_execute_claude_cli_success(self, non_dry_run_config):
+        """Verify successful CLI execution returns success with expected fields."""
+        wrapper = ClaudeWrapper(non_dry_run_config)
 
         with patch("asyncio.create_subprocess_exec") as mock_exec:
             mock_process = AsyncMock()
@@ -1321,9 +1371,9 @@ class TestClaudeWrapperStructuredExecution:
             assert result["continued_session"] is False
 
     @pytest.mark.asyncio
-    async def test_execute_claude_cli_with_continue(self, claude_config):
-        """Test Claude CLI execution with continuation"""
-        wrapper = ClaudeWrapper(claude_config)
+    async def test_execute_claude_cli_with_continue(self, non_dry_run_config):
+        """Verify CLI execution with continuation uses --continue flag."""
+        wrapper = ClaudeWrapper(non_dry_run_config)
 
         with patch("asyncio.create_subprocess_exec") as mock_exec:
             mock_process = AsyncMock()
@@ -1344,9 +1394,9 @@ class TestClaudeWrapperStructuredExecution:
             assert "--continue" in call_args
 
     @pytest.mark.asyncio
-    async def test_execute_claude_cli_failure(self, claude_config):
-        """Test Claude CLI execution failure"""
-        wrapper = ClaudeWrapper(claude_config)
+    async def test_execute_claude_cli_failure(self, non_dry_run_config):
+        """Verify CLI execution failure raises exception with return code info."""
+        wrapper = ClaudeWrapper(non_dry_run_config)
 
         with patch("asyncio.create_subprocess_exec") as mock_exec:
             mock_process = AsyncMock()
@@ -1365,10 +1415,10 @@ class TestClaudeWrapperStructuredExecution:
             assert "failed with return code" in str(exc_info.value)
 
     @pytest.mark.asyncio
-    async def test_execute_claude_cli_timeout(self, claude_config):
-        """Test Claude CLI execution timeout"""
-        claude_config["timeout"] = 1  # 1 second timeout
-        wrapper = ClaudeWrapper(claude_config)
+    async def test_execute_claude_cli_timeout(self, non_dry_run_config):
+        """Verify CLI execution timeout kills process and raises exception."""
+        non_dry_run_config["timeout"] = 1  # 1 second timeout
+        wrapper = ClaudeWrapper(non_dry_run_config)
 
         with patch("asyncio.create_subprocess_exec") as mock_exec:
             mock_process = AsyncMock()
@@ -1389,9 +1439,9 @@ class TestClaudeWrapperStructuredExecution:
             mock_process.kill.assert_called_once()
 
     @pytest.mark.asyncio
-    async def test_execute_claude_cli_structured_success(self, claude_config):
-        """Test structured Claude CLI execution success"""
-        wrapper = ClaudeWrapper(claude_config)
+    async def test_execute_claude_cli_structured_success(self, non_dry_run_config):
+        """Verify structured CLI execution returns success with agent info."""
+        wrapper = ClaudeWrapper(non_dry_run_config)
         request = StructuredRequest(
             task_type="test",
             title="Test task",
@@ -1416,9 +1466,9 @@ class TestClaudeWrapperStructuredExecution:
             assert result["agent_requested"] == "general-purpose"
 
     @pytest.mark.asyncio
-    async def test_execute_claude_cli_structured_failure(self, claude_config):
-        """Test structured Claude CLI execution failure"""
-        wrapper = ClaudeWrapper(claude_config)
+    async def test_execute_claude_cli_structured_failure(self, non_dry_run_config):
+        """Verify structured CLI execution failure returns error info."""
+        wrapper = ClaudeWrapper(non_dry_run_config)
         request = StructuredRequest(
             task_type="test",
             title="Failing task",
@@ -1441,12 +1491,17 @@ class TestClaudeWrapperStructuredExecution:
             assert "error" in result
 
 
+# =============================================================================
+# ClaudeWrapper Full Execution Tests
+# =============================================================================
+
+
 class TestClaudeWrapperFullExecution:
-    """Test ClaudeWrapper full execution flows"""
+    """Tests for ClaudeWrapper end-to-end execution flows and error handling."""
 
     @pytest.fixture
-    def claude_config(self, tmp_path):
-        """Create test configuration for ClaudeWrapper"""
+    def non_dry_run_config(self, tmp_path):
+        """Create non-dry-run configuration for testing full execution."""
         return {
             "command": "claude",
             "timeout": 300,
@@ -1462,9 +1517,9 @@ class TestClaudeWrapperFullExecution:
         }
 
     @pytest.mark.asyncio
-    async def test_execute_structured_work_success(self, claude_config):
-        """Test full structured work execution success"""
-        wrapper = ClaudeWrapper(claude_config)
+    async def test_execute_structured_work_success(self, non_dry_run_config):
+        """Verify successful structured work execution returns expected result."""
+        wrapper = ClaudeWrapper(non_dry_run_config)
         work_item = {
             "id": "structured-123",
             "type": "feature",
@@ -1492,9 +1547,9 @@ class TestClaudeWrapperFullExecution:
             assert "structured_response" in result
 
     @pytest.mark.asyncio
-    async def test_execute_structured_work_fallback(self, claude_config):
-        """Test structured work execution fallback to legacy"""
-        wrapper = ClaudeWrapper(claude_config)
+    async def test_execute_structured_work_fallback(self, non_dry_run_config):
+        """Verify structured execution falls back to legacy on failure."""
+        wrapper = ClaudeWrapper(non_dry_run_config)
         work_item = {
             "id": "fallback-123",
             "type": "bug_fix",
@@ -1524,9 +1579,9 @@ class TestClaudeWrapperFullExecution:
                 assert result["success"] is True
 
     @pytest.mark.asyncio
-    async def test_execute_legacy_work_success(self, claude_config):
-        """Test legacy work execution success"""
-        wrapper = ClaudeWrapper(claude_config)
+    async def test_execute_legacy_work_success(self, non_dry_run_config):
+        """Verify legacy work execution returns expected result structure."""
+        wrapper = ClaudeWrapper(non_dry_run_config)
         work_item = {
             "id": "legacy-123",
             "type": "test",
@@ -1554,8 +1609,7 @@ class TestClaudeWrapperFullExecution:
 
     @pytest.mark.asyncio
     async def test_execute_work_dry_run(self, claude_config):
-        """Test execute_work in dry run mode"""
-        claude_config["dry_run"] = True
+        """Verify execute_work in dry run mode simulates execution."""
         wrapper = ClaudeWrapper(claude_config)
         work_item = {
             "id": "dry-run-123",
@@ -1571,9 +1625,9 @@ class TestClaudeWrapperFullExecution:
         assert result["simulated"] is True
 
     @pytest.mark.asyncio
-    async def test_execute_work_exception_handling(self, claude_config):
-        """Test execute_work exception handling"""
-        wrapper = ClaudeWrapper(claude_config)
+    async def test_execute_work_exception_handling(self, non_dry_run_config):
+        """Verify execute_work catches exceptions and returns error info."""
+        wrapper = ClaudeWrapper(non_dry_run_config)
         work_item = {
             "id": "error-123",
             "type": "feature",
@@ -1592,25 +1646,13 @@ class TestClaudeWrapperFullExecution:
             assert "Unexpected error" in result["error"]
 
 
-class TestClaudeWrapperSessionContinuation:
-    """Test ClaudeWrapper session continuation logic"""
+# =============================================================================
+# ClaudeWrapper Session Continuation Tests
+# =============================================================================
 
-    @pytest.fixture
-    def claude_config(self, tmp_path):
-        """Create test configuration for ClaudeWrapper"""
-        return {
-            "command": "claude",
-            "timeout": 300,
-            "context_file": str(tmp_path / "context.json"),
-            "dry_run": True,
-            "use_continuous": True,
-            "context_strategy": "project",
-            "max_context_age_hours": 24,
-            "use_structured_requests": True,
-            "structured_input_file": str(tmp_path / ".sugar" / "claude_input.json"),
-            "enable_agents": True,
-            "agent_fallback": True,
-        }
+
+class TestClaudeWrapperSessionContinuation:
+    """Tests for ClaudeWrapper session continuation decision logic."""
 
     def test_should_continue_disabled(self, claude_config):
         """Test session continuation when disabled"""
@@ -1682,9 +1724,7 @@ class TestClaudeWrapperSessionContinuation:
         assert wrapper._should_continue_session(work_item) is True
 
     def test_should_continue_context_too_old(self, claude_config, tmp_path):
-        """Test session continuation when context is too old"""
-        from datetime import timedelta
-
+        """Verify stale context prevents session continuation."""
         wrapper = ClaudeWrapper(claude_config)
 
         session_file = tmp_path / "context_session.json"
@@ -1703,25 +1743,13 @@ class TestClaudeWrapperSessionContinuation:
         assert wrapper._should_continue_session(work_item) is False
 
 
-class TestClaudeWrapperAgentSelectionKeywords:
-    """Test ClaudeWrapper agent selection based on keywords"""
+# =============================================================================
+# ClaudeWrapper Agent Selection Keyword Tests
+# =============================================================================
 
-    @pytest.fixture
-    def claude_config(self, tmp_path):
-        """Create test configuration for ClaudeWrapper"""
-        return {
-            "command": "claude",
-            "timeout": 300,
-            "context_file": str(tmp_path / "context.json"),
-            "dry_run": True,
-            "use_continuous": True,
-            "context_strategy": "project",
-            "max_context_age_hours": 24,
-            "use_structured_requests": True,
-            "structured_input_file": str(tmp_path / ".sugar" / "claude_input.json"),
-            "enable_agents": True,
-            "agent_fallback": True,
-        }
+
+class TestClaudeWrapperAgentSelectionKeywords:
+    """Tests for ClaudeWrapper keyword-based agent selection logic."""
 
     def test_select_agent_statusline_setup(self, claude_config):
         """Test agent selection for statusline setup tasks"""
