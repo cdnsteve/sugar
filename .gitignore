@@ -154,6 +154,7 @@ sugar.log
 logs/
 
 # Claude CLI
+.serena/
 .claude/
 sugar_context.json
 sugar-context.json
