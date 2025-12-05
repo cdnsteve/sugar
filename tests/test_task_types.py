@@ -1,7 +1,25 @@
 """
-Comprehensive test suite for the configurable task type system.
+Comprehensive test suite for Sugar's configurable task type system.
 
-Tests the full CLI workflow, database operations, migration, and integration.
+This module tests the full lifecycle of task types including:
+- Database operations via TaskTypeManager (CRUD operations, export/import)
+- CLI commands (list, add, show, edit, remove)
+- Integration with the main Sugar CLI (add tasks with custom types)
+- Database migration and backwards compatibility
+
+Test Classes:
+    TestTaskTypeManager: Unit tests for TaskTypeManager database operations
+    TestTaskTypeCLI: Integration tests for task-type CLI subcommands
+    TestTaskTypeIntegration: End-to-end tests for task types in main CLI workflow
+    TestTaskTypeMigration: Database migration and idempotency tests
+
+Fixtures:
+    temp_sugar_env: Creates isolated temporary Sugar environment
+    task_type_manager: Provides initialized TaskTypeManager with test database
+
+Usage:
+    Run all tests: pytest tests/test_task_types.py -v
+    Run specific class: pytest tests/test_task_types.py::TestTaskTypeManager -v
 """
 
 import asyncio
@@ -20,7 +38,26 @@ from sugar.storage.work_queue import WorkQueue
 
 @pytest.fixture
 def temp_sugar_env():
-    """Create isolated temporary Sugar environment for testing"""
+    """
+    Create an isolated temporary Sugar environment for testing.
+
+    This fixture sets up a complete Sugar environment in a temporary directory,
+    including:
+    - A .sugar directory with config.yaml
+    - Database path configuration (uses forward slashes for cross-platform YAML)
+    - Mock Claude CLI settings (echo command for testing)
+    - Dry-run mode enabled to prevent actual Claude invocations
+
+    The fixture changes the current working directory to the temp directory
+    during test execution and restores it afterward.
+
+    Yields:
+        dict: Environment paths with keys:
+            - temp_dir (Path): Root temporary directory
+            - sugar_dir (Path): The .sugar configuration directory
+            - config_path (Path): Path to config.yaml
+            - db_path (Path): Path to the SQLite database file
+    """
     with tempfile.TemporaryDirectory() as temp_dir:
         temp_path = Path(temp_dir)
         sugar_dir = temp_path / ".sugar"
@@ -61,46 +98,92 @@ sugar:
 
 @pytest.fixture
 def task_type_manager(temp_sugar_env):
-    """Initialize TaskTypeManager with temporary database"""
+    """
+    Initialize TaskTypeManager with a temporary test database.
+
+    This fixture depends on temp_sugar_env and provides a fully initialized
+    TaskTypeManager with default task types already populated in the database.
+
+    Args:
+        temp_sugar_env: The temporary environment fixture providing db_path
+
+    Returns:
+        TaskTypeManager: Initialized manager ready for testing CRUD operations
+    """
     db_path = str(temp_sugar_env["db_path"])
     manager = TaskTypeManager(db_path)
 
-    # Initialize the database with default types
+    # Initialize the database with default types via WorkQueue
     asyncio.run(_init_database(db_path))
 
     return manager
 
 
-async def _init_database(db_path):
-    """Helper to initialize database with default task types"""
+async def _init_database(db_path: str) -> None:
+    """
+    Initialize the database with default task types.
+
+    This helper function creates the database schema and populates the default
+    task types (bug_fix, feature, test, refactor, documentation) by initializing
+    a WorkQueue instance, which triggers the migration process.
+
+    Args:
+        db_path: Path to the SQLite database file
+
+    Note:
+        This is used both by the task_type_manager fixture and by CLI tests
+        that need to set up their own isolated database within runner.isolated_filesystem().
+    """
     work_queue = WorkQueue(db_path)
     await work_queue.initialize()
-    # The initialize() method will create the task_types table and populate defaults
+    # WorkQueue.initialize() creates task_types table and populates defaults
 
 
 class TestTaskTypeManager:
-    """Test the TaskTypeManager database operations"""
+    """
+    Unit tests for TaskTypeManager database operations.
+
+    Tests cover:
+    - Default task type initialization (bug_fix, feature, test, refactor, documentation)
+    - Adding custom task types with full configuration
+    - Duplicate ID rejection
+    - Updating existing task types
+    - Removing custom vs default task types
+    - Export/import functionality for custom types
+    """
 
     @pytest.mark.asyncio
     async def test_get_default_task_types(self, task_type_manager):
-        """Test that default task types are created during initialization"""
+        """
+        Verify default task types are created during database initialization.
+
+        The system should create 5 default task types, all marked with is_default=1.
+        SQLite stores boolean True as integer 1.
+        """
         task_types = await task_type_manager.get_all_task_types()
 
-        # Should have 5 default types
+        # Verify expected count of default types
         assert len(task_types) == 5
 
-        # Check specific defaults exist
+        # Verify all expected default types are present
         type_ids = [t["id"] for t in task_types]
         expected_defaults = ["bug_fix", "feature", "test", "refactor", "documentation"]
         assert all(default in type_ids for default in expected_defaults)
 
-        # Check they're marked as default (SQLite returns 1 for True)
+        # Verify all are marked as default (SQLite returns 1 for boolean True)
         for task_type in task_types:
             assert task_type["is_default"] == 1
 
     @pytest.mark.asyncio
     async def test_add_custom_task_type(self, task_type_manager):
-        """Test adding a custom task type"""
+        """
+        Test adding a custom task type with all optional fields populated.
+
+        Verifies that custom task types:
+        - Are successfully created with all fields
+        - Are marked as non-default (is_default=0)
+        - Have file_patterns stored correctly as a list
+        """
         success = await task_type_manager.add_task_type(
             "database_migration",
             "Database Migration",
@@ -113,7 +196,7 @@ class TestTaskTypeManager:
 
         assert success is True
 
-        # Verify it was added
+        # Verify all fields were stored correctly
         task_type = await task_type_manager.get_task_type("database_migration")
         assert task_type is not None
         assert task_type["id"] == "database_migration"
@@ -123,16 +206,22 @@ class TestTaskTypeManager:
         assert task_type["commit_template"] == "migrate: {title}"
         assert task_type["emoji"] == "🗃️"
         assert task_type["file_patterns"] == ["migrations/*.sql", "schemas/*.py"]
+        # Custom types should NOT be marked as default
         assert task_type["is_default"] == 0
 
     @pytest.mark.asyncio
     async def test_duplicate_task_type_rejected(self, task_type_manager):
-        """Test that duplicate task type IDs are rejected"""
-        # Add first instance
+        """
+        Test that adding a task type with an existing ID fails gracefully.
+
+        Task type IDs must be unique. Attempting to add a duplicate should
+        return False without raising an exception.
+        """
+        # Add first instance - should succeed
         success1 = await task_type_manager.add_task_type("duplicate_test", "Test Type")
         assert success1 is True
 
-        # Try to add duplicate
+        # Attempt to add with same ID - should fail gracefully
         success2 = await task_type_manager.add_task_type(
             "duplicate_test", "Test Type 2"
         )
@@ -140,11 +229,16 @@ class TestTaskTypeManager:
 
     @pytest.mark.asyncio
     async def test_update_task_type(self, task_type_manager):
-        """Test updating an existing task type"""
-        # Add a task type first
+        """
+        Test partial update of an existing task type.
+
+        Updates should allow modifying individual fields without
+        affecting other fields.
+        """
+        # Create task type with minimal fields
         await task_type_manager.add_task_type("update_test", "Original Name")
 
-        # Update it
+        # Update specific fields only
         success = await task_type_manager.update_task_type(
             "update_test",
             name="Updated Name",
@@ -154,7 +248,7 @@ class TestTaskTypeManager:
 
         assert success is True
 
-        # Verify updates
+        # Verify only the specified fields were updated
         task_type = await task_type_manager.get_task_type("update_test")
         assert task_type["name"] == "Updated Name"
         assert task_type["description"] == "Updated description"
@@ -162,65 +256,86 @@ class TestTaskTypeManager:
 
     @pytest.mark.asyncio
     async def test_update_nonexistent_task_type(self, task_type_manager):
-        """Test updating a task type that doesn't exist"""
+        """
+        Test that updating a non-existent task type returns False.
+
+        The system should handle missing IDs gracefully without exceptions.
+        """
         success = await task_type_manager.update_task_type("nonexistent", name="Test")
         assert success is False
 
     @pytest.mark.asyncio
     async def test_remove_custom_task_type(self, task_type_manager):
-        """Test removing a custom task type"""
-        # Add a custom task type
+        """
+        Test successful removal of a custom (non-default) task type.
+
+        Custom task types should be fully deletable from the database.
+        """
+        # Create a removable custom task type
         await task_type_manager.add_task_type("removable", "Removable Type")
 
-        # Verify it exists
+        # Verify it exists before removal
         task_type = await task_type_manager.get_task_type("removable")
         assert task_type is not None
 
-        # Remove it
+        # Remove the custom type
         success = await task_type_manager.remove_task_type("removable")
         assert success is True
 
-        # Verify it's gone
+        # Verify it no longer exists in the database
         task_type = await task_type_manager.get_task_type("removable")
         assert task_type is None
 
     @pytest.mark.asyncio
     async def test_cannot_remove_default_task_type(self, task_type_manager):
-        """Test that default task types cannot be removed"""
+        """
+        Test that default task types are protected from deletion.
+
+        Default types (is_default=1) should never be removable, ensuring
+        the system always has a baseline set of task types available.
+        """
+        # Attempt to remove a default task type
         success = await task_type_manager.remove_task_type("feature")
         assert success is False
 
-        # Verify it still exists
+        # Verify the default type is still intact
         task_type = await task_type_manager.get_task_type("feature")
         assert task_type is not None
         assert task_type["is_default"] == 1
 
     @pytest.mark.asyncio
     async def test_export_import_task_types(self, task_type_manager):
-        """Test export/import functionality"""
-        # Add some custom task types
+        """
+        Test export/import round-trip for custom task types.
+
+        This tests the backup/restore workflow:
+        1. Export only exports custom types (not defaults)
+        2. Exported data can be re-imported after removal
+        3. Import count accurately reflects imported types
+        """
+        # Create custom task types for export
         await task_type_manager.add_task_type("custom1", "Custom Type 1", emoji="🔥")
         await task_type_manager.add_task_type("custom2", "Custom Type 2", emoji="⚡")
 
-        # Export custom types
+        # Export should only include custom types
         exported = await task_type_manager.export_task_types()
 
         assert len(exported) == 2
         assert any(t["id"] == "custom1" for t in exported)
         assert any(t["id"] == "custom2" for t in exported)
 
-        # Verify default types are not exported
+        # Default types should NOT be included in export
         assert not any(t["id"] == "feature" for t in exported)
 
-        # Remove the custom types
+        # Simulate backup restore scenario: remove then re-import
         await task_type_manager.remove_task_type("custom1")
         await task_type_manager.remove_task_type("custom2")
 
-        # Import them back
+        # Import the exported data
         imported_count = await task_type_manager.import_task_types(exported)
         assert imported_count == 2
 
-        # Verify they're back
+        # Verify types were fully restored
         custom1 = await task_type_manager.get_task_type("custom1")
         custom2 = await task_type_manager.get_task_type("custom2")
         assert custom1 is not None
@@ -228,10 +343,26 @@ class TestTaskTypeManager:
 
 
 class TestTaskTypeCLI:
-    """Test the task-type CLI commands"""
+    """
+    Integration tests for the 'task-type' CLI subcommand group.
+
+    These tests use Click's CliRunner with isolated_filesystem() to create
+    completely independent test environments. Each test sets up its own
+    .sugar directory and database to avoid interference.
+
+    Note: temp_sugar_env fixture is accepted but not directly used in most
+    tests since isolated_filesystem() provides better isolation.
+    """
 
     def test_task_type_list_command(self, temp_sugar_env):
-        """Test listing task types via CLI"""
+        """
+        Test 'sugar task-type list' command output.
+
+        Verifies that:
+        - Command exits successfully (code 0)
+        - Default types are shown with '(default)' suffix
+        - Emojis are displayed correctly
+        """
         runner = CliRunner()
 
         with runner.isolated_filesystem():
@@ -269,7 +400,15 @@ sugar:
             assert "🐛" in result.output  # Check emoji display
 
     def test_task_type_add_command(self, temp_sugar_env):
-        """Test adding task type via CLI"""
+        """
+        Test 'sugar task-type add' command with various options.
+
+        Verifies that:
+        - Custom task types can be created via CLI
+        - All optional fields (name, description, agent, emoji) are accepted
+        - Success message includes the emoji and ID
+        - New type appears in subsequent list commands
+        """
         runner = CliRunner()
 
         with runner.isolated_filesystem():
@@ -324,7 +463,13 @@ sugar:
             assert "Security Audit" in result.output
 
     def test_task_type_show_command(self, temp_sugar_env):
-        """Test showing task type details via CLI"""
+        """
+        Test 'sugar task-type show <id>' command for detailed task type info.
+
+        Verifies that:
+        - Detailed view includes emoji, name, ID, and agent
+        - Default types are labeled as '(default)'
+        """
         runner = CliRunner()
 
         with runner.isolated_filesystem():
@@ -357,7 +502,14 @@ sugar:
             assert "Agent: general-purpose" in result.output
 
     def test_task_type_edit_command(self, temp_sugar_env):
-        """Test editing task type via CLI"""
+        """
+        Test 'sugar task-type edit <id>' command for modifying existing types.
+
+        Verifies that:
+        - Existing custom task types can be modified
+        - Partial updates (only some fields) are supported
+        - Changes are persisted and visible in show command
+        """
         runner = CliRunner()
 
         with runner.isolated_filesystem():
@@ -420,7 +572,14 @@ sugar:
             assert "🔧 Updated Name" in result.output
 
     def test_task_type_remove_command(self, temp_sugar_env):
-        """Test removing task type via CLI"""
+        """
+        Test 'sugar task-type remove <id>' command with --force flag.
+
+        Verifies that:
+        - Custom task types can be removed with --force
+        - Success message confirms removal
+        - Removed types return 'not found' on subsequent show
+        """
         runner = CliRunner()
 
         with runner.isolated_filesystem():
@@ -482,7 +641,13 @@ sugar:
             assert "not found" in result.output
 
     def test_cannot_remove_default_via_cli(self, temp_sugar_env):
-        """Test that default task types cannot be removed via CLI"""
+        """
+        Test that 'sugar task-type remove' rejects removal of default types.
+
+        Default task types must be protected at both the database layer
+        (TaskTypeManager) and the CLI layer. This test verifies the CLI
+        returns a non-zero exit code with appropriate error message.
+        """
         runner = CliRunner()
 
         with runner.isolated_filesystem():
@@ -523,10 +688,25 @@ sugar:
 
 
 class TestTaskTypeIntegration:
-    """Test integration with the main CLI commands"""
+    """
+    End-to-end tests for task types in the main Sugar CLI workflow.
+
+    These tests verify that custom task types integrate correctly with
+    the primary 'sugar add' and 'sugar list' commands, including:
+    - Using custom types in task creation
+    - Error handling for invalid types
+    - Filtering tasks by type
+    """
 
     def test_add_task_with_custom_type(self, temp_sugar_env):
-        """Test that custom task types can be used in sugar add command"""
+        """
+        Test creating a task with a custom task type via 'sugar add --type'.
+
+        This tests the full workflow:
+        1. Create a custom task type
+        2. Use it when adding a new task
+        3. Verify the task appears in list with the correct type
+        """
         runner = CliRunner()
 
         with runner.isolated_filesystem():
@@ -593,7 +773,14 @@ sugar:
             assert "Test integration workflow" in result.output
 
     def test_invalid_task_type_rejected(self, temp_sugar_env):
-        """Test that invalid task types are rejected with helpful error"""
+        """
+        Test that 'sugar add --type <invalid>' shows helpful error message.
+
+        Click's Choice validation should:
+        - Return exit code 2 (Click's invalid input code)
+        - Show 'Invalid choice: <type>'
+        - Include 'choose from' with valid options
+        """
         runner = CliRunner()
 
         with runner.isolated_filesystem():
@@ -634,7 +821,14 @@ sugar:
             assert "choose from" in result.output
 
     def test_list_with_custom_type_filter(self, temp_sugar_env):
-        """Test filtering tasks by custom task type"""
+        """
+        Test 'sugar list --type <type>' filters tasks correctly.
+
+        Creates tasks with different types and verifies that filtering
+        by a specific type:
+        - Shows only tasks matching the filter type
+        - Excludes tasks with other types
+        """
         runner = CliRunner()
 
         with runner.isolated_filesystem():
@@ -705,39 +899,62 @@ sugar:
 
 
 class TestTaskTypeMigration:
-    """Test database migration and backwards compatibility"""
+    """
+    Tests for database migration and backwards compatibility.
+
+    These tests verify that:
+    - The task_types table is created during WorkQueue initialization
+    - Default types are populated automatically
+    - Multiple initializations are safe (idempotent)
+    """
 
     def test_migration_creates_task_types_table(self, temp_sugar_env):
-        """Test that database migration creates task_types table with defaults"""
+        """
+        Test that WorkQueue.initialize() creates task_types table with defaults.
+
+        This verifies the migration process:
+        1. WorkQueue initialization triggers schema creation
+        2. task_types table is created
+        3. Default types are populated with expected IDs
+        """
         db_path = str(temp_sugar_env["db_path"])
 
-        # Initialize WorkQueue (which triggers migration)
+        # WorkQueue.initialize() triggers all database migrations
         work_queue = WorkQueue(db_path)
         asyncio.run(work_queue.initialize())
 
-        # Verify task_types table was created
+        # Verify task_types table was created with default data
         manager = TaskTypeManager(db_path)
         task_types = asyncio.run(manager.get_all_task_types())
 
-        assert len(task_types) == 5  # Should have 5 defaults
+        # Expect exactly 5 default types
+        assert len(task_types) == 5
 
-        # Check all defaults are present
+        # Verify the exact set of default type IDs
         type_ids = {t["id"] for t in task_types}
         expected = {"bug_fix", "feature", "test", "refactor", "documentation"}
         assert type_ids == expected
 
     def test_migration_is_idempotent(self, temp_sugar_env):
-        """Test that running migration multiple times is safe"""
+        """
+        Test that multiple WorkQueue.initialize() calls are safe.
+
+        This is critical for application restarts and reconnections.
+        Running initialize() multiple times should:
+        - Not create duplicate task types
+        - Not raise errors
+        - Leave the database in a consistent state
+        """
         db_path = str(temp_sugar_env["db_path"])
 
-        # Initialize twice
+        # Simulate application restart by initializing multiple times
         work_queue1 = WorkQueue(db_path)
         asyncio.run(work_queue1.initialize())
 
         work_queue2 = WorkQueue(db_path)
         asyncio.run(work_queue2.initialize())
 
-        # Should still have exactly 5 default types (no duplicates)
+        # Verify no duplicate types were created
         manager = TaskTypeManager(db_path)
         task_types = asyncio.run(manager.get_all_task_types())
         assert len(task_types) == 5
