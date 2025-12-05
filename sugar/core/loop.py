@@ -4,8 +4,8 @@ Sugar Core Loop - The heart of autonomous development
 
 import asyncio
 import logging
-from datetime import datetime, timedelta
-from typing import Optional, List
+from datetime import datetime, timedelta, timezone
+from typing import Optional, List, Any
 import yaml
 from pathlib import Path
 
@@ -26,6 +26,15 @@ logger = logging.getLogger(__name__)
 
 class SugarLoop:
     """Sugar - AI-powered autonomous development system - Main orchestrator"""
+
+    # Constants for common strings to avoid magic strings
+    SOURCE_GITHUB_WATCHER: str = "github_watcher"
+    TASK_COMPLETED_MSG: str = "Task completed successfully"
+    GITHUB_ISSUE_PREFIX: str = "Address GitHub issue: "
+
+    # Timing constants (in seconds)
+    ERROR_RECOVERY_DELAY: float = 60.0
+    SHUTDOWN_CHECK_INTERVAL: float = 1.0
 
     def __init__(self, config_path: str = ".sugar/config.yaml"):
         self.config = self._load_config(config_path)
@@ -129,13 +138,13 @@ class SugarLoop:
         logger.info("🛑 Stopping Sugar...")
         self.running = False
 
-    async def _main_loop(self):
+    async def _main_loop(self) -> None:
         """Main autonomous development loop"""
         loop_interval = self.config["sugar"]["loop_interval"]
 
         while self.running:
             try:
-                cycle_start = datetime.utcnow()
+                cycle_start = datetime.now(timezone.utc)
                 logger.info(f"🔄 Starting Sugar cycle at {cycle_start}")
 
                 # Phase 1: Discover new work
@@ -148,7 +157,9 @@ class SugarLoop:
                 await self._process_feedback()
 
                 # Wait for next cycle
-                cycle_duration = (datetime.utcnow() - cycle_start).total_seconds()
+                cycle_duration = (
+                    datetime.now(timezone.utc) - cycle_start
+                ).total_seconds()
                 sleep_time = max(0, loop_interval - cycle_duration)
 
                 logger.info(
@@ -158,15 +169,15 @@ class SugarLoop:
 
             except Exception as e:
                 logger.error(f"Error in main loop: {e}")
-                await asyncio.sleep(60)  # Wait 1 minute on error
+                await asyncio.sleep(self.ERROR_RECOVERY_DELAY)  # Wait before retry
 
-    async def _main_loop_with_shutdown(self, shutdown_event):
+    async def _main_loop_with_shutdown(self, shutdown_event: Any) -> None:
         """Main autonomous development loop with shutdown event monitoring"""
         loop_interval = self.config["sugar"]["loop_interval"]
 
         while self.running and not shutdown_event.is_set():
             try:
-                cycle_start = datetime.utcnow()
+                cycle_start = datetime.now(timezone.utc)
                 logger.info(f"🔄 Starting Sugar cycle at {cycle_start}")
 
                 # Phase 1: Discover new work
@@ -189,7 +200,9 @@ class SugarLoop:
                 await self._process_feedback()
 
                 # Wait for next cycle or shutdown
-                cycle_duration = (datetime.utcnow() - cycle_start).total_seconds()
+                cycle_duration = (
+                    datetime.now(timezone.utc) - cycle_start
+                ).total_seconds()
                 sleep_time = max(0, loop_interval - cycle_duration)
 
                 logger.info(
@@ -199,7 +212,7 @@ class SugarLoop:
                 # Sleep with frequent shutdown checks (check every 1 second)
                 remaining_sleep = sleep_time
                 while remaining_sleep > 0 and not shutdown_event.is_set():
-                    sleep_chunk = min(1.0, remaining_sleep)  # Sleep in 1-second chunks
+                    sleep_chunk = min(self.SHUTDOWN_CHECK_INTERVAL, remaining_sleep)
                     try:
                         await asyncio.wait_for(
                             shutdown_event.wait(), timeout=sleep_chunk
@@ -220,9 +233,11 @@ class SugarLoop:
             except Exception as e:
                 logger.error(f"Error in main loop: {e}")
                 # Even during error recovery, check for shutdown frequently
-                remaining_recovery = 60.0  # 60 second error recovery
+                remaining_recovery = self.ERROR_RECOVERY_DELAY
                 while remaining_recovery > 0 and not shutdown_event.is_set():
-                    recovery_chunk = min(1.0, remaining_recovery)
+                    recovery_chunk = min(
+                        self.SHUTDOWN_CHECK_INTERVAL, remaining_recovery
+                    )
                     try:
                         await asyncio.wait_for(
                             shutdown_event.wait(), timeout=recovery_chunk
@@ -232,7 +247,7 @@ class SugarLoop:
                     except asyncio.TimeoutError:
                         remaining_recovery -= recovery_chunk
 
-    async def _discover_work(self):
+    async def _discover_work(self) -> None:
         """Discover new work from all enabled sources"""
         logger.debug("🔍 Discovering work...")
 
@@ -258,7 +273,7 @@ class SugarLoop:
             # Smart deduplication: different logic for different sources
             should_skip = False
             if source_file:
-                if work_item.get("source") == "github_watcher":
+                if work_item.get("source") == self.SOURCE_GITHUB_WATCHER:
                     # For GitHub issues, only skip if pending/in_progress (not completed)
                     should_skip = await self.work_queue.work_exists(
                         source_file, exclude_statuses=["failed", "completed"]
@@ -282,7 +297,7 @@ class SugarLoop:
         if added_count == 0 and skipped_count == 0:
             logger.info("No new work discovered this cycle")
 
-    async def _execute_work(self, shutdown_event=None):
+    async def _execute_work(self, shutdown_event: Optional[Any] = None) -> None:
         """Execute the highest priority work item"""
         max_concurrent = self.config["sugar"]["max_concurrent_work"]
 
@@ -305,9 +320,7 @@ class SugarLoop:
             )
 
             # Track execution timing
-            from datetime import datetime
-
-            start_time = datetime.utcnow()
+            start_time = datetime.now(timezone.utc)
             execution_time = 0.0
 
             try:
@@ -315,7 +328,9 @@ class SugarLoop:
                 result = await self.claude_executor.execute_work(work_item)
 
                 # Calculate execution time
-                execution_time = (datetime.utcnow() - start_time).total_seconds()
+                execution_time = (
+                    datetime.now(timezone.utc) - start_time
+                ).total_seconds()
 
                 # Complete unified workflow (commit, branch, PR, issues)
                 workflow_success = (
@@ -333,7 +348,7 @@ class SugarLoop:
                 await self.work_queue.complete_work(work_item["id"], result)
 
                 # Handle GitHub issue updates if needed (for GitHub-sourced work)
-                if work_item.get("source_type") == "github_watcher":
+                if work_item.get("source_type") == self.SOURCE_GITHUB_WATCHER:
                     await self._update_github_issue(work_item, result)
 
                 logger.info(
@@ -342,7 +357,9 @@ class SugarLoop:
 
             except Exception as e:
                 # Calculate execution time even on failure
-                execution_time = (datetime.utcnow() - start_time).total_seconds()
+                execution_time = (
+                    datetime.now(timezone.utc) - start_time
+                ).total_seconds()
 
                 logger.error(f"❌ Work execution failed [{work_item['id']}]: {e}")
                 await self.work_queue.fail_work(
@@ -352,7 +369,7 @@ class SugarLoop:
                 # Handle failed workflow cleanup
                 await self._handle_failed_workflow(work_item, workflow, str(e))
 
-    async def _process_feedback(self):
+    async def _process_feedback(self) -> None:
         """Process execution results and learn from them"""
         try:
             # Process feedback and generate insights
@@ -513,11 +530,11 @@ class SugarLoop:
             meaningful_actions = [
                 action
                 for action in key_actions
-                if action and action != "Task completed successfully"
+                if action and action != self.TASK_COMPLETED_MSG
             ]  # Don't filter by summary yet
 
         # Show summary if it's different from actions
-        if summary and summary != "Task completed successfully":
+        if summary and summary != self.TASK_COMPLETED_MSG:
             # Check if summary is substantially different from first action
             first_action = meaningful_actions[0] if meaningful_actions else ""
             if not first_action or not self._are_similar_strings(summary, first_action):
@@ -599,7 +616,7 @@ class SugarLoop:
 
         # If no meaningful actions were found, show the task context with correct type
         if not actions_added and not result.get("files_changed"):
-            task_clean = task_title.replace("Address GitHub issue: ", "")
+            task_clean = task_title.replace(self.GITHUB_ISSUE_PREFIX, "")
             lines.extend(
                 [f"**Task:** {task_clean}", f"**Type:** {actual_work_type}", ""]
             )
@@ -708,17 +725,14 @@ class SugarLoop:
 
         # Fallback to summary field
         summary = result.get("summary", "")
-        if summary and len(summary) < 200 and summary != "Task completed successfully":
+        if summary and len(summary) < 200 and summary != self.TASK_COMPLETED_MSG:
             return summary.rstrip(".")
 
         # Fallback to first meaningful action
         actions = result.get("actions_taken", [])
         if actions:
             first_action = actions[0].lstrip("✅✓ ").strip()
-            if (
-                len(first_action) < 200
-                and first_action != "Task completed successfully"
-            ):
+            if len(first_action) < 200 and first_action != self.TASK_COMPLETED_MSG:
                 return first_action.rstrip(".")
 
         return ""
@@ -1180,7 +1194,7 @@ class SugarLoop:
         return {
             "status": "running" if self.running else "stopped",
             "queue_stats": await self.work_queue.get_stats(),
-            "last_cycle": datetime.utcnow().isoformat(),
+            "last_cycle": datetime.now(timezone.utc).isoformat(),
             "discovery_modules": len(self.discovery_modules),
             "config_loaded": bool(self.config),
         }
