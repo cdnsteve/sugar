@@ -2,7 +2,15 @@
 External Tool Configuration - Schema validation and management for external code quality tools
 
 This module provides configuration parsing and validation for external tools
-defined in the code_quality.external_tools section of the Sugar configuration.
+defined in the discovery.external_tools section of the Sugar configuration.
+
+Config structure:
+    discovery:
+      external_tools:
+        enabled: true
+        tools:
+          - name: eslint
+            command: "npx eslint . --format json"
 """
 
 import os
@@ -159,14 +167,22 @@ def validate_external_tools_config(
     return validated_tools
 
 
-def parse_external_tools_from_code_quality_config(
-    code_quality_config: Dict[str, Any],
+def parse_external_tools_from_discovery_config(
+    discovery_config: Dict[str, Any],
 ) -> List[ExternalToolConfig]:
     """
-    Parse and validate external_tools from the code_quality configuration section.
+    Parse and validate external_tools from the discovery configuration section.
+
+    Config structure:
+        discovery:
+          external_tools:
+            enabled: true
+            tools:
+              - name: eslint
+                command: "npx eslint . --format json"
 
     Args:
-        code_quality_config: The code_quality section of the Sugar configuration
+        discovery_config: The discovery section of the Sugar configuration
 
     Returns:
         List of validated ExternalToolConfig objects
@@ -174,8 +190,16 @@ def parse_external_tools_from_code_quality_config(
     Raises:
         ExternalToolConfigError: If configuration is invalid
     """
-    external_tools = code_quality_config.get("external_tools")
-    return validate_external_tools_config(external_tools)
+    external_tools_config = discovery_config.get("external_tools", {})
+
+    # Check if external tools are enabled
+    if not external_tools_config.get("enabled", True):
+        logger.debug("External tools discovery is disabled")
+        return []
+
+    # Get the tools list
+    tools = external_tools_config.get("tools")
+    return validate_external_tools_config(tools)
 
 
 def get_external_tools_config_schema() -> str:
@@ -188,25 +212,29 @@ def get_external_tools_config_schema() -> str:
     return """
 # External Tools Configuration Schema
 #
-# Add under code_quality section in your sugar configuration:
+# Add under discovery section in your sugar configuration:
 #
-# code_quality:
+# discovery:
 #   external_tools:
-#     - name: string        # Tool identifier (required)
-#       command: string     # Shell command to execute (required)
+#     enabled: true         # Enable/disable external tools discovery
+#     tools:
+#       - name: string      # Tool identifier (required)
+#         command: string   # Shell command to execute (required)
 #
 # Environment variables in commands are expanded at runtime.
 # Supported syntax: $VAR or ${VAR}
 #
 # Example:
-#   code_quality:
+#   discovery:
 #     external_tools:
-#       - name: eslint
-#         command: "npx eslint . --format json"
-#       - name: phpstan
-#         command: "vendor/bin/phpstan analyse --error-format=json"
-#       - name: ruff
-#         command: "ruff check . --output-format json"
-#       - name: sonarqube
-#         command: "sonar-scanner -Dsonar.token=$SONAR_TOKEN"
+#       enabled: true
+#       tools:
+#         - name: eslint
+#           command: "npx eslint . --format json"
+#         - name: ruff
+#           command: "ruff check . --output-format json"
+#         - name: bandit
+#           command: "bandit -r src/ -f json"
+#         - name: sonarqube
+#           command: "sonar-scanner -Dsonar.token=$SONAR_TOKEN"
 """

@@ -20,6 +20,11 @@ DEFAULT_TOOL_INTERPRETATION_TEMPLATE = """You are an AI assistant integrated int
 Your task is to interpret raw output from code quality tools and convert it into
 Sugar tasks using the 'sugar add' CLI.
 
+## CRITICAL: DO NOT EXECUTE THE TOOL!
+The tool has ALREADY been executed. The output is saved to a file.
+You MUST read the output from the file path provided below.
+NEVER run the tool command yourself - just parse the existing output file.
+
 ## Sugar CLI Reference
 sugar add [OPTIONS] TITLE
   --type TEXT               Type of task (bug_fix, feature, test, refactor, documentation)
@@ -29,10 +34,10 @@ sugar add [OPTIONS] TITLE
   --status [pending|hold]   Initial task status
 
 ## Tool: ${tool_name}
-## Command: ${command}
+## Command (already executed): ${command}
 ## Output File: ${output_file_path}
 
-Please read the file at ${output_file_path} to analyze the tool output.
+Read the file at ${output_file_path} to analyze the tool output. DO NOT run the command.
 
 ## Your Responsibilities
 1. Read and parse the raw tool output from the file (any format: JSON, XML, plain text)
@@ -74,6 +79,11 @@ sugar add "Fix X issues in Y" --type bug_fix --priority 3 --description "..."
 SECURITY_ANALYSIS_TEMPLATE = """You are a security-focused AI assistant integrated into Sugar.
 Your task is to interpret security scan output and create prioritized remediation tasks.
 
+## CRITICAL: DO NOT EXECUTE THE TOOL!
+The security scan has ALREADY been executed. The output is saved to a file.
+You MUST read the output from the file path provided below.
+NEVER run the tool command yourself - just parse the existing output file.
+
 ## Sugar CLI Reference
 sugar add [OPTIONS] TITLE
   --type TEXT               Type of task (bug_fix, feature, test, refactor, documentation)
@@ -83,10 +93,10 @@ sugar add [OPTIONS] TITLE
   --status [pending|hold]   Initial task status
 
 ## Security Tool: ${tool_name}
-## Command: ${command}
+## Command (already executed): ${command}
 ## Output File: ${output_file_path}
 
-Please read the file at ${output_file_path} to analyze the security scan output.
+Read the file at ${output_file_path} to analyze the security scan output. DO NOT run the command.
 
 ## Security Priority Mapping
 | Severity      | CVSS Score | Priority |
@@ -119,6 +129,11 @@ sugar add "Fix [CRITICAL] SQL injection in auth module" --type bug_fix --priorit
 TEST_COVERAGE_TEMPLATE = """You are a test coverage AI assistant integrated into Sugar.
 Your task is to interpret test coverage reports and create tasks for improving coverage.
 
+## CRITICAL: DO NOT EXECUTE THE TOOL!
+The coverage report has ALREADY been generated. The output is saved to a file.
+You MUST read the output from the file path provided below.
+NEVER run the tool command yourself - just parse the existing output file.
+
 ## Sugar CLI Reference
 sugar add [OPTIONS] TITLE
   --type TEXT               Type of task (bug_fix, feature, test, refactor, documentation)
@@ -128,10 +143,10 @@ sugar add [OPTIONS] TITLE
   --status [pending|hold]   Initial task status
 
 ## Coverage Tool: ${tool_name}
-## Command: ${command}
+## Command (already executed): ${command}
 ## Output File: ${output_file_path}
 
-Please read the file at ${output_file_path} to analyze the coverage report.
+Read the file at ${output_file_path} to analyze the coverage report. DO NOT run the command.
 
 ## Coverage Priority Mapping
 | Coverage Level | Priority |
@@ -162,6 +177,11 @@ sugar add "Add unit tests for auth module (45% coverage)" --type test --priority
 LINT_ANALYSIS_TEMPLATE = """You are a code quality AI assistant integrated into Sugar.
 Your task is to interpret linter output and create actionable improvement tasks.
 
+## CRITICAL: DO NOT EXECUTE THE TOOL!
+The linter has ALREADY been executed. The output is saved to a file.
+You MUST read the output from the file path provided below.
+NEVER run the tool command yourself - just parse the existing output file.
+
 ## Sugar CLI Reference
 sugar add [OPTIONS] TITLE
   --type TEXT               Type of task (bug_fix, feature, test, refactor, documentation)
@@ -171,10 +191,10 @@ sugar add [OPTIONS] TITLE
   --status [pending|hold]   Initial task status
 
 ## Linter: ${tool_name}
-## Command: ${command}
+## Command (already executed): ${command}
 ## Output File: ${output_file_path}
 
-Please read the file at ${output_file_path} to analyze the linter output.
+Read the file at ${output_file_path} to analyze the linter output. DO NOT run the command.
 
 ## Lint Priority Mapping
 | Category                    | Priority |

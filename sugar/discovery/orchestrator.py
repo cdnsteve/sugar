@@ -156,11 +156,19 @@ class ToolOrchestrator:
     def _ensure_temp_dir(self) -> Path:
         """Create temp directory if not exists.
 
+        Creates temp directory under .sugar/temp/ so Claude Code can access it
+        (Claude Code sandbox blocks /tmp access).
+
         Returns:
             Path to the temp directory
         """
         if not self.temp_dir or not self.temp_dir.exists():
-            self.temp_dir = Path(tempfile.mkdtemp(prefix="sugar_discover_"))
+            # Create temp dir under .sugar/temp/ for Claude Code accessibility
+            sugar_temp_base = self.working_dir / ".sugar" / "temp"
+            sugar_temp_base.mkdir(parents=True, exist_ok=True)
+            self.temp_dir = Path(
+                tempfile.mkdtemp(prefix="discover_", dir=sugar_temp_base)
+            )
             logger.debug(f"Created temp directory: {self.temp_dir}")
         return self.temp_dir
 

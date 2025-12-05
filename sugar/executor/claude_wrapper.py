@@ -87,14 +87,21 @@ class ClaudeWrapper:
         logger.debug(f"🏗️ Structured requests: {self.use_structured_requests}")
 
     async def execute_work(self, work_item: Dict[str, Any]) -> Dict[str, Any]:
-        """Execute a work item using Claude Code CLI with context persistence"""
+        """Execute a work item using Claude Code CLI with context persistence
+
+        If work_item contains a 'prompt' field, it will be used directly without
+        wrapping. This is useful for discovery tasks that need custom prompts.
+        """
 
         if self.dry_run:
             return await self._simulate_execution(work_item)
 
         try:
+            # If a custom prompt is provided, use it directly (e.g., for discovery)
+            if "prompt" in work_item:
+                return await self._execute_with_custom_prompt(work_item)
             # Choose execution path based on configuration
-            if self.use_structured_requests:
+            elif self.use_structured_requests:
                 return await self._execute_structured_work(work_item)
             else:
                 return await self._execute_legacy_work(work_item)
@@ -815,6 +822,101 @@ Please implement this task by:
             "summary": parsed_output.get("summary", ""),
             "actions_taken": parsed_output.get("actions_taken", []),
         }
+
+    async def _execute_with_custom_prompt(
+        self, work_item: Dict[str, Any]
+    ) -> Dict[str, Any]:
+        """Execute work using a custom prompt directly (no wrapping).
+
+        Used for discovery tasks that provide their own specialized prompts.
+        """
+        prompt = work_item["prompt"]
+        start_time = datetime.utcnow()
+
+        # Build command
+        cmd = [self.command, "-p", prompt, "--output-format", "text"]
+
+        logger.info(
+            f"🔧 Executing Claude with custom prompt for: {work_item.get('title', 'unknown')}"
+        )
+        logger.debug(f"📝 Custom prompt length: {len(prompt)} chars")
+
+        try:
+            process = await asyncio.create_subprocess_exec(
+                *cmd,
+                stdout=asyncio.subprocess.PIPE,
+                stderr=asyncio.subprocess.PIPE,
+                cwd=os.getcwd(),
+            )
+
+            stdout, stderr = await asyncio.wait_for(
+                process.communicate(), timeout=self.timeout
+            )
+
+            end_time = datetime.utcnow()
+            execution_time = (end_time - start_time).total_seconds()
+
+            stdout_text = stdout.decode("utf-8") if stdout else ""
+            stderr_text = stderr.decode("utf-8") if stderr else ""
+
+            logger.debug(
+                f"📤 Claude stdout ({len(stdout_text)} chars): {stdout_text[:500]}..."
+            )
+            if stderr_text:
+                logger.debug(f"📤 Claude stderr: {stderr_text[:500]}...")
+
+            result = {
+                "stdout": stdout_text,
+                "stderr": stderr_text,
+                "returncode": process.returncode,
+                "execution_time": execution_time,
+            }
+
+            if process.returncode == 0:
+                logger.info(
+                    f"✅ Claude custom prompt execution completed in {execution_time:.1f}s"
+                )
+                return {
+                    "success": True,
+                    "result": result,
+                    "timestamp": datetime.utcnow().isoformat(),
+                    "work_item_id": work_item.get("id", "unknown"),
+                    "execution_time": execution_time,
+                    "execution_mode": "custom_prompt",
+                    "output": stdout_text,
+                }
+            else:
+                logger.error(
+                    f"❌ Claude CLI failed with return code {process.returncode}"
+                )
+                return {
+                    "success": False,
+                    "error": stderr_text or f"Return code {process.returncode}",
+                    "result": result,
+                    "timestamp": datetime.utcnow().isoformat(),
+                    "work_item_id": work_item.get("id", "unknown"),
+                    "execution_time": execution_time,
+                    "execution_mode": "custom_prompt",
+                }
+
+        except asyncio.TimeoutError:
+            logger.error(f"❌ Claude CLI timed out after {self.timeout}s")
+            return {
+                "success": False,
+                "error": f"Execution timed out after {self.timeout}s",
+                "timestamp": datetime.utcnow().isoformat(),
+                "work_item_id": work_item.get("id", "unknown"),
+                "execution_mode": "custom_prompt",
+            }
+        except Exception as e:
+            logger.error(f"❌ Claude CLI execution error: {e}")
+            return {
+                "success": False,
+                "error": str(e),
+                "timestamp": datetime.utcnow().isoformat(),
+                "work_item_id": work_item.get("id", "unknown"),
+                "execution_mode": "custom_prompt",
+            }
 
     async def _select_agent_for_work(
         self, work_item: Dict[str, Any]

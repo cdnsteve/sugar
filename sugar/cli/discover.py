@@ -83,7 +83,6 @@ async def _execute_tool_discovery(
     dry_run: bool,
     work_queue,
     claude_wrapper,
-    prompt_template_manager,
 ) -> Dict[str, Any]:
     """
     Execute a single tool and process its output.
@@ -125,14 +124,23 @@ async def _execute_tool_discovery(
         "error": result.error_message,
     }
 
-    if not result.success:
-        if result.tool_not_found:
-            summary["error"] = f"Tool not found: {result.command.split()[0]}"
-        elif result.timed_out:
-            summary["error"] = f"Tool timed out after {timeout}s"
+    # Check for execution failures (tool not found, timeout, etc.)
+    if result.tool_not_found:
+        summary["error"] = f"Tool not found: {result.command.split()[0]}"
+        summary["success"] = False
         return summary
 
-    # Check if tool produced output
+    if result.timed_out:
+        summary["error"] = f"Tool timed out after {timeout}s"
+        summary["success"] = False
+        return summary
+
+    # Exit code 0 means no issues found - skip analysis
+    if result.exit_code == 0:
+        summary["no_issues"] = True
+        return summary
+
+    # Check if tool produced output to analyze
     if not result.has_output:
         summary["error"] = "No output from tool"
         return summary
@@ -157,18 +165,24 @@ async def _execute_tool_discovery(
             f"   📝 [DRY-RUN] Would pass file to Claude Code: {result.output_path}"
         )
         click.echo(f"   📝 [DRY-RUN] Output file size: {output_size} bytes")
+        # Show tool output content
+        if result.output_path and result.output_path.exists():
+            tool_output = result.output_path.read_text()
+            click.echo(f"   📝 [DRY-RUN] Tool output:")
+            for line in tool_output.strip().split("\n"):
+                click.echo(f"      {line}")
         click.echo(f"   📝 [DRY-RUN] Prompt preview (first 500 chars):")
         click.echo(f"      {prompt[:500]}...")
         summary["dry_run"] = True
         return summary
 
     # Execute Claude to interpret the output
+    # Use 'prompt' field to pass directly to Claude without wrapper's prompt generation
     work_item = {
         "id": f"discover_{result.name}",
         "type": "discovery",
         "title": f"Interpret {result.name} output",
-        "description": prompt,
-        "priority": 3,
+        "prompt": prompt,  # Custom prompt passed directly to Claude
         "context": {
             "tool_name": result.name,
             "tool_command": result.command,
@@ -185,6 +199,7 @@ async def _execute_tool_discovery(
             claude_output = claude_result.get("output", "") or claude_result.get(
                 "result", {}
             ).get("stdout", "")
+            summary["claude_output"] = claude_output  # Store for debug logging
             parsed_commands = _parse_sugar_add_commands(claude_output)
 
             # Create tasks from parsed commands
@@ -211,11 +226,13 @@ async def _execute_tool_discovery(
                 summary["tasks_created"] += 1
 
         else:
+            summary["success"] = False
             summary["error"] = (
                 f"Claude interpretation failed: {claude_result.get('error', 'Unknown error')}"
             )
 
     except Exception as e:
+        summary["success"] = False
         summary["error"] = f"Claude execution error: {str(e)}"
         logger.exception(f"Error during Claude interpretation for {result.name}")
 
@@ -265,11 +282,10 @@ def discover(ctx, tool_name: Optional[str], dry_run: bool, timeout: int):
     from sugar.storage.work_queue import WorkQueue
     from sugar.executor.claude_wrapper import ClaudeWrapper
     from sugar.discovery.external_tool_config import (
-        parse_external_tools_from_code_quality_config,
+        parse_external_tools_from_discovery_config,
         ExternalToolConfigError,
     )
     from sugar.discovery.orchestrator import ToolOrchestrator
-    from sugar.discovery.prompt_templates import PromptTemplateManager
 
     config_file = ctx.obj.get("config", ".sugar/config.yaml")
 
@@ -287,17 +303,18 @@ def discover(ctx, tool_name: Optional[str], dry_run: bool, timeout: int):
 
     sugar_config = config.get("sugar", {})
     discovery_config = sugar_config.get("discovery", {})
-    code_quality_config = discovery_config.get("code_quality", {})
+    external_tools_config = discovery_config.get("external_tools", {})
 
     # Check if external tools are configured
-    if not code_quality_config.get("external_tools"):
+    if not external_tools_config.get("tools"):
         click.echo("❌ No external tools configured.")
         click.echo("")
         click.echo("   Add external tools to your .sugar/config.yaml:")
         click.echo("")
         click.echo("   discovery:")
-        click.echo("     code_quality:")
-        click.echo("       external_tools:")
+        click.echo("     external_tools:")
+        click.echo("       enabled: true")
+        click.echo("       tools:")
         click.echo("         - name: eslint")
         click.echo('           command: "npx eslint . --format json"')
         click.echo("         - name: ruff")
@@ -305,17 +322,21 @@ def discover(ctx, tool_name: Optional[str], dry_run: bool, timeout: int):
         click.echo("")
         sys.exit(1)
 
+    # Check if external tools discovery is enabled
+    if not external_tools_config.get("enabled", True):
+        click.echo("❌ External tools discovery is disabled.")
+        click.echo("   Set 'discovery.external_tools.enabled: true' in your config.")
+        sys.exit(1)
+
     # Parse and validate external tool configurations
     try:
-        external_tools = parse_external_tools_from_code_quality_config(
-            code_quality_config
-        )
+        external_tools = parse_external_tools_from_discovery_config(discovery_config)
     except ExternalToolConfigError as e:
         click.echo(f"❌ Invalid external tool configuration: {e}")
         sys.exit(1)
 
     if not external_tools:
-        click.echo("❌ No external tools configured in code_quality.external_tools")
+        click.echo("❌ No external tools configured in discovery.external_tools.tools")
         sys.exit(1)
 
     # Filter to specific tool if requested
@@ -330,9 +351,8 @@ def discover(ctx, tool_name: Optional[str], dry_run: bool, timeout: int):
             sys.exit(1)
         external_tools = matching_tools
 
-    # Determine working directory
-    root_path = code_quality_config.get("root_path", ".")
-    working_dir = Path(root_path).resolve()
+    # Determine working directory (current directory by default)
+    working_dir = Path(".").resolve()
 
     # Initialize components
     work_queue = WorkQueue(
@@ -345,12 +365,14 @@ def discover(ctx, tool_name: Optional[str], dry_run: bool, timeout: int):
         "database", ".sugar/sugar.db"
     )
 
-    # Force dry_run in Claude wrapper if --dry-run flag is set
+    # Set dry_run: CLI flag takes precedence, otherwise use config setting
     if dry_run:
         claude_config["dry_run"] = True
+    elif "dry_run" not in claude_config:
+        # Use top-level sugar.dry_run setting if not set in claude config
+        claude_config["dry_run"] = sugar_config.get("dry_run", False)
 
     claude_wrapper = ClaudeWrapper(claude_config)
-    prompt_manager = PromptTemplateManager(discovery_config.get("external_tools", {}))
 
     # Display header
     mode_str = " (DRY-RUN)" if dry_run else ""
@@ -376,31 +398,45 @@ def discover(ctx, tool_name: Optional[str], dry_run: bool, timeout: int):
                 dry_run=dry_run,
                 work_queue=work_queue,
                 claude_wrapper=claude_wrapper,
-                prompt_template_manager=prompt_manager,
             )
 
             tool_summaries.append(summary)
 
             # Display result
-            if summary.get("success"):
-                exit_info = f"exit code {summary.get('exit_code', 'N/A')}"
-                lines_info = f"{summary.get('stdout_lines', 0)} lines output"
-                duration_info = f"{summary.get('duration', 0):.1f}s"
-                click.echo(
-                    f"   ✅ Completed ({exit_info}, {lines_info}, {duration_info})"
-                )
+            exit_code = summary.get("exit_code", "N/A")
+            duration_info = f"{summary.get('duration', 0):.1f}s"
+            lines_info = f"{summary.get('stdout_lines', 0)} lines output"
 
+            if summary.get("no_issues"):
+                # Tool ran successfully with exit code 0 - no issues to analyze
+                click.echo(
+                    f"   ✅ Completed (exit code {exit_code}, {lines_info}, {duration_info})"
+                )
+                click.echo(f"   → No actionable issues found")
+            elif summary.get("success") or summary.get("tasks_created", 0) > 0:
+                click.echo(
+                    f"   ✅ Completed (exit code {exit_code}, {lines_info}, {duration_info})"
+                )
                 if not dry_run:
                     tasks = summary.get("tasks_created", 0)
                     if tasks > 0:
-                        click.echo(f"   → Passing to Claude Code for interpretation...")
                         click.echo(f"   → Generated {tasks} tasks")
                         total_tasks += tasks
                     else:
                         click.echo(f"   → No actionable issues found")
+                # Log Claude's response at debug level
+                if summary.get("claude_output"):
+                    logger.debug(
+                        f"Claude response for {summary['name']}:\n{summary['claude_output']}"
+                    )
             else:
                 error = summary.get("error", "Unknown error")
                 click.echo(f"   ❌ Failed: {error}")
+                # Log Claude's response even on failure for debugging
+                if summary.get("claude_output"):
+                    logger.debug(
+                        f"Claude response for {summary['name']}:\n{summary['claude_output']}"
+                    )
 
             click.echo()
 

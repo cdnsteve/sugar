@@ -1,11 +1,11 @@
 """
 Tests for external tool configuration schema validation
 
-Tests the external_tools configuration under code_quality section including:
+Tests the external_tools configuration under discovery section including:
 - Schema validation for required fields (name, command)
 - Environment variable expansion
 - Error messages for invalid configurations
-- Integration with CodeQualityScanner
+- discovery.external_tools config structure
 """
 
 import os
@@ -17,7 +17,7 @@ from sugar.discovery.external_tool_config import (
     ExternalToolConfigError,
     validate_external_tool,
     validate_external_tools_config,
-    parse_external_tools_from_code_quality_config,
+    parse_external_tools_from_discovery_config,
     expand_env_vars,
     get_external_tools_config_schema,
 )
@@ -248,87 +248,111 @@ class TestValidateExternalToolsConfig:
         assert "external_tools[1]" in str(exc_info.value)
 
 
-class TestParseExternalToolsFromCodeQualityConfig:
-    """Tests for parsing from code_quality section"""
+class TestParseExternalToolsFromDiscoveryConfig:
+    """Tests for parsing from discovery section (new structure)"""
 
-    def test_parse_from_code_quality_config(self):
-        """Test parsing external_tools from code_quality config"""
+    def test_parse_from_discovery_config(self):
+        """Test parsing external_tools from discovery config"""
         config = {
-            "enabled": True,
-            "root_path": ".",
-            "external_tools": [{"name": "eslint", "command": "npx eslint ."}],
+            "external_tools": {
+                "enabled": True,
+                "tools": [{"name": "eslint", "command": "npx eslint ."}],
+            }
         }
-        result = parse_external_tools_from_code_quality_config(config)
+        result = parse_external_tools_from_discovery_config(config)
         assert len(result) == 1
         assert result[0].name == "eslint"
 
-    def test_missing_external_tools_returns_empty(self):
-        """Test that missing external_tools returns empty list"""
-        config = {"enabled": True, "root_path": "."}
-        result = parse_external_tools_from_code_quality_config(config)
+    def test_parse_multiple_tools(self):
+        """Test parsing multiple tools from discovery config"""
+        config = {
+            "external_tools": {
+                "enabled": True,
+                "tools": [
+                    {"name": "eslint", "command": "npx eslint ."},
+                    {"name": "ruff", "command": "ruff check ."},
+                ],
+            }
+        }
+        result = parse_external_tools_from_discovery_config(config)
+        assert len(result) == 2
+        assert result[0].name == "eslint"
+        assert result[1].name == "ruff"
+
+    def test_disabled_returns_empty(self):
+        """Test that disabled external_tools returns empty list"""
+        config = {
+            "external_tools": {
+                "enabled": False,
+                "tools": [{"name": "eslint", "command": "npx eslint ."}],
+            }
+        }
+        result = parse_external_tools_from_discovery_config(config)
         assert result == []
 
-    def test_null_external_tools_returns_empty(self):
-        """Test that null external_tools returns empty list"""
-        config = {"enabled": True, "external_tools": None}
-        result = parse_external_tools_from_code_quality_config(config)
+    def test_missing_external_tools_returns_empty(self):
+        """Test that missing external_tools section returns empty list"""
+        config = {"code_quality": {"enabled": True}}
+        result = parse_external_tools_from_discovery_config(config)
         assert result == []
+
+    def test_missing_tools_list_returns_empty(self):
+        """Test that missing tools list returns empty list"""
+        config = {"external_tools": {"enabled": True}}
+        result = parse_external_tools_from_discovery_config(config)
+        assert result == []
+
+    def test_null_tools_list_returns_empty(self):
+        """Test that null tools list returns empty list"""
+        config = {"external_tools": {"enabled": True, "tools": None}}
+        result = parse_external_tools_from_discovery_config(config)
+        assert result == []
+
+    def test_empty_tools_list_returns_empty(self):
+        """Test that empty tools list returns empty list"""
+        config = {"external_tools": {"enabled": True, "tools": []}}
+        result = parse_external_tools_from_discovery_config(config)
+        assert result == []
+
+    def test_enabled_defaults_to_true(self):
+        """Test that enabled defaults to True if not specified"""
+        config = {
+            "external_tools": {
+                "tools": [{"name": "eslint", "command": "npx eslint ."}],
+            }
+        }
+        result = parse_external_tools_from_discovery_config(config)
+        assert len(result) == 1
 
 
 class TestCodeQualityScannerExternalTools:
-    """Integration tests for external tools in CodeQualityScanner"""
+    """Tests for CodeQualityScanner (external tools moved to discovery level)"""
 
-    def test_scanner_loads_external_tools(self, temp_dir):
-        """Test that CodeQualityScanner loads external tools from config"""
+    def test_scanner_ignores_external_tools_in_config(self, temp_dir):
+        """Test that CodeQualityScanner ignores external_tools in its config"""
+        # External tools are now at discovery.external_tools level,
+        # not under code_quality. CodeQualityScanner should ignore them.
         config = {
             "root_path": str(temp_dir),
             "external_tools": [
                 {"name": "eslint", "command": "npx eslint ."},
-                {"name": "ruff", "command": "ruff check ."},
             ],
         }
         scanner = CodeQualityScanner(config)
-        assert len(scanner.external_tools) == 2
-        assert scanner.external_tools[0].name == "eslint"
-        assert scanner.external_tools[1].name == "ruff"
+        # Scanner should initialize without error, ignoring external_tools
+        assert scanner.max_files_per_scan == 50
 
-    def test_scanner_handles_invalid_config_gracefully(self, temp_dir, caplog):
-        """Test that scanner handles invalid external tools config gracefully"""
-        config = {
-            "root_path": str(temp_dir),
-            "external_tools": [{"name": "eslint"}],  # Missing command
-        }
-        # Should not raise, but should log error
-        scanner = CodeQualityScanner(config)
-        assert scanner.external_tools == []
-        assert "configuration error" in caplog.text.lower()
-
-    def test_scanner_health_check_includes_external_tools(self, temp_dir):
-        """Test that health_check includes external tools info"""
-        config = {
-            "root_path": str(temp_dir),
-            "external_tools": [{"name": "eslint", "command": "npx eslint ."}],
-        }
+    def test_scanner_health_check_no_external_tools(self, temp_dir):
+        """Test that health_check doesn't include external_tools"""
+        config = {"root_path": str(temp_dir)}
         scanner = CodeQualityScanner(config)
         import asyncio
 
         health = asyncio.run(scanner.health_check())
-        assert "external_tools" in health
-        assert len(health["external_tools"]) == 1
-        assert health["external_tools"][0]["name"] == "eslint"
-        assert health["external_tools"][0]["command"] == "npx eslint ."
-
-    def test_scanner_empty_external_tools(self, temp_dir):
-        """Test scanner with empty external_tools list"""
-        config = {"root_path": str(temp_dir), "external_tools": []}
-        scanner = CodeQualityScanner(config)
-        assert scanner.external_tools == []
-
-    def test_scanner_no_external_tools_key(self, temp_dir):
-        """Test scanner without external_tools in config"""
-        config = {"root_path": str(temp_dir)}
-        scanner = CodeQualityScanner(config)
-        assert scanner.external_tools == []
+        # external_tools field should not exist in health check
+        assert "external_tools" not in health
+        assert "enabled" in health
+        assert "root_path" in health
 
 
 class TestGetExternalToolsConfigSchema:
@@ -341,7 +365,9 @@ class TestGetExternalToolsConfigSchema:
         assert "command" in schema
         assert "required" in schema.lower()
         assert "external_tools" in schema
-        assert "code_quality" in schema
+        assert "discovery" in schema
+        assert "tools" in schema
+        assert "enabled" in schema
 
     def test_schema_contains_example(self):
         """Test that schema documentation contains example"""

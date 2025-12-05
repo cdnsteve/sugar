@@ -126,24 +126,6 @@ sugar:
       ]
       max_files_per_scan: 50
 
-      # External Code Quality Tools
-      # Define external tools to run for code quality analysis.
-      # Each tool requires:
-      #   - name: Tool identifier (required)
-      #   - command: Shell command to execute (required)
-      # Commands run from project root_path and support environment variable expansion ($VAR or ${VAR})
-      external_tools: []
-      # Example configuration:
-      # external_tools:
-      #   - name: eslint
-      #     command: "npx eslint . --format json"
-      #   - name: phpstan
-      #     command: "vendor/bin/phpstan analyse --error-format=json"
-      #   - name: ruff
-      #     command: "ruff check . --output-format json"
-      #   - name: sonarqube
-      #     command: "sonar-scanner -Dsonar.token=$SONAR_TOKEN"
-      
     test_coverage:
       enabled: true
       root_path: ".."  # Path to analyze
@@ -158,10 +140,23 @@ sugar:
         ".sugar", ".claude"
       ]
 
-    # External Tool Output Interpretation
-    # Configures prompt templates for Claude Code to interpret tool output
+    # External Tools Discovery
+    # Configure external code quality tools to run and interpret
     external_tools:
       enabled: true
+
+      # Tool definitions - each tool has a name and command
+      # Environment variables in commands are expanded at runtime ($VAR or ${VAR})
+      tools: []
+        # Example tools (uncomment to enable):
+        # - name: eslint
+        #   command: "npx eslint . --format json"
+        # - name: ruff
+        #   command: "ruff check . --output-format json"
+        # - name: bandit
+        #   command: "bandit -r src/ -f json"
+        # - name: mypy
+        #   command: "mypy . --output json"
 
       # Directory for custom prompt templates (optional)
       # Templates can be .txt or .md files with ${tool_name}, ${command}, ${raw_output} placeholders

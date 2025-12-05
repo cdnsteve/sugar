@@ -115,7 +115,7 @@ from .external_tool_config import (
     ExternalToolConfig,
     ExternalToolConfigError,
     validate_external_tools_config,
-    parse_external_tools_from_code_quality_config,
+    parse_external_tools_from_discovery_config,
     expand_env_vars,
     get_external_tools_config_schema,
 )
@@ -145,7 +145,7 @@ __all__ = [
     "ExternalToolConfig",
     "ExternalToolConfigError",
     "validate_external_tools_config",
-    "parse_external_tools_from_code_quality_config",
+    "parse_external_tools_from_discovery_config",
     "expand_env_vars",
     "get_external_tools_config_schema",
     # Tool orchestration
