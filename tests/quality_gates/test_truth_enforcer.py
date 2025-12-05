@@ -224,7 +224,9 @@ class TestFindMatchingRule:
 
     def test_find_matching_rule_empty_rules(self):
         """Test returns None when rules list is empty"""
-        config = {"quality_gates": {"truth_enforcement": {"enabled": True, "rules": []}}}
+        config = {
+            "quality_gates": {"truth_enforcement": {"enabled": True, "rules": []}}
+        }
         enforcer = TruthEnforcer(config)
 
         rule = enforcer._find_matching_rule("tests pass")
@@ -255,7 +257,9 @@ class TestVerifyTestExecutionProof:
         must_show = {"failures": 0, "errors": 0}
         claim = Claim("tests pass", "test_execution_evidence", must_show)
 
-        result = enforcer._verify_test_execution_proof(must_show, evidence_collector, claim)
+        result = enforcer._verify_test_execution_proof(
+            must_show, evidence_collector, claim
+        )
 
         assert result is True
         assert claim.proof_details.get("failures") == 0
@@ -281,7 +285,9 @@ class TestVerifyTestExecutionProof:
         must_show = {"failures": 0}
         claim = Claim("tests pass", "test_execution_evidence", must_show)
 
-        result = enforcer._verify_test_execution_proof(must_show, evidence_collector, claim)
+        result = enforcer._verify_test_execution_proof(
+            must_show, evidence_collector, claim
+        )
 
         assert result is False
         assert "failures" in claim.proof_details
@@ -299,7 +305,9 @@ class TestVerifyTestExecutionProof:
         must_show = {"failures": 0}
         claim = Claim("tests pass", "test_execution_evidence", must_show)
 
-        result = enforcer._verify_test_execution_proof(must_show, evidence_collector, claim)
+        result = enforcer._verify_test_execution_proof(
+            must_show, evidence_collector, claim
+        )
 
         assert result is False
 
@@ -335,7 +343,9 @@ class TestVerifyTestExecutionProof:
         must_show = {"failures": 0}
         claim = Claim("tests pass", "test_execution_evidence", must_show)
 
-        result = enforcer._verify_test_execution_proof(must_show, evidence_collector, claim)
+        result = enforcer._verify_test_execution_proof(
+            must_show, evidence_collector, claim
+        )
 
         assert result is True
 
@@ -356,7 +366,9 @@ class TestVerifyFunctionalVerificationProof:
         )
 
         must_show = {"http_request_results": True}
-        claim = Claim("functionality verified", "functional_verification_evidence", must_show)
+        claim = Claim(
+            "functionality verified", "functional_verification_evidence", must_show
+        )
 
         result = enforcer._verify_functional_verification_proof(
             must_show, evidence_collector, claim
@@ -378,7 +390,9 @@ class TestVerifyFunctionalVerificationProof:
         )
 
         must_show = {"http_request_results": True}
-        claim = Claim("functionality verified", "functional_verification_evidence", must_show)
+        claim = Claim(
+            "functionality verified", "functional_verification_evidence", must_show
+        )
 
         result = enforcer._verify_functional_verification_proof(
             must_show, evidence_collector, claim
@@ -404,7 +418,9 @@ class TestVerifyFunctionalVerificationProof:
         )
 
         must_show = {"screenshot_evidence": True}
-        claim = Claim("functionality verified", "functional_verification_evidence", must_show)
+        claim = Claim(
+            "functionality verified", "functional_verification_evidence", must_show
+        )
 
         result = enforcer._verify_functional_verification_proof(
             must_show, evidence_collector, claim
@@ -426,7 +442,9 @@ class TestVerifyFunctionalVerificationProof:
         # No screenshot added
 
         must_show = {"screenshot_evidence": True}
-        claim = Claim("functionality verified", "functional_verification_evidence", must_show)
+        claim = Claim(
+            "functionality verified", "functional_verification_evidence", must_show
+        )
 
         result = enforcer._verify_functional_verification_proof(
             must_show, evidence_collector, claim
@@ -443,7 +461,9 @@ class TestVerifyFunctionalVerificationProof:
         # No evidence added
 
         must_show = {}
-        claim = Claim("functionality verified", "functional_verification_evidence", must_show)
+        claim = Claim(
+            "functionality verified", "functional_verification_evidence", must_show
+        )
 
         result = enforcer._verify_functional_verification_proof(
             must_show, evidence_collector, claim
@@ -475,9 +495,13 @@ class TestVerifySuccessCriteriaProof:
         )
 
         must_show = {"all_criteria_verified": True}
-        claim = Claim("success criteria met", "success_criteria_verification", must_show)
+        claim = Claim(
+            "success criteria met", "success_criteria_verification", must_show
+        )
 
-        result = enforcer._verify_success_criteria_proof(must_show, evidence_collector, claim)
+        result = enforcer._verify_success_criteria_proof(
+            must_show, evidence_collector, claim
+        )
 
         assert result is True
         assert claim.proof_details.get("total_criteria") == 2
@@ -503,9 +527,13 @@ class TestVerifySuccessCriteriaProof:
         )
 
         must_show = {"all_criteria_verified": True}
-        claim = Claim("success criteria met", "success_criteria_verification", must_show)
+        claim = Claim(
+            "success criteria met", "success_criteria_verification", must_show
+        )
 
-        result = enforcer._verify_success_criteria_proof(must_show, evidence_collector, claim)
+        result = enforcer._verify_success_criteria_proof(
+            must_show, evidence_collector, claim
+        )
 
         assert result is False
 
@@ -518,9 +546,13 @@ class TestVerifySuccessCriteriaProof:
         # No evidence added
 
         must_show = {"all_criteria_verified": True}
-        claim = Claim("success criteria met", "success_criteria_verification", must_show)
+        claim = Claim(
+            "success criteria met", "success_criteria_verification", must_show
+        )
 
-        result = enforcer._verify_success_criteria_proof(must_show, evidence_collector, claim)
+        result = enforcer._verify_success_criteria_proof(
+            must_show, evidence_collector, claim
+        )
 
         assert result is False
 
@@ -987,6 +1019,226 @@ class TestGetUnprovenClaimsReport:
         assert "Proven:** 1" in report
         assert "Unproven:** 1" in report
         assert "functionality verified" in report
+
+
+class TestEdgeCases:
+    """Tests for edge cases and boundary conditions"""
+
+    def test_verify_claims_empty_claims_list(self):
+        """Test verify_claims with an empty claims list"""
+        config = {
+            "quality_gates": {
+                "truth_enforcement": {
+                    "enabled": True,
+                    "mode": "strict",
+                    "rules": [
+                        {
+                            "claim": "tests pass",
+                            "proof_required": "test_execution_evidence",
+                            "must_show": {"failures": 0},
+                        }
+                    ],
+                }
+            }
+        }
+        enforcer = TruthEnforcer(config)
+
+        evidence_collector = EvidenceCollector(task_id="test-task")
+        claims = []
+
+        all_proven, verified_claims = enforcer.verify_claims(claims, evidence_collector)
+
+        assert all_proven is True  # No claims means all (zero) are proven
+        assert verified_claims == []
+
+    def test_verify_test_execution_proof_empty_must_show(self):
+        """Test verification with empty must_show requirements passes"""
+        config = {"quality_gates": {"truth_enforcement": {"enabled": True}}}
+        enforcer = TruthEnforcer(config)
+
+        evidence_collector = EvidenceCollector(task_id="test-task")
+        evidence_collector.add_test_evidence(
+            command="pytest",
+            exit_code=1,  # Even with failure, should pass if no requirements
+            stdout_path="/path/to/stdout",
+            failures=5,
+            errors=3,
+            pending=0,
+            examples=10,
+            duration=5.0,
+        )
+
+        must_show = {}  # Empty requirements
+        claim = Claim("tests run", "test_execution_evidence", must_show)
+
+        result = enforcer._verify_test_execution_proof(
+            must_show, evidence_collector, claim
+        )
+
+        assert result is True  # No requirements means success
+
+    def test_verify_success_criteria_all_criteria_verified_false(self):
+        """Test verification when all_criteria_verified is False in must_show"""
+        config = {"quality_gates": {"truth_enforcement": {"enabled": True}}}
+        enforcer = TruthEnforcer(config)
+
+        evidence_collector = EvidenceCollector(task_id="test-task")
+        # Add mixed verified/unverified criteria
+        evidence_collector.add_success_criteria_evidence(
+            criterion_id="crit-1",
+            criterion_type="http_status",
+            expected=200,
+            actual=200,
+        )
+        evidence_collector.add_success_criteria_evidence(
+            criterion_id="crit-2",
+            criterion_type="test_suite",
+            expected="pass",
+            actual="fail",  # This one fails
+        )
+
+        must_show = {"all_criteria_verified": False}  # Don't require all to pass
+        claim = Claim("some criteria met", "success_criteria_verification", must_show)
+
+        result = enforcer._verify_success_criteria_proof(
+            must_show, evidence_collector, claim
+        )
+
+        assert result is True  # Should pass since we don't require all
+
+    def test_multiple_rules_first_match_wins(self):
+        """Test that first matching rule is used when multiple could match"""
+        config = {
+            "quality_gates": {
+                "truth_enforcement": {
+                    "enabled": True,
+                    "rules": [
+                        {
+                            "claim": "all tests",  # Broader match
+                            "proof_required": "test_execution_evidence",
+                            "must_show": {"failures": 0},
+                        },
+                        {
+                            "claim": "all tests pass",  # More specific
+                            "proof_required": "test_execution_evidence",
+                            "must_show": {"failures": 0, "errors": 0},
+                        },
+                    ],
+                }
+            }
+        }
+        enforcer = TruthEnforcer(config)
+
+        rule = enforcer._find_matching_rule("all tests pass successfully")
+
+        # First matching rule should win
+        assert rule["claim"] == "all tests"
+        assert rule["must_show"] == {"failures": 0}
+
+    def test_verify_functional_proof_unknown_must_show_key_ignored(self):
+        """Test that unknown must_show keys are safely ignored"""
+        config = {"quality_gates": {"truth_enforcement": {"enabled": True}}}
+        enforcer = TruthEnforcer(config)
+
+        evidence_collector = EvidenceCollector(task_id="test-task")
+        evidence_collector.add_functional_verification_evidence(
+            verification_type="http_request",
+            details={"url": "http://example.com", "status_code": 200},
+            verified=True,
+        )
+
+        must_show = {"unknown_key": True}  # Unknown key
+        claim = Claim(
+            "functionality verified", "functional_verification_evidence", must_show
+        )
+
+        result = enforcer._verify_functional_verification_proof(
+            must_show, evidence_collector, claim
+        )
+
+        # Should pass because unknown keys are ignored (loop doesn't match)
+        assert result is True
+
+    def test_get_unproven_claims_report_when_disabled(self):
+        """Test report when enforcement is disabled"""
+        config = {"quality_gates": {"truth_enforcement": {"enabled": False}}}
+        enforcer = TruthEnforcer(config)
+
+        evidence_collector = EvidenceCollector(task_id="test-task")
+        claims = ["tests pass", "functionality verified"]
+
+        report = enforcer.get_unproven_claims_report(claims, evidence_collector)
+
+        # When disabled, verify_claims returns empty list, so all proven
+        assert "✅ All claims verified" in report
+
+    def test_can_complete_task_empty_claims(self):
+        """Test can_complete_task with empty claims list"""
+        config = {
+            "quality_gates": {
+                "truth_enforcement": {
+                    "enabled": True,
+                    "mode": "strict",
+                    "block_unproven_success": True,
+                }
+            }
+        }
+        enforcer = TruthEnforcer(config)
+
+        evidence_collector = EvidenceCollector(task_id="test-task")
+        claims = []
+
+        can_complete, reason = enforcer.can_complete_task(claims, evidence_collector)
+
+        assert can_complete is True
+        assert "proven" in reason.lower()
+
+    def test_verify_functional_proof_http_request_not_required(self):
+        """Test functional verification without http_request_results requirement"""
+        config = {"quality_gates": {"truth_enforcement": {"enabled": True}}}
+        enforcer = TruthEnforcer(config)
+
+        evidence_collector = EvidenceCollector(task_id="test-task")
+        evidence_collector.add_functional_verification_evidence(
+            verification_type="browser",
+            details={"action": "click button"},
+            verified=True,
+        )
+
+        must_show = {}  # No specific requirements
+        claim = Claim(
+            "functionality verified", "functional_verification_evidence", must_show
+        )
+
+        result = enforcer._verify_functional_verification_proof(
+            must_show, evidence_collector, claim
+        )
+
+        assert result is True
+        assert claim.proof_details.get("functional_verifications") == 1
+
+    def test_claim_with_special_characters(self):
+        """Test claim text with special characters is handled correctly"""
+        config = {
+            "quality_gates": {
+                "truth_enforcement": {
+                    "enabled": True,
+                    "rules": [
+                        {
+                            "claim": "tests pass (100%)",
+                            "proof_required": "test_execution_evidence",
+                            "must_show": {"failures": 0},
+                        }
+                    ],
+                }
+            }
+        }
+        enforcer = TruthEnforcer(config)
+
+        rule = enforcer._find_matching_rule("tests pass (100%)")
+
+        assert rule is not None
+        assert rule["claim"] == "tests pass (100%)"
 
 
 class TestIntegration:
