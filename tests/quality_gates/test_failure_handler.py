@@ -905,3 +905,457 @@ class TestVerificationFailureHandlerUtilityMethods:
         actions = handler.get_enhanced_debugging_actions("test_execution")
 
         assert actions == []
+
+    def test_get_retry_count_for_success_criteria(
+        self, basic_failure_handler_config: Dict[str, Any]
+    ) -> None:
+        """Should return 0 for success_criteria type (no retries)."""
+        handler = VerificationFailureHandler(basic_failure_handler_config)
+
+        count = handler.get_retry_count_for_failure_type("success_criteria")
+
+        assert count == 0
+
+
+# --- Additional Coverage Tests ---
+
+
+class TestVerificationFailureHandlerAdditionalCoverage:
+    """Additional tests to ensure complete coverage."""
+
+    def test_init_sets_retry_with_context(
+        self, basic_failure_handler_config: Dict[str, Any]
+    ) -> None:
+        """Handler should set retry_with_more_context from config."""
+        handler = VerificationFailureHandler(basic_failure_handler_config)
+
+        assert handler.test_retry_with_context is True
+
+    def test_init_sets_retry_with_context_default(self) -> None:
+        """Handler should default retry_with_more_context to True."""
+        config = {"verification_failure_handling": {"enabled": True}}
+        handler = VerificationFailureHandler(config)
+
+        assert handler.test_retry_with_context is True
+
+    def test_init_sets_retry_with_context_false(self) -> None:
+        """Handler should respect retry_with_more_context=False."""
+        config = {
+            "verification_failure_handling": {
+                "enabled": True,
+                "on_test_failure": {"retry_with_more_context": False},
+            }
+        }
+        handler = VerificationFailureHandler(config)
+
+        assert handler.test_retry_with_context is False
+
+    @pytest.mark.asyncio
+    async def test_escalate_with_mark_task_as_needs_manual_review(
+        self, temp_dir: Path
+    ) -> None:
+        """Escalation with mark_task_as_needs_manual_review action."""
+        config = {
+            "verification_failure_handling": {
+                "enabled": True,
+                "on_test_failure": {
+                    "max_retries": 0,
+                    "escalate": {
+                        "enabled": True,
+                        "action": "mark_task_as_needs_manual_review",
+                        "report_path": str(temp_dir / "failures" / "{task_id}.md"),
+                    },
+                },
+            }
+        }
+        handler = VerificationFailureHandler(config)
+
+        _, report = await handler.handle_test_failure(
+            task_id="task-manual-review",
+            test_result=MagicMock(
+                failures=1, errors=0, to_dict=lambda: {"failures": 1}
+            ),
+            retry_count=0,
+        )
+
+        assert report is not None
+        assert report.escalated is True
+        # No files should be created for this action
+        failures_dir = temp_dir / "failures"
+        assert not failures_dir.exists() or not list(failures_dir.iterdir())
+
+    @pytest.mark.asyncio
+    async def test_handle_test_failure_without_to_dict_method(
+        self, temp_dir: Path
+    ) -> None:
+        """Test failure handling when test_result has no to_dict method."""
+        config = {
+            "verification_failure_handling": {
+                "enabled": True,
+                "on_test_failure": {
+                    "max_retries": 0,
+                    "escalate": {
+                        "enabled": True,
+                        "action": "create_detailed_failure_report",
+                        "report_path": str(temp_dir / "failures" / "{task_id}.md"),
+                    },
+                },
+            }
+        }
+        handler = VerificationFailureHandler(config)
+
+        # Create mock without to_dict
+        test_result = MagicMock(spec=["failures", "errors"])
+        test_result.failures = 2
+        test_result.errors = 1
+
+        _, report = await handler.handle_test_failure(
+            task_id="task-no-to-dict",
+            test_result=test_result,
+            retry_count=0,
+        )
+
+        assert report is not None
+        assert report.failure_type == "test_execution"
+        # Evidence should be empty since to_dict not available
+        assert len(report.evidence) == 0
+
+    @pytest.mark.asyncio
+    async def test_handle_functional_failure_without_to_dict_method(
+        self, temp_dir: Path
+    ) -> None:
+        """Functional failure handling when result has no to_dict method."""
+        config = {
+            "verification_failure_handling": {
+                "enabled": True,
+                "on_functional_verification_failure": {"max_retries": 0},
+                "on_test_failure": {
+                    "escalate": {
+                        "enabled": True,
+                        "action": "create_detailed_failure_report",
+                        "report_path": str(temp_dir / "failures" / "{task_id}.md"),
+                    }
+                },
+            }
+        }
+        handler = VerificationFailureHandler(config)
+
+        # Create mock without to_dict
+        result = MagicMock(spec=["verified"])
+        result.verified = False
+
+        _, report = await handler.handle_functional_verification_failure(
+            task_id="task-no-to-dict-func",
+            verification_results=[result],
+            retry_count=0,
+        )
+
+        assert report is not None
+        assert report.failure_type == "functional_verification"
+        # Evidence should be empty since to_dict not available
+        assert len(report.evidence) == 0
+
+    @pytest.mark.asyncio
+    async def test_handle_success_criteria_failure_without_to_dict(
+        self, temp_dir: Path
+    ) -> None:
+        """Success criteria failure handling when criterion has no to_dict method."""
+        config = {
+            "verification_failure_handling": {
+                "enabled": True,
+                "on_success_criteria_not_met": {
+                    "action": "fail_task",
+                    "create_failure_report": True,
+                },
+                "on_test_failure": {
+                    "escalate": {
+                        "enabled": True,
+                        "action": "create_detailed_failure_report",
+                        "report_path": str(temp_dir / "failures" / "{task_id}.md"),
+                    }
+                },
+            }
+        }
+        handler = VerificationFailureHandler(config)
+
+        # Create mock without to_dict
+        criterion = MagicMock(spec=["verified"])
+        criterion.verified = False
+
+        report = await handler.handle_success_criteria_failure(
+            task_id="task-no-to-dict-criteria",
+            criteria_results=[criterion],
+        )
+
+        assert report is not None
+        assert report.failure_type == "success_criteria"
+        # Evidence should be empty since to_dict not available
+        assert len(report.evidence) == 0
+
+    @pytest.mark.asyncio
+    async def test_handle_success_criteria_failure_no_report_creation(
+        self,
+    ) -> None:
+        """Success criteria failure without creating failure report."""
+        config = {
+            "verification_failure_handling": {
+                "enabled": True,
+                "on_success_criteria_not_met": {
+                    "action": "fail_task",
+                    "create_failure_report": False,  # Disable report creation
+                },
+                "on_test_failure": {
+                    "escalate": {
+                        "enabled": True,
+                        "action": "create_detailed_failure_report",
+                        "report_path": ".sugar/failures/{task_id}.md",
+                    }
+                },
+            }
+        }
+        handler = VerificationFailureHandler(config)
+
+        criterion = MagicMock()
+        criterion.verified = False
+        criterion.to_dict.return_value = {"verified": False}
+
+        report = await handler.handle_success_criteria_failure(
+            task_id="task-no-report-creation",
+            criteria_results=[criterion],
+        )
+
+        assert report is not None
+        assert report.failure_type == "success_criteria"
+        # Report should exist but not be escalated (no file creation)
+        assert report.escalated is False
+
+    @pytest.mark.asyncio
+    async def test_handle_functional_failure_multiple_failed_verifications(
+        self, temp_dir: Path
+    ) -> None:
+        """Functional failure with multiple failed verifications."""
+        config = {
+            "verification_failure_handling": {
+                "enabled": True,
+                "on_functional_verification_failure": {"max_retries": 0},
+                "on_test_failure": {
+                    "escalate": {
+                        "enabled": True,
+                        "action": "create_detailed_failure_report",
+                        "report_path": str(temp_dir / "failures" / "{task_id}.md"),
+                    }
+                },
+            }
+        }
+        handler = VerificationFailureHandler(config)
+
+        # Create multiple failed results
+        failed1 = MagicMock()
+        failed1.verified = False
+        failed1.to_dict.return_value = {"criterion": "check_a", "verified": False}
+
+        failed2 = MagicMock()
+        failed2.verified = False
+        failed2.to_dict.return_value = {"criterion": "check_b", "verified": False}
+
+        passed = MagicMock()
+        passed.verified = True
+
+        _, report = await handler.handle_functional_verification_failure(
+            task_id="task-multi-fail",
+            verification_results=[failed1, passed, failed2],
+            retry_count=0,
+        )
+
+        assert report is not None
+        # Should have 2 evidence items for 2 failed verifications
+        assert len(report.evidence) == 2
+        assert all(e["type"] == "failed_verification" for e in report.evidence)
+
+    @pytest.mark.asyncio
+    async def test_handle_functional_failure_empty_results(
+        self, temp_dir: Path
+    ) -> None:
+        """Functional failure with empty verification results list."""
+        config = {
+            "verification_failure_handling": {
+                "enabled": True,
+                "on_functional_verification_failure": {"max_retries": 0},
+                "on_test_failure": {
+                    "escalate": {
+                        "enabled": True,
+                        "action": "create_detailed_failure_report",
+                        "report_path": str(temp_dir / "failures" / "{task_id}.md"),
+                    }
+                },
+            }
+        }
+        handler = VerificationFailureHandler(config)
+
+        _, report = await handler.handle_functional_verification_failure(
+            task_id="task-empty-results",
+            verification_results=[],
+            retry_count=0,
+        )
+
+        assert report is not None
+        assert report.failure_type == "functional_verification"
+        assert "0 functional verifications" in report.reason
+        assert len(report.evidence) == 0
+
+    @pytest.mark.asyncio
+    async def test_handle_success_criteria_failure_empty_results(self) -> None:
+        """Success criteria failure with empty criteria results list."""
+        config = {
+            "verification_failure_handling": {
+                "enabled": True,
+                "on_success_criteria_not_met": {
+                    "action": "fail_task",
+                    "create_failure_report": False,
+                },
+            }
+        }
+        handler = VerificationFailureHandler(config)
+
+        report = await handler.handle_success_criteria_failure(
+            task_id="task-empty-criteria",
+            criteria_results=[],
+        )
+
+        assert report is not None
+        assert report.failure_type == "success_criteria"
+        assert "0 success criteria" in report.reason
+        assert len(report.evidence) == 0
+
+    def test_should_collect_enhanced_debugging_for_test_execution(
+        self, basic_failure_handler_config: Dict[str, Any]
+    ) -> None:
+        """Should return False for test_execution type."""
+        handler = VerificationFailureHandler(basic_failure_handler_config)
+
+        result = handler.should_collect_enhanced_debugging("test_execution")
+
+        assert result is False
+
+    def test_should_collect_enhanced_debugging_for_unknown_type(
+        self, basic_failure_handler_config: Dict[str, Any]
+    ) -> None:
+        """Should return False for unknown failure types."""
+        handler = VerificationFailureHandler(basic_failure_handler_config)
+
+        result = handler.should_collect_enhanced_debugging("unknown_type")
+
+        assert result is False
+
+    def test_get_enhanced_debugging_actions_for_unknown_type(
+        self, basic_failure_handler_config: Dict[str, Any]
+    ) -> None:
+        """Should return empty list for unknown types."""
+        handler = VerificationFailureHandler(basic_failure_handler_config)
+
+        actions = handler.get_enhanced_debugging_actions("unknown_type")
+
+        assert actions == []
+
+    def test_should_collect_enhanced_debugging_empty_config(self) -> None:
+        """Should return False when enhanced_debugging not configured."""
+        config = {
+            "verification_failure_handling": {
+                "enabled": True,
+                "on_functional_verification_failure": {
+                    "max_retries": 1,
+                    # No enhanced_debugging configured
+                },
+            }
+        }
+        handler = VerificationFailureHandler(config)
+
+        result = handler.should_collect_enhanced_debugging("functional_verification")
+
+        assert result is False
+
+    def test_get_enhanced_debugging_actions_empty_config(self) -> None:
+        """Should return empty list when enhanced_debugging not configured."""
+        config = {
+            "verification_failure_handling": {
+                "enabled": True,
+                "on_functional_verification_failure": {
+                    "max_retries": 1,
+                    # No enhanced_debugging configured
+                },
+            }
+        }
+        handler = VerificationFailureHandler(config)
+
+        actions = handler.get_enhanced_debugging_actions("functional_verification")
+
+        assert actions == []
+
+
+class TestFailureReportEdgeCases:
+    """Edge case tests for FailureReport."""
+
+    def test_to_markdown_with_multiple_evidence_items(self) -> None:
+        """Markdown output should handle multiple evidence items."""
+        report = FailureReport(
+            task_id="task-multi-evidence",
+            failure_type="test_execution",
+            reason="Multiple failures occurred",
+        )
+        report.add_evidence("test_output", {"stdout": "Error 1"})
+        report.add_evidence("stack_trace", {"trace": "Line 42"})
+        report.add_evidence("system_state", {"memory": "1GB", "cpu": "50%"})
+
+        markdown = report.to_markdown()
+
+        assert "## Evidence" in markdown
+        assert "### test_output" in markdown
+        assert "### stack_trace" in markdown
+        assert "### system_state" in markdown
+        assert "Error 1" in markdown
+        assert "Line 42" in markdown
+
+    def test_to_markdown_with_special_characters_in_data(self) -> None:
+        """Markdown output should handle special characters in evidence data."""
+        report = FailureReport(
+            task_id="task-special-chars",
+            failure_type="test_execution",
+            reason="Error with special chars: <>&\"'",
+        )
+        report.add_evidence(
+            "error", {"message": "Error: <tag> & \"quoted\" text 'single'"}
+        )
+
+        markdown = report.to_markdown()
+
+        # Should contain the special characters (JSON encoded)
+        assert "Error with special chars" in markdown
+        assert "```json" in markdown
+
+    def test_to_dict_with_empty_evidence(self) -> None:
+        """to_dict should handle empty evidence list."""
+        report = FailureReport(
+            task_id="task-empty-evidence",
+            failure_type="test_execution",
+            reason="Test failure",
+        )
+
+        result = report.to_dict()
+
+        assert result["evidence"] == []
+
+    def test_report_timestamps_are_different(self) -> None:
+        """Report timestamp and evidence timestamps should be distinct."""
+        import time
+
+        report = FailureReport(
+            task_id="task-timestamp-test",
+            failure_type="test_execution",
+            reason="Test failure",
+        )
+        time.sleep(0.01)  # Small delay to ensure different timestamps
+        report.add_evidence("test_output", {"data": "test"})
+
+        # Both timestamps should be valid ISO format
+        datetime.fromisoformat(report.timestamp)
+        datetime.fromisoformat(report.evidence[0]["timestamp"])
