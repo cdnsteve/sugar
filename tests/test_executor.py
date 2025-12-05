@@ -108,6 +108,19 @@ class TestDynamicAgentType:
         agent2 = DynamicAgentType("agent-b")
         assert agent1 != agent2
 
+    def test_dynamic_agent_equality_with_agent_type(self):
+        """Test DynamicAgentType equality with AgentType enum"""
+        # Create a dynamic agent with the same value as a known AgentType
+        dynamic = DynamicAgentType("general-purpose")
+        assert dynamic == AgentType.GENERAL_PURPOSE
+
+    def test_dynamic_agent_inequality_with_different_type(self):
+        """Test DynamicAgentType returns False for non-matching types"""
+        agent = DynamicAgentType("test-agent")
+        assert agent != 12345  # Not a string, AgentType, or DynamicAgentType
+        assert agent != None
+        assert agent != ["test-agent"]
+
 
 class TestTaskContext:
     """Test TaskContext dataclass"""
@@ -222,6 +235,37 @@ class TestStructuredRequest:
         """Test file extraction from empty context"""
         files = StructuredRequest._extract_files_from_context({})
         assert files is None
+
+    def test_structured_request_from_work_item_retry(self):
+        """Test StructuredRequest from work item with retry (continue_session=True)"""
+        work_item = {
+            "id": "work-retry-123",
+            "type": "bug_fix",
+            "title": "Fix bug retry",
+            "description": "Bug retry description",
+            "source": "github",
+            "priority": 4,
+            "attempts": 2,  # > 1 triggers continue_session
+            "context": {},
+        }
+        request = StructuredRequest.from_work_item(work_item)
+        assert request.continue_session is True
+        assert request.context.attempts == 2
+
+    def test_structured_request_from_work_item_minimal(self):
+        """Test StructuredRequest from work item with minimal fields"""
+        work_item = {
+            "id": "minimal-123",
+            "type": "test",
+            "title": "Minimal task",
+        }
+        request = StructuredRequest.from_work_item(work_item)
+        assert request.task_type == "test"
+        assert request.title == "Minimal task"
+        assert request.description == ""  # Default empty string
+        assert request.context.source_type == "unknown"  # Default
+        assert request.context.priority == 3  # Default
+        assert request.context.attempts == 0  # Default
 
 
 class TestStructuredResponse:
@@ -374,6 +418,231 @@ Added error handling.
         assert quality < 0.5
         assert confidence == "low"
 
+    def test_extract_enhanced_summary_tech_lead(self):
+        """Test enhanced summary extraction for tech-lead agent"""
+        output = """
+Let me analyze the system.
+Analysis: The architecture needs refactoring for scalability.
+Here is my recommendation.
+"""
+        summary = StructuredResponse._extract_enhanced_summary(output, "tech-lead")
+        assert "Analysis:" in summary or "architecture" in summary.lower()
+
+    def test_extract_enhanced_summary_code_reviewer(self):
+        """Test enhanced summary extraction for code-reviewer agent"""
+        output = """
+Looking at the code structure.
+Code review completed: found several areas for improvement.
+Refactored the main module.
+"""
+        summary = StructuredResponse._extract_enhanced_summary(output, "code-reviewer")
+        assert any(
+            phrase in summary.lower()
+            for phrase in ["review", "refactored", "improvement"]
+        )
+
+    def test_extract_enhanced_summary_social_media_strategist(self):
+        """Test enhanced summary extraction for social-media-growth-strategist agent"""
+        output = """
+Analyzing target demographics.
+Engagement strategy developed for maximum reach.
+Content calendar prepared.
+"""
+        summary = StructuredResponse._extract_enhanced_summary(
+            output, "social-media-growth-strategist"
+        )
+        assert any(
+            phrase in summary.lower() for phrase in ["engagement", "strategy", "reach"]
+        )
+
+    def test_extract_enhanced_summary_fallback(self):
+        """Test enhanced summary extraction with unknown agent falls back to general"""
+        output = """
+Generic output without any matching indicators.
+Some more text here.
+And a third line.
+"""
+        summary = StructuredResponse._extract_enhanced_summary(output, "unknown-agent")
+        assert len(summary) > 0
+
+    def test_extract_enhanced_summary_empty_output(self):
+        """Test enhanced summary extraction with empty output"""
+        summary = StructuredResponse._extract_enhanced_summary("", "tech-lead")
+        assert summary == ""
+
+    def test_extract_enhanced_actions_tech_lead(self):
+        """Test enhanced action extraction for tech-lead agent"""
+        output = """
+I designed the new system architecture.
+Architected the microservices layout.
+Validated the design decisions.
+Assessed impact on existing components.
+"""
+        actions = StructuredResponse._extract_enhanced_actions(output, "tech-lead")
+        assert len(actions) >= 2
+        assert any("design" in a.lower() or "architect" in a.lower() for a in actions)
+
+    def test_extract_enhanced_actions_code_reviewer(self):
+        """Test enhanced action extraction for code-reviewer agent"""
+        output = """
+Reviewed code thoroughly.
+Identified issues in authentication module.
+Applied best practices to logging.
+Increased maintainability of the codebase.
+"""
+        actions = StructuredResponse._extract_enhanced_actions(output, "code-reviewer")
+        assert len(actions) >= 2
+        assert any(
+            "review" in a.lower()
+            or "identified" in a.lower()
+            or "best practice" in a.lower()
+            for a in actions
+        )
+
+    def test_extract_enhanced_actions_social_media_strategist(self):
+        """Test enhanced action extraction for social-media-growth-strategist agent"""
+        output = """
+Created content for Instagram.
+Developed strategy for growth.
+Targeted audience segments A and B.
+Enhanced visibility across platforms.
+"""
+        actions = StructuredResponse._extract_enhanced_actions(
+            output, "social-media-growth-strategist"
+        )
+        assert len(actions) >= 2
+        assert any(
+            "created" in a.lower() or "strategy" in a.lower() or "audience" in a.lower()
+            for a in actions
+        )
+
+    def test_extract_enhanced_actions_empty_output(self):
+        """Test enhanced action extraction with empty output"""
+        actions = StructuredResponse._extract_enhanced_actions("", "tech-lead")
+        assert actions == []
+
+    def test_extract_files_from_output_tool_usage(self):
+        """Test file extraction from Claude Code tool usage patterns"""
+        output = """
+Using Edit tool to modify "src/auth/login.py"
+Using Write tool on "config/settings.json"
+Using MultiEdit tool on multiple files
+"""
+        files = StructuredResponse._extract_files_from_output(output)
+        assert any("login.py" in f for f in files)
+        assert any("settings.json" in f for f in files)
+
+    def test_extract_files_from_output_bullet_list(self):
+        """Test file extraction from bullet point lists"""
+        output = """
+Files modified:
+- src/main.py (added new function)
+* tests/test_main.py (added test coverage)
+- config/app.yaml (updated settings)
+"""
+        files = StructuredResponse._extract_files_from_output(output)
+        assert any("main.py" in f for f in files)
+        assert any("test_main.py" in f for f in files)
+
+    def test_extract_files_from_output_empty(self):
+        """Test file extraction from empty output"""
+        files = StructuredResponse._extract_files_from_output("")
+        assert files == []
+
+    def test_assess_response_quality_execution_time_sweet_spot(self):
+        """Test quality assessment with execution time in sweet spot (5-120s)"""
+        stdout = "Successfully completed the task."
+        quality, _ = StructuredResponse._assess_response_quality(
+            stdout=stdout,
+            stderr="",
+            return_code=0,
+            execution_time=30.0,  # In sweet spot
+        )
+        # Should get bonus for execution time
+        assert quality > 0.3
+
+    def test_assess_response_quality_execution_time_too_fast(self):
+        """Test quality assessment with execution time too fast (<2s)"""
+        stdout = "Done."
+        quality, _ = StructuredResponse._assess_response_quality(
+            stdout=stdout,
+            stderr="",
+            return_code=0,
+            execution_time=1.0,  # Too fast
+        )
+        # Penalty for too-fast execution
+        assert quality < 0.5
+
+    def test_assess_response_quality_execution_time_too_slow(self):
+        """Test quality assessment with execution time too slow (>300s)"""
+        stdout = "Successfully completed."
+        quality_slow, _ = StructuredResponse._assess_response_quality(
+            stdout=stdout,
+            stderr="",
+            return_code=0,
+            execution_time=400.0,  # Too slow
+        )
+        quality_normal, _ = StructuredResponse._assess_response_quality(
+            stdout=stdout,
+            stderr="",
+            return_code=0,
+            execution_time=60.0,  # Normal
+        )
+        # Slower should score lower
+        assert quality_slow < quality_normal
+
+    def test_assess_response_quality_code_reviewer_agent(self):
+        """Test quality assessment specifically for code-reviewer agent"""
+        stdout = """
+Code review completed.
+Refactored several modules.
+Improved maintainability significantly.
+Applied best practices throughout.
+"""
+        quality, confidence = StructuredResponse._assess_response_quality(
+            stdout=stdout,
+            stderr="",
+            return_code=0,
+            agent_used="code-reviewer",
+            execution_time=45.0,
+        )
+        assert quality >= 0.5
+        assert confidence in ["high", "medium"]
+
+    def test_assess_response_quality_social_media_strategist_agent(self):
+        """Test quality assessment for social-media-growth-strategist agent"""
+        stdout = """
+Engagement strategy developed.
+Targeted the right audience segments.
+Created content for maximum reach.
+Growth plan implemented.
+"""
+        quality, confidence = StructuredResponse._assess_response_quality(
+            stdout=stdout,
+            stderr="",
+            return_code=0,
+            agent_used="social-media-growth-strategist",
+            execution_time=30.0,
+        )
+        assert quality >= 0.5
+
+    def test_from_claude_output_invalid_json_fallback(self):
+        """Test from_claude_output handles invalid JSON gracefully"""
+        stdout = """
+Starting task...
+{invalid json here}
+Completed the work successfully.
+"""
+        response = StructuredResponse.from_claude_output(
+            stdout=stdout,
+            stderr="",
+            return_code=0,
+            execution_time=10.0,
+        )
+        # Should succeed without raising, using fallback parsing
+        assert response.success is True
+        assert response.stdout == stdout
+
 
 class TestRequestBuilder:
     """Test RequestBuilder factory class"""
@@ -435,6 +704,60 @@ class TestRequestBuilder:
         )
         assert request.execution_mode == ExecutionMode.CONTINUATION
         assert request.continue_session is True
+
+    def test_create_agent_request_with_dynamic_agent_type(self):
+        """Test creating agent request with DynamicAgentType"""
+        work_item = {
+            "id": "test-dyn",
+            "type": "custom",
+            "title": "Custom task",
+            "description": "Description",
+            "priority": 3,
+        }
+        dynamic_agent = DynamicAgentType("my-custom-agent")
+        request = RequestBuilder.create_agent_request(work_item, dynamic_agent)
+        assert request.execution_mode == ExecutionMode.AGENT
+        assert isinstance(request.agent_type, DynamicAgentType)
+        assert request.agent_type.value == "my-custom-agent"
+
+    def test_create_agent_request_with_unknown_string_agent(self):
+        """Test creating agent request with unknown string agent name"""
+        work_item = {
+            "id": "test-unknown",
+            "type": "specialized",
+            "title": "Specialized task",
+            "description": "Description",
+            "priority": 2,
+        }
+        request = RequestBuilder.create_agent_request(work_item, "specialized-agent")
+        assert request.execution_mode == ExecutionMode.AGENT
+        # Unknown string should create DynamicAgentType
+        assert isinstance(request.agent_type, DynamicAgentType)
+        assert request.agent_type.value == "specialized-agent"
+
+    def test_create_continuation_request_stores_previous_attempts(self):
+        """Test continuation request stores previous attempts in context"""
+        work_item = {
+            "id": "test-cont",
+            "type": "bug_fix",
+            "title": "Fix bug",
+            "description": "Description",
+            "priority": 4,
+            "source": "github",
+        }
+        previous_response = StructuredResponse(
+            success=False,
+            execution_time=10.0,
+            summary="Failed attempt",
+            error_message="Timeout",
+        )
+        request = RequestBuilder.create_continuation_request(
+            work_item, previous_response
+        )
+        assert request.context is not None
+        assert request.context.previous_attempts is not None
+        assert len(request.context.previous_attempts) == 1
+        assert request.context.previous_attempts[0]["success"] is False
 
 
 class TestClaudeWrapper:
