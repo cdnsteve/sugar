@@ -304,6 +304,124 @@ class TestTaskTypeManager:
         assert task_type["is_default"] == 1
 
     @pytest.mark.asyncio
+    async def test_get_task_type_ids(self, task_type_manager):
+        """
+        Test get_task_type_ids() returns all type IDs for CLI validation.
+
+        This helper is used by the CLI to populate Click.Choice options.
+        """
+        type_ids = await task_type_manager.get_task_type_ids()
+
+        # Should return all default type IDs
+        expected_defaults = ["bug_fix", "documentation", "feature", "refactor", "test"]
+        assert sorted(type_ids) == expected_defaults
+
+        # Add a custom type and verify it's included
+        await task_type_manager.add_task_type("custom_ids_test", "Custom Type")
+        type_ids = await task_type_manager.get_task_type_ids()
+        assert "custom_ids_test" in type_ids
+
+    @pytest.mark.asyncio
+    async def test_validate_task_type_id_exists(self, task_type_manager):
+        """
+        Test validate_task_type_id() returns True for existing types.
+        """
+        # Default types should validate
+        is_valid = await task_type_manager.validate_task_type_id("feature")
+        assert is_valid is True
+
+        # Custom types should validate after creation
+        await task_type_manager.add_task_type("validation_test", "Validation Test")
+        is_valid = await task_type_manager.validate_task_type_id("validation_test")
+        assert is_valid is True
+
+    @pytest.mark.asyncio
+    async def test_validate_task_type_id_not_exists(self, task_type_manager):
+        """
+        Test validate_task_type_id() returns False for non-existent types.
+        """
+        is_valid = await task_type_manager.validate_task_type_id("nonexistent_type")
+        assert is_valid is False
+
+    @pytest.mark.asyncio
+    async def test_get_agent_for_type_existing(self, task_type_manager):
+        """
+        Test get_agent_for_type() returns configured agent for existing type.
+        """
+        # Default types have general-purpose agent
+        agent = await task_type_manager.get_agent_for_type("feature")
+        assert agent == "general-purpose"
+
+        # Custom type with specific agent
+        await task_type_manager.add_task_type(
+            "agent_test", "Agent Test", agent="tech-lead"
+        )
+        agent = await task_type_manager.get_agent_for_type("agent_test")
+        assert agent == "tech-lead"
+
+    @pytest.mark.asyncio
+    async def test_get_agent_for_type_nonexistent(self, task_type_manager):
+        """
+        Test get_agent_for_type() returns fallback for non-existent type.
+        """
+        agent = await task_type_manager.get_agent_for_type("nonexistent")
+        assert agent == "general-purpose"
+
+    @pytest.mark.asyncio
+    async def test_get_commit_template_for_type_existing(self, task_type_manager):
+        """
+        Test get_commit_template_for_type() returns configured template.
+        """
+        # Create custom type with specific template
+        await task_type_manager.add_task_type(
+            "template_test",
+            "Template Test",
+            commit_template="custom: {title}",
+        )
+        template = await task_type_manager.get_commit_template_for_type("template_test")
+        assert template == "custom: {title}"
+
+    @pytest.mark.asyncio
+    async def test_get_commit_template_for_type_nonexistent(self, task_type_manager):
+        """
+        Test get_commit_template_for_type() returns fallback for non-existent type.
+        """
+        template = await task_type_manager.get_commit_template_for_type("nonexistent")
+        assert template == "nonexistent: {title}"
+
+    @pytest.mark.asyncio
+    async def test_get_file_patterns_for_type_existing(self, task_type_manager):
+        """
+        Test get_file_patterns_for_type() returns configured patterns.
+        """
+        await task_type_manager.add_task_type(
+            "patterns_test",
+            "Patterns Test",
+            file_patterns=["*.py", "tests/**/*.py"],
+        )
+        patterns = await task_type_manager.get_file_patterns_for_type("patterns_test")
+        assert patterns == ["*.py", "tests/**/*.py"]
+
+    @pytest.mark.asyncio
+    async def test_get_file_patterns_for_type_nonexistent(self, task_type_manager):
+        """
+        Test get_file_patterns_for_type() returns empty list for non-existent type.
+        """
+        patterns = await task_type_manager.get_file_patterns_for_type("nonexistent")
+        assert patterns == []
+
+    @pytest.mark.asyncio
+    async def test_update_task_type_no_updates(self, task_type_manager):
+        """
+        Test update_task_type() returns False when no fields are provided.
+        """
+        await task_type_manager.add_task_type("no_update_test", "No Update Test")
+
+        # Call update with no actual update parameters
+        success = await task_type_manager.update_task_type("no_update_test")
+        assert success is False
+
+    @pytest.mark.asyncio
     async def test_export_import_task_types(self, task_type_manager):
         """
         Test export/import round-trip for custom task types.
@@ -340,6 +458,102 @@ class TestTaskTypeManager:
         custom2 = await task_type_manager.get_task_type("custom2")
         assert custom1 is not None
         assert custom2 is not None
+
+    @pytest.mark.asyncio
+    async def test_import_task_types_with_overwrite(self, task_type_manager):
+        """
+        Test import_task_types() with overwrite=True updates existing types.
+
+        When overwrite is True, existing task types should be updated
+        with the new values from the import data.
+        """
+        # Create initial custom type
+        await task_type_manager.add_task_type(
+            "overwrite_test",
+            "Original Name",
+            emoji="🔴",
+            description="Original description",
+        )
+
+        # Import data with updated values
+        import_data = [
+            {
+                "id": "overwrite_test",
+                "name": "Updated Name",
+                "emoji": "🟢",
+                "description": "Updated description",
+            }
+        ]
+
+        # Without overwrite, should skip existing
+        imported_count = await task_type_manager.import_task_types(
+            import_data, overwrite=False
+        )
+        assert imported_count == 0
+
+        task_type = await task_type_manager.get_task_type("overwrite_test")
+        assert task_type["name"] == "Original Name"
+
+        # With overwrite, should update
+        imported_count = await task_type_manager.import_task_types(
+            import_data, overwrite=True
+        )
+        assert imported_count == 1
+
+        task_type = await task_type_manager.get_task_type("overwrite_test")
+        assert task_type["name"] == "Updated Name"
+        assert task_type["emoji"] == "🟢"
+        assert task_type["description"] == "Updated description"
+
+    @pytest.mark.asyncio
+    async def test_import_task_types_skips_entries_without_id(self, task_type_manager):
+        """
+        Test import_task_types() skips entries that don't have an ID field.
+
+        Invalid entries should be skipped without raising errors.
+        """
+        import_data = [
+            {"name": "No ID Type", "description": "This has no ID"},  # Missing id
+            {"id": "valid_import", "name": "Valid Import"},  # Valid
+        ]
+
+        imported_count = await task_type_manager.import_task_types(import_data)
+        assert imported_count == 1
+
+        # Only the valid entry should exist
+        assert await task_type_manager.get_task_type("valid_import") is not None
+
+    @pytest.mark.asyncio
+    async def test_cannot_remove_task_type_with_active_tasks(self, task_type_manager):
+        """
+        Test remove_task_type() fails when there are active tasks of that type.
+
+        Task types with pending/in_progress work items cannot be deleted.
+        """
+        from sugar.storage.work_queue import WorkQueue
+
+        # Create a removable custom task type
+        await task_type_manager.add_task_type("active_tasks_test", "Active Tasks Test")
+
+        # Create a task with this type via WorkQueue
+        work_queue = WorkQueue(task_type_manager.db_path)
+        await work_queue.initialize()
+        await work_queue.add_work(
+            {
+                "type": "active_tasks_test",
+                "title": "Test task",
+                "description": "A test task",
+                "priority": 3,
+            }
+        )
+
+        # Try to remove - should fail due to active task
+        success = await task_type_manager.remove_task_type("active_tasks_test")
+        assert success is False
+
+        # Verify task type still exists
+        task_type = await task_type_manager.get_task_type("active_tasks_test")
+        assert task_type is not None
 
 
 class TestTaskTypeCLI:
