@@ -2,10 +2,9 @@
 Code Quality Scanner - Discover improvement opportunities in the codebase
 """
 
-import asyncio
 import os
 import logging
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import List, Dict, Any, Set
 from pathlib import Path
 import ast
@@ -135,12 +134,20 @@ class CodeQualityScanner:
         return files
 
     def _path_contains_excluded_dir(self, path: str) -> bool:
-        """Check if a path contains any excluded directory"""
+        """Check if a path contains any excluded directory.
+
+        Args:
+            path: A path relative to self.root_path to check
+
+        Returns:
+            True if the path contains an excluded directory or is outside project bounds
+        """
         if path == "." or path == "":
             return False
 
         # Security check: Ensure path stays within project boundaries
-        abs_path = os.path.abspath(path)
+        # The input path is relative to root_path, so join them first
+        abs_path = os.path.normpath(os.path.join(self.root_path, path))
         if not abs_path.startswith(self.root_path):
             logger.warning(f"Path '{path}' is outside project directory, excluding")
             return True
@@ -177,7 +184,15 @@ class CodeQualityScanner:
     async def _analyze_python_file(
         self, file_path: str, content: str
     ) -> List[Dict[str, Any]]:
-        """Analyze Python file for quality issues"""
+        """Analyze Python file for quality issues.
+
+        Checks for:
+        - Missing docstrings on functions and classes
+        - Functions exceeding 50 lines
+        - Syntax errors
+        - TODO/FIXME comments
+        - Long lines (>120 chars)
+        """
         issues = []
         lines = content.split("\n")
 
@@ -185,23 +200,33 @@ class CodeQualityScanner:
             # Parse AST for structural analysis
             tree = ast.parse(content)
 
-            # Check for missing docstrings
+            # Single pass over AST for both docstring and function length checks
             for node in ast.walk(tree):
-                if isinstance(node, (ast.FunctionDef, ast.ClassDef)):
+                if isinstance(node, ast.ClassDef):
+                    # Check for missing class docstring
                     if not ast.get_docstring(node):
                         issues.append(
                             {
                                 "type": "missing_docstring",
                                 "severity": "low",
                                 "line": node.lineno,
-                                "description": f"{node.__class__.__name__} '{node.name}' missing docstring",
+                                "description": f"ClassDef '{node.name}' missing docstring",
                                 "suggestion": f"Add docstring to {node.name}",
                             }
                         )
-
-            # Check for long functions
-            for node in ast.walk(tree):
-                if isinstance(node, ast.FunctionDef):
+                elif isinstance(node, ast.FunctionDef):
+                    # Check for missing function docstring
+                    if not ast.get_docstring(node):
+                        issues.append(
+                            {
+                                "type": "missing_docstring",
+                                "severity": "low",
+                                "line": node.lineno,
+                                "description": f"FunctionDef '{node.name}' missing docstring",
+                                "suggestion": f"Add docstring to {node.name}",
+                            }
+                        )
+                    # Check for long functions
                     func_lines = getattr(node, "end_lineno", node.lineno) - node.lineno
                     if func_lines > 50:
                         issues.append(
@@ -386,7 +411,7 @@ class CodeQualityScanner:
             "source_file": file_path,
             "context": {
                 "quality_issue": issue,
-                "discovered_at": datetime.utcnow().isoformat(),
+                "discovered_at": datetime.now(timezone.utc).isoformat(),
                 "source_type": "code_quality",
             },
         }
