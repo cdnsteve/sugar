@@ -31,11 +31,20 @@ Sugar is a premier Claude Code plugin that brings true autonomous development to
 
 ### Installation
 
-Install the Sugar plugin via Claude Code:
+Install the Sugar plugin via Claude Code using one of these methods:
 
+**Option 1: Direct Repository Installation (Recommended)**
 ```
+/plugin install cdnsteve/sugar
+```
+
+**Option 2: Register Sugar Marketplace First**
+```
+/plugin marketplace add cdnsteve/sugar
 /plugin install sugar
 ```
+
+**Note**: The plugin is available from the `cdnsteve/sugar` GitHub repository. If you get "Plugin not found in any marketplace", use the direct installation method above.
 
 ### Basic Usage
 
@@ -163,6 +172,6 @@ MIT License - see [LICENSE](https://github.com/cdnsteve/sugar/blob/main/LICENSE)
 
 ---
 
-**Sugar 🍰 v1.9.1** - Transform any project into an autonomous development environment.
+**Sugar 🍰 v2.1.0** - Transform any project into an autonomous development environment.
 
 ⚠️ **Disclaimer**: Sugar is an independent third-party tool. "Claude," "Claude Code," and related marks are trademarks of Anthropic, Inc. Sugar is not affiliated with, endorsed by, or sponsored by Anthropic, Inc.

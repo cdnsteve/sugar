@@ -211,8 +211,10 @@ discovery:
 ### Install the Plugin
 
 ```
-/plugin install sugar@cdnsteve
+/plugin install cdnsteve/sugar
 ```
+
+> **Note**: If you see "Plugin not found in any marketplace", make sure you're using `cdnsteve/sugar` (the GitHub repository path).
 
 ### Delegate Work from Claude
 
