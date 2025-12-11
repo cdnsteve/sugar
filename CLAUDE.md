@@ -31,3 +31,18 @@ black .
 
 - Make sure to run Black formatting tests before committing work
 - Both uv and venv workflows are supported - use whichever you prefer
+
+## Release Process
+
+See [docs/dev/release-process.md](docs/dev/release-process.md) for full details.
+
+**Quick Patch Release (e.g., v2.1.0 → v2.1.1):**
+```bash
+# 1. Update versions in: pyproject.toml, .claude-plugin/plugin.json
+# 2. Update CHANGELOG.md
+# 3. Commit, tag, push:
+git add -A && git commit -m "chore: Release vX.Y.Z"
+git tag vX.Y.Z && git push && git push --tags
+# 4. Create GitHub release:
+gh release create vX.Y.Z --title "vX.Y.Z" --notes "Release notes"
+```

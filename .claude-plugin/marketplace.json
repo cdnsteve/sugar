@@ -11,7 +11,7 @@
     {
       "name": "sugar",
       "description": "Transform Claude Code into an autonomous AI development powerhouse with persistent task management, intelligent agents, and automatic work discovery",
-      "version": "2.1.0",
+      "version": "2.1.1",
       "author": {
         "name": "Steven Leggett",
         "email": "contact@roboticforce.io"
