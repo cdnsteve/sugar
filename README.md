@@ -260,25 +260,38 @@ Task created! You can check progress with /sugar-status
 
 ### MCP Server Integration
 
-Sugar includes an MCP server for advanced integration:
+Sugar provides an MCP server for integration with Goose, Claude Desktop, and other MCP clients.
 
+**Using with Goose:**
+```bash
+# Via Goose CLI
+goose configure
+# Select "Add Extension" → "Command-line Extension"
+# Name: sugar
+# Command: npx -y sugarai-mcp
+```
+
+**Using with Claude Desktop:**
 ```json
-// In your Claude Code MCP settings
 {
   "mcpServers": {
     "sugar": {
-      "command": "sugar",
-      "args": ["mcp"]
+      "command": "npx",
+      "args": ["-y", "sugarai-mcp"],
+      "env": {
+        "SUGAR_PROJECT_ROOT": "/path/to/your/project"
+      }
     }
   }
 }
 ```
 
-Enables:
-- Real-time task queue access
-- Direct task manipulation from prompts
-- System status monitoring
-- Seamless tool integration
+**Available MCP Tools:**
+- `createTask` - Create development tasks
+- `listTasks` - List/filter tasks
+- `viewTask` / `updateTask` / `removeTask` - Manage tasks
+- `getStatus` - Get system metrics
+- `runOnce` - Execute one autonomous cycle
 
 ## Requirements
 
