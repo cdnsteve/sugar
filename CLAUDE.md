@@ -46,3 +46,8 @@ git tag vX.Y.Z && git push && git push --tags
 # 4. Create GitHub release:
 gh release create vX.Y.Z --title "vX.Y.Z" --notes "Release notes"
 ```
+
+**MCP Server (npm):** If MCP server changed, also publish:
+```bash
+cd packages/mcp-server && npm login && npm publish
+```

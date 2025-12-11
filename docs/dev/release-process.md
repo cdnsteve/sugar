@@ -144,7 +144,9 @@ gh release create vX.Y.Z \
 - [ ] Verify tag appears in repository
 - [ ] Test installation: `pip install sugarai==X.Y.Z` (after PyPI publish)
 
-## PyPI Publishing (if applicable)
+## Package Publishing
+
+### PyPI (Python package)
 
 If publishing to PyPI:
 
@@ -155,6 +157,21 @@ python -m build
 # Upload to PyPI
 python -m twine upload dist/*
 ```
+
+### npm (MCP server)
+
+When releasing changes to the MCP server (`packages/mcp-server`):
+
+```bash
+cd packages/mcp-server
+
+# Update version in package.json
+# Then publish (requires npm login with 2FA)
+npm login
+npm publish
+```
+
+**Version sync:** Keep `packages/mcp-server/package.json` version aligned with major Sugar releases when MCP functionality changes.
 
 ## Rollback
 
