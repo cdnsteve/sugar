@@ -1,0 +1,23 @@
+{
+  "$schema": "https://anthropic.com/claude-code/marketplace.schema.json",
+  "name": "sugar-plugins",
+  "version": "1.0.0",
+  "description": "Sugar - AI-powered autonomous development system for complex, multi-step development tasks",
+  "owner": {
+    "name": "Steven Leggett",
+    "email": "contact@roboticforce.io"
+  },
+  "plugins": [
+    {
+      "name": "sugar",
+      "description": "Transform Claude Code into an autonomous AI development powerhouse with persistent task management, intelligent agents, and automatic work discovery",
+      "version": "2.1.0",
+      "author": {
+        "name": "Steven Leggett",
+        "email": "contact@roboticforce.io"
+      },
+      "source": ".",
+      "category": "development"
+    }
+  ]
+}
