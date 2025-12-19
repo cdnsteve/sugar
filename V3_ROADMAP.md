@@ -1,6 +1,6 @@
 # Sugar 3.0 Roadmap
 
-**Status:** Phase 5 Complete
+**Status:** Testing Complete - Ready for v3.0.0 Release
 **Branch:** `feature/agent-sdk-foundation`
 **Last Updated:** December 2025
 
@@ -62,13 +62,30 @@ Sugar 3.0 is a major re-platform from CLI subprocess wrapper to **Claude Agent S
 
 ### Phase 5: Documentation
 - [x] Update V3_ROADMAP.md
+- [x] Update README.md for v3.0
+- [x] Update docs/README.md version
+
+### Phase 6: Testing
+- [x] Create test fixtures in conftest.py
+- [x] Test billing module (35 tests)
+  - [x] UsageRecord, UsageTracker
+  - [x] APIKey, APIKeyManager
+  - [x] PricingTier, TierManager
+- [x] Test profiles module (37 tests)
+  - [x] ProfileConfig, BaseProfile
+  - [x] DefaultProfile
+  - [x] IssueResponderProfile, IssueAnalysis, IssueResponse
+- [x] Test agent hooks (43 tests)
+  - [x] QualityGateHooks security checks
+  - [x] Hook factories (preflight, audit, security)
+- [x] Fix datetime.utcnow() deprecation warnings
+- [x] All 115 new tests passing
 
 ---
 
 ## Next Steps (Post-v3.0.0)
 
 - [ ] Wire up new executor in CLI
-- [ ] Integration tests for all new modules
 - [ ] Publish to PyPI as v3.0.0
 - [ ] Publish GitHub Action to Marketplace
 - [ ] Deploy MCP SaaS infrastructure
@@ -116,6 +133,11 @@ sugar/
 │   ├── action.yml
 │   ├── Dockerfile
 │   └── entrypoint.py
+├── tests/                         # ✅ Test suite
+│   ├── test_billing.py            # 35 billing tests
+│   ├── test_profiles.py           # 37 profile tests
+│   ├── test_hooks.py              # 43 hook tests
+│   └── conftest.py                # Test fixtures
 ├── mcp.Dockerfile                 # ✅ MCP Server container
 ├── pyproject.toml                 # ✅ Updated deps
 ├── requirements.txt               # ✅ Updated deps
