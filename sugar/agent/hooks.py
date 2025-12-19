@@ -6,7 +6,7 @@ PreToolUse and PostToolUse hook points.
 """
 
 import logging
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Any, Callable, Dict, List, Optional
 
 logger = logging.getLogger(__name__)
@@ -94,7 +94,7 @@ class QualityGateHooks:
                     "tool": tool_name,
                     "file": file_path,
                     "reason": "Protected file access blocked",
-                    "timestamp": datetime.utcnow().isoformat(),
+                    "timestamp": datetime.now(timezone.utc).isoformat(),
                 }
                 self._security_violations.append(violation)
                 self._blocked_operations.append(violation)
@@ -120,7 +120,7 @@ class QualityGateHooks:
                     "tool": tool_name,
                     "command": command,
                     "reason": "Dangerous command blocked",
-                    "timestamp": datetime.utcnow().isoformat(),
+                    "timestamp": datetime.now(timezone.utc).isoformat(),
                 }
                 self._security_violations.append(violation)
                 self._blocked_operations.append(violation)
@@ -143,7 +143,7 @@ class QualityGateHooks:
             "tool_use_id": tool_use_id,
             "tool_name": tool_name,
             "tool_input": tool_input,
-            "started_at": datetime.utcnow().isoformat(),
+            "started_at": datetime.now(timezone.utc).isoformat(),
             "completed": False,
         })
 
@@ -178,7 +178,7 @@ class QualityGateHooks:
         for execution in self._tool_executions:
             if execution.get("tool_use_id") == tool_use_id and not execution.get("completed"):
                 execution["completed"] = True
-                execution["completed_at"] = datetime.utcnow().isoformat()
+                execution["completed_at"] = datetime.now(timezone.utc).isoformat()
                 execution["response"] = tool_response
                 break
 

@@ -10,7 +10,7 @@ Tracks API usage per customer for billing purposes:
 import asyncio
 import logging
 from dataclasses import dataclass, field
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from typing import Any, Dict, List, Optional
 import json
 import os
@@ -143,7 +143,7 @@ class UsageTracker:
         record = UsageRecord(
             customer_id=customer_id,
             action=action,
-            timestamp=datetime.utcnow(),
+            timestamp=datetime.now(timezone.utc),
             tokens_input=tokens_input,
             tokens_output=tokens_output,
             issue_number=issue_number,
@@ -205,7 +205,7 @@ class UsageTracker:
             Usage summary for the period
         """
         if period_end is None:
-            period_end = datetime.utcnow()
+            period_end = datetime.now(timezone.utc)
         if period_start is None:
             period_start = period_end - timedelta(days=30)
 
@@ -276,8 +276,8 @@ class UsageTracker:
             Tuple of (has_quota, remaining_quota)
         """
         # Get current month's usage
-        now = datetime.utcnow()
-        period_start = datetime(now.year, now.month, 1)
+        now = datetime.now(timezone.utc)
+        period_start = datetime(now.year, now.month, 1, tzinfo=timezone.utc)
 
         summary = await self.get_customer_usage(
             customer_id,

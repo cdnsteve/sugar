@@ -13,7 +13,7 @@ import logging
 import os
 import secrets
 from dataclasses import dataclass, field
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from typing import Any, Dict, List, Optional
 import json
 
@@ -71,7 +71,7 @@ class APIKey:
         """Check if the key is expired"""
         if self.expires_at is None:
             return False
-        return datetime.utcnow() > self.expires_at
+        return datetime.now(timezone.utc) > self.expires_at
 
     def has_scope(self, scope: str) -> bool:
         """Check if the key has a specific scope"""
@@ -173,14 +173,14 @@ class APIKeyManager:
         # Calculate expiration
         expires_at = None
         if expires_in_days:
-            expires_at = datetime.utcnow() + timedelta(days=expires_in_days)
+            expires_at = datetime.now(timezone.utc) + timedelta(days=expires_in_days)
 
         api_key = APIKey(
             key_id=key_id,
             key_hash=key_hash,
             customer_id=customer_id,
             name=name,
-            created_at=datetime.utcnow(),
+            created_at=datetime.now(timezone.utc),
             expires_at=expires_at,
             scopes=scopes or ["*"],
             rate_limit=rate_limit,
@@ -226,7 +226,7 @@ class APIKeyManager:
                     return None
 
                 # Update last used timestamp
-                key.last_used_at = datetime.utcnow()
+                key.last_used_at = datetime.now(timezone.utc)
                 self._save_key(key)
 
                 return key
@@ -243,7 +243,7 @@ class APIKeyManager:
         Returns:
             RateLimitInfo with current limits
         """
-        now = datetime.utcnow()
+        now = datetime.now(timezone.utc)
         cache_key = key.key_id
 
         # Get or initialize rate limit info

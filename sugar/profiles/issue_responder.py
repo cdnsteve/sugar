@@ -164,7 +164,12 @@ Only auto-post responses with confidence >= 0.8.
         issue_number = issue.get("number", 0)
         title = issue.get("title", "")
         body = issue.get("body", "")
-        labels = issue.get("labels", [])
+        raw_labels = issue.get("labels", [])
+        # Handle labels as either strings or dicts with 'name' key
+        labels = [
+            l.get("name", str(l)) if isinstance(l, dict) else str(l)
+            for l in raw_labels
+        ]
         author = issue.get("user", {}).get("login", "unknown")
 
         # Pre-analyze the issue
