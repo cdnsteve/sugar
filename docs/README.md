@@ -38,14 +38,14 @@ Documentation for developers who want to **contribute** to Sugar:
 
 ## 📖 External Resources
 
-- **[GitHub Repository](https://github.com/cdnsteve/sugar)** - Source code and issue tracking
+- **[GitHub Repository](https://github.com/roboticforce/sugar)** - Source code and issue tracking
 - **[Claude Code CLI Documentation](https://docs.anthropic.com/claude-code)** - Required dependency
 - **[PyPI Package](https://pypi.org/project/sugar/)** - Package distribution (coming soon)
 
 ## 💬 Getting Help
 
-- **Issues**: Report bugs or request features on [GitHub Issues](https://github.com/cdnsteve/sugar/issues)
-- **Discussions**: Ask questions on [GitHub Discussions](https://github.com/cdnsteve/sugar/discussions)
+- **Issues**: Report bugs or request features on [GitHub Issues](https://github.com/roboticforce/sugar/issues)
+- **Discussions**: Ask questions on [GitHub Discussions](https://github.com/roboticforce/sugar/discussions)
 - **Contact**: Reach out to [contact@roboticforce.io](mailto:contact@roboticforce.io)
 
 ---

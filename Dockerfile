@@ -77,7 +77,7 @@ ENV SUGAR_VERSION=${VERSION}
 
 LABEL org.opencontainers.image.title="Sugar 🍰" \
       org.opencontainers.image.description="Sugar 🍰 - AI-powered autonomous development system with Claude agent integration" \
-      org.opencontainers.image.url="https://github.com/cdnsteve/sugar" \
-      org.opencontainers.image.source="https://github.com/cdnsteve/sugar" \
+      org.opencontainers.image.url="https://github.com/roboticforce/sugar" \
+      org.opencontainers.image.source="https://github.com/roboticforce/sugar" \
       org.opencontainers.image.version="${VERSION}" \
       org.opencontainers.image.authors="Steven Leggett <contact@roboticforce.io>"

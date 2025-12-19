@@ -1,6 +1,6 @@
 # sugarai-mcp
 
-MCP server for [Sugar](https://github.com/cdnsteve/sugar) - autonomous AI development system.
+MCP server for [Sugar](https://github.com/roboticforce/sugar) - autonomous AI development system.
 
 ## What is Sugar?
 
@@ -100,7 +100,7 @@ Run one Sugar development cycle to work on the highest priority task
 
 ```bash
 # Clone the repo
-git clone https://github.com/cdnsteve/sugar.git
+git clone https://github.com/roboticforce/sugar.git
 cd sugar/packages/mcp-server
 
 # Install dependencies

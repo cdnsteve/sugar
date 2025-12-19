@@ -30,7 +30,7 @@ claude --version
 
 ```bash
 # Clone the repository
-git clone https://github.com/cdnsteve/sugar.git
+git clone https://github.com/roboticforce/sugar.git
 cd sugar
 
 # Install Sugar

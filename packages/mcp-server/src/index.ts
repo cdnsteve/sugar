@@ -6,7 +6,7 @@
  * MCP server for Sugar - autonomous AI development system.
  * Exposes Sugar CLI functionality as MCP tools for use with Goose, Claude, and other MCP clients.
  *
- * @see https://github.com/cdnsteve/sugar
+ * @see https://github.com/roboticforce/sugar
  * @see https://modelcontextprotocol.io
  */
 

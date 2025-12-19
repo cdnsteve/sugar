@@ -43,7 +43,7 @@ Create a marketplace JSON file for hosting:
   "owner": {
     "name": "Steven Leggett",
     "email": "contact@roboticforce.io",
-    "website": "https://github.com/cdnsteve/sugar"
+    "website": "https://github.com/roboticforce/sugar"
   },
   "plugins": [
     {
@@ -57,12 +57,12 @@ Create a marketplace JSON file for hosting:
       },
       "source": {
         "type": "git",
-        "url": "https://github.com/cdnsteve/sugar.git",
+        "url": "https://github.com/roboticforce/sugar.git",
         "subdirectory": ".claude-plugin"
       },
-      "homepage": "https://github.com/cdnsteve/sugar",
-      "repository": "https://github.com/cdnsteve/sugar",
-      "documentation": "https://github.com/cdnsteve/sugar/blob/main/.claude-plugin/README.md",
+      "homepage": "https://github.com/roboticforce/sugar",
+      "repository": "https://github.com/roboticforce/sugar",
+      "documentation": "https://github.com/roboticforce/sugar/blob/main/.claude-plugin/README.md",
       "license": "MIT",
       "keywords": [
         "autonomous",
@@ -97,9 +97,9 @@ Create a marketplace JSON file for hosting:
         "mcp": true
       },
       "screenshots": [
-        "https://raw.githubusercontent.com/cdnsteve/sugar/main/docs/screenshots/task-creation.png",
-        "https://raw.githubusercontent.com/cdnsteve/sugar/main/docs/screenshots/status-view.png",
-        "https://raw.githubusercontent.com/cdnsteve/sugar/main/docs/screenshots/autonomous-mode.png"
+        "https://raw.githubusercontent.com/roboticforce/sugar/main/docs/screenshots/task-creation.png",
+        "https://raw.githubusercontent.com/roboticforce/sugar/main/docs/screenshots/status-view.png",
+        "https://raw.githubusercontent.com/roboticforce/sugar/main/docs/screenshots/autonomous-mode.png"
       ],
       "featured": true,
       "tags": [
@@ -164,7 +164,7 @@ Plugin Details:
 - Name: Sugar - Autonomous Development
 - Category: Development Tools
 - Type: Premier Plugin
-- Repository: https://github.com/cdnsteve/sugar
+- Repository: https://github.com/roboticforce/sugar
 - Marketplace: https://github.com/cdnsteve/claude-plugins
 
 Key Features:
@@ -413,7 +413,7 @@ Track these metrics:
 For marketplace submission support:
 - **Primary**: contact@roboticforce.io
 - **GitHub**: @cdnsteve
-- **Website**: https://github.com/cdnsteve/sugar
+- **Website**: https://github.com/roboticforce/sugar
 
 ## Next Steps
 

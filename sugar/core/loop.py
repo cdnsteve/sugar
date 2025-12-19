@@ -607,7 +607,7 @@ class SugarLoop:
         # Execution details in compact format
         exec_time = result.get("execution_time", 0)
         lines.append(
-            f"*Completed in {exec_time:.1f}s by [Sugar AI](https://github.com/cdnsteve/sugar)*"
+            f"*Completed in {exec_time:.1f}s by [Sugar AI](https://github.com/roboticforce/sugar)*"
         )
 
         return "\n".join(lines)

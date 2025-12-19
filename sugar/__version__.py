@@ -33,7 +33,7 @@ __title__ = "Sugar ✨ 🍰 ✨ "
 __description__ = "Autonomous development assistant"
 __author__ = "Steven Leggett"
 __author_email__ = "contact@roboticforce.io"
-__url__ = "https://github.com/cdnsteve/sugar"
+__url__ = "https://github.com/roboticforce/sugar"
 
 
 def get_version_info() -> str:

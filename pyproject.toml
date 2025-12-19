@@ -63,10 +63,10 @@ test = [
 sugar = "sugar.main:cli"
 
 [project.urls]
-Homepage = "https://github.com/cdnsteve/sugar"
+Homepage = "https://github.com/roboticforce/sugar"
 Documentation = "https://docs.roboticforce.io/sugar"
-Repository = "https://github.com/cdnsteve/sugar"
-"Bug Tracker" = "https://github.com/cdnsteve/sugar/issues"
+Repository = "https://github.com/roboticforce/sugar"
+"Bug Tracker" = "https://github.com/roboticforce/sugar/issues"
 
 [tool.setuptools.packages.find]
 where = ["."]

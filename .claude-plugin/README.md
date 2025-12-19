@@ -35,16 +35,16 @@ Install the Sugar plugin via Claude Code using one of these methods:
 
 **Option 1: Direct Repository Installation (Recommended)**
 ```
-/plugin install cdnsteve/sugar
+/plugin install roboticforce/sugar
 ```
 
 **Option 2: Register Sugar Marketplace First**
 ```
-/plugin marketplace add cdnsteve/sugar
+/plugin marketplace add roboticforce/sugar
 /plugin install sugar
 ```
 
-**Note**: The plugin is available from the `cdnsteve/sugar` GitHub repository. If you get "Plugin not found in any marketplace", use the direct installation method above.
+**Note**: The plugin is available from the `roboticforce/sugar` GitHub repository. If you get "Plugin not found in any marketplace", use the direct installation method above.
 
 ### Basic Usage
 
@@ -155,20 +155,20 @@ sugar:
 
 ## Documentation
 
-- [Complete Documentation](https://github.com/cdnsteve/sugar/tree/main/docs)
-- [Quick Start Guide](https://github.com/cdnsteve/sugar/blob/main/docs/user/quick-start.md)
-- [CLI Reference](https://github.com/cdnsteve/sugar/blob/main/docs/user/cli-reference.md)
-- [GitHub Integration](https://github.com/cdnsteve/sugar/blob/main/docs/user/github-integration.md)
+- [Complete Documentation](https://github.com/roboticforce/sugar/tree/main/docs)
+- [Quick Start Guide](https://github.com/roboticforce/sugar/blob/main/docs/user/quick-start.md)
+- [CLI Reference](https://github.com/roboticforce/sugar/blob/main/docs/user/cli-reference.md)
+- [GitHub Integration](https://github.com/roboticforce/sugar/blob/main/docs/user/github-integration.md)
 
 ## Support
 
-- **Issues**: [GitHub Issues](https://github.com/cdnsteve/sugar/issues)
-- **Discussions**: [GitHub Discussions](https://github.com/cdnsteve/sugar/discussions)
+- **Issues**: [GitHub Issues](https://github.com/roboticforce/sugar/issues)
+- **Discussions**: [GitHub Discussions](https://github.com/roboticforce/sugar/discussions)
 - **Documentation**: [docs.roboticforce.io/sugar](https://docs.roboticforce.io/sugar)
 
 ## License
 
-MIT License - see [LICENSE](https://github.com/cdnsteve/sugar/blob/main/LICENSE)
+MIT License - see [LICENSE](https://github.com/roboticforce/sugar/blob/main/LICENSE)
 
 ---
 

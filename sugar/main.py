@@ -1298,7 +1298,7 @@ Complete documentation: docs/README.md
 🆘 NEED HELP?
 --------------
 • Check troubleshooting guide: docs/user/troubleshooting.md
-• GitHub Issues: https://github.com/cdnsteve/sugar/issues
+• GitHub Issues: https://github.com/roboticforce/sugar/issues
 • Email: contact@roboticforce.io
 
 💡 TIPS

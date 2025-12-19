@@ -35,7 +35,7 @@ Fixes two bugs reported by users affecting Claude Code plugin installation and l
 ### Fixed
 
 - **hooks.json format** - Convert hooks configuration from array to object format as required by Claude Code specification. Fixes plugin loading error: "Expected object, received array" (#12)
-- **Plugin marketplace discovery** - Add proper `marketplace.json` with Claude Code schema and correct installation instructions. Users can now install with `/plugin install cdnsteve/sugar` (#8)
+- **Plugin marketplace discovery** - Add proper `marketplace.json` with Claude Code schema and correct installation instructions. Users can now install with `/plugin install roboticforce/sugar` (#8)
 
 ### Added
 

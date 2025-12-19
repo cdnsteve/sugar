@@ -473,8 +473,8 @@ Before moving to next phase:
 - GitHub Actions: https://github.com/features/actions
 
 ### Community
-- GitHub Issues: https://github.com/cdnsteve/sugar/issues
-- Discussions: https://github.com/cdnsteve/sugar/discussions
+- GitHub Issues: https://github.com/roboticforce/sugar/issues
+- Discussions: https://github.com/roboticforce/sugar/discussions
 - Email: contact@roboticforce.io
 
 ---

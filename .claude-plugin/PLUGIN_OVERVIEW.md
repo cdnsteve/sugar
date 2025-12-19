@@ -407,9 +407,9 @@ See `TESTING_PLAN.md` for complete details.
 - [Plugin Marketplaces](https://docs.claude.com/en/docs/claude-code/plugin-marketplaces)
 
 ### Repository
-- **Main Repo**: https://github.com/cdnsteve/sugar
+- **Main Repo**: https://github.com/roboticforce/sugar
 - **Plugin Branch**: feature/claude-code-plugin
-- **Issues**: https://github.com/cdnsteve/sugar/issues
+- **Issues**: https://github.com/roboticforce/sugar/issues
 
 ### Contact
 - **Email**: contact@roboticforce.io

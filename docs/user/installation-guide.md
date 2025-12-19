@@ -46,14 +46,14 @@ pip install sugarai
 
 ```bash
 # Clone or download the sugar package
-git clone https://github.com/cdnsteve/sugar.git
+git clone https://github.com/roboticforce/sugar.git
 
 # Install in development mode (allows for easy updates)
 cd sugar
 pip install -e .
 
 # Or install directly without cloning
-pip install -e git+https://github.com/cdnsteve/sugar.git#egg=sugar
+pip install -e git+https://github.com/roboticforce/sugar.git#egg=sugar
 ```
 
 ## Quick Start
