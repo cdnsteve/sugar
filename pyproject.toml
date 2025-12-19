@@ -32,7 +32,8 @@ dependencies = [
     "sqlalchemy>=2.0.0",
     "python-dotenv>=1.0.0",
     "asyncio-throttle>=1.0.0",
-    "setuptools>=45"
+    "setuptools>=45",
+    "claude-agent-sdk>=0.1.0",
 ]
 
 [project.optional-dependencies]

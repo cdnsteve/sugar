@@ -26,11 +26,15 @@ Sugar 3.0 is a major re-platform from CLI subprocess wrapper to **Claude Agent S
 ## Next Steps
 
 ### Phase 1: Agent SDK Foundation
-- [ ] Add `anthropic` and `anthropic-tools` dependencies
-- [ ] Create new `sugar/agent/` module structure
-- [ ] Implement base `SugarAgent` class using Claude Agent SDK
-- [ ] Port quality gates to SDK hooks (PreToolUse/PostToolUse)
-- [ ] Basic CLI integration
+- [x] Add `claude-agent-sdk` dependency to pyproject.toml
+- [x] Create new `sugar/agent/` module structure
+  - [x] `sugar/agent/__init__.py` - Module exports
+  - [x] `sugar/agent/base.py` - SugarAgent class with SDK integration
+  - [x] `sugar/agent/hooks.py` - Quality gate hooks (PreToolUse/PostToolUse)
+  - [x] `sugar/agent/tools.py` - Custom Sugar tools
+- [x] Create `sugar/executor/base.py` - Abstract executor interface
+- [x] Create `sugar/executor/agent_sdk_executor.py` - SDK-based executor
+- [ ] Basic CLI integration (wire up new executor)
 
 ### Phase 2: Issue Responder Profile
 - [ ] Create `sugar/profiles/issue_responder.py`
@@ -46,19 +50,23 @@ Sugar 3.0 is a major re-platform from CLI subprocess wrapper to **Claude Agent S
 
 ---
 
-## Key Files to Create
+## Key Files Created/To Create
 
 ```
 sugar/
-├── agent/
+├── agent/                     # CREATED
+│   ├── __init__.py            # ✅ Module exports
+│   ├── base.py                # ✅ SugarAgent class with SDK
+│   ├── hooks.py               # ✅ Quality gate hooks
+│   └── tools.py               # ✅ Custom agent tools
+├── executor/
+│   ├── base.py                # ✅ Abstract executor interface
+│   ├── agent_sdk_executor.py  # ✅ SDK-based executor
+│   └── claude_wrapper.py      # Existing (legacy)
+├── profiles/                  # TO CREATE
 │   ├── __init__.py
-│   ├── base.py           # SugarAgent class
-│   ├── hooks.py          # Quality gate hooks
-│   └── tools.py          # Agent tools
-├── profiles/
-│   ├── __init__.py
-│   ├── default.py        # General purpose
-│   └── issue_responder.py # GitHub issues
+│   ├── default.py             # General purpose
+│   └── issue_responder.py     # GitHub issues
 ```
 
 ---
