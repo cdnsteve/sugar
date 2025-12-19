@@ -1815,7 +1815,12 @@ sugar:
     command: "{claude_cmd}"  # Auto-detected Claude CLI path
     timeout: 1800       # 30 minutes max per task
     context_file: ".sugar/context.json"
-    
+
+    # Executor selection (v3.0+)
+    # - "sdk": Use Claude Agent SDK (recommended, native integration)
+    # - "legacy": Use subprocess-based CLI wrapper (backwards compatible)
+    executor: "sdk"
+
     # Structured Claude Agent Integration System (Complete Implementation)
     use_structured_requests: true  # Enable structured JSON communication
     structured_input_file: ".sugar/claude_input.json"  # Temp file for complex inputs

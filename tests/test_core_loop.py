@@ -41,6 +41,7 @@ class TestSugarLoop:
         with (
             patch("sugar.core.loop.WorkQueue"),
             patch("sugar.core.loop.ClaudeWrapper"),
+            patch("sugar.core.loop.AgentSDKExecutor"),
             patch("sugar.core.loop.ErrorLogMonitor"),
             patch("sugar.core.loop.CodeQualityScanner"),
             patch("sugar.core.loop.TestCoverageAnalyzer"),
@@ -57,6 +58,7 @@ class TestSugarLoop:
 
     @patch("sugar.core.loop.WorkQueue")
     @patch("sugar.core.loop.ClaudeWrapper")
+    @patch("sugar.core.loop.AgentSDKExecutor")
     @patch("sugar.core.loop.ErrorLogMonitor")
     @patch("sugar.core.loop.CodeQualityScanner")
     @patch("sugar.core.loop.TestCoverageAnalyzer")
@@ -65,6 +67,7 @@ class TestSugarLoop:
         mock_coverage,
         mock_quality,
         mock_error_monitor,
+        mock_sdk_executor,
         mock_claude,
         mock_queue,
         sugar_config_file,
@@ -79,7 +82,8 @@ class TestSugarLoop:
         mock_quality.assert_called()
         mock_coverage.assert_called()
         mock_queue.assert_called()
-        mock_claude.assert_called()
+        # One of the executors should be called based on config
+        assert mock_sdk_executor.called or mock_claude.called
 
     @pytest.mark.asyncio
     async def test_start_stop_loop(self, sugar_config_file):
@@ -87,6 +91,7 @@ class TestSugarLoop:
         with (
             patch("sugar.core.loop.WorkQueue"),
             patch("sugar.core.loop.ClaudeWrapper"),
+            patch("sugar.core.loop.AgentSDKExecutor"),
             patch("sugar.core.loop.ErrorLogMonitor"),
         ):
 
@@ -120,6 +125,7 @@ class TestSugarLoop:
         with (
             patch("sugar.core.loop.WorkQueue"),
             patch("sugar.core.loop.ClaudeWrapper"),
+            patch("sugar.core.loop.AgentSDKExecutor"),
             patch("sugar.core.loop.ErrorLogMonitor") as mock_error_monitor,
             patch("sugar.core.loop.CodeQualityScanner") as mock_quality,
             patch("sugar.core.loop.TestCoverageAnalyzer") as mock_coverage,
@@ -170,6 +176,7 @@ class TestSugarLoop:
         with (
             patch("sugar.core.loop.WorkQueue"),
             patch("sugar.core.loop.ClaudeWrapper"),
+            patch("sugar.core.loop.AgentSDKExecutor"),
             patch("sugar.core.loop.ErrorLogMonitor"),
             patch("sugar.core.loop.WorkflowOrchestrator"),
         ):
@@ -196,8 +203,8 @@ class TestSugarLoop:
                 return_value={}
             )
             loop.workflow_orchestrator.complete_work_execution = AsyncMock()
-            loop.claude_executor = AsyncMock()
-            loop.claude_executor.execute_work = AsyncMock(
+            loop.executor = AsyncMock()
+            loop.executor.execute_work = AsyncMock(
                 return_value={"success": True, "result": "Task completed successfully"}
             )
 
@@ -205,7 +212,7 @@ class TestSugarLoop:
 
             # Verify workflow was executed once
             loop.workflow_orchestrator.prepare_work_execution.assert_called_once()
-            loop.claude_executor.execute_work.assert_called_once()
+            loop.executor.execute_work.assert_called_once()
             loop.workflow_orchestrator.complete_work_execution.assert_called_once()
 
     @pytest.mark.asyncio
@@ -214,6 +221,7 @@ class TestSugarLoop:
         with (
             patch("sugar.core.loop.WorkQueue"),
             patch("sugar.core.loop.ClaudeWrapper"),
+            patch("sugar.core.loop.AgentSDKExecutor"),
             patch("sugar.core.loop.ErrorLogMonitor"),
             patch("sugar.core.loop.WorkflowOrchestrator"),
         ):
@@ -237,9 +245,9 @@ class TestSugarLoop:
             loop.workflow_orchestrator.prepare_work_execution = AsyncMock(
                 return_value={}
             )
-            loop.claude_executor = AsyncMock()
+            loop.executor = AsyncMock()
             # Make execute_work raise an exception to trigger failure path
-            loop.claude_executor.execute_work = AsyncMock(
+            loop.executor.execute_work = AsyncMock(
                 side_effect=Exception("Claude CLI failed")
             )
             # Mock the failure workflow handler
@@ -256,6 +264,7 @@ class TestSugarLoop:
         with (
             patch("sugar.core.loop.WorkQueue"),
             patch("sugar.core.loop.ClaudeWrapper"),
+            patch("sugar.core.loop.AgentSDKExecutor"),
             patch("sugar.core.loop.ErrorLogMonitor"),
             patch("sugar.core.loop.WorkflowOrchestrator"),
         ):
@@ -279,8 +288,8 @@ class TestSugarLoop:
                 return_value={}
             )
             loop.workflow_orchestrator.complete_work_execution = AsyncMock()
-            loop.claude_executor = AsyncMock()
-            loop.claude_executor.execute_work = AsyncMock(
+            loop.executor = AsyncMock()
+            loop.executor.execute_work = AsyncMock(
                 return_value={"success": True, "result": "Task completed"}
             )
 
@@ -288,7 +297,7 @@ class TestSugarLoop:
 
             # Should execute one task successfully
             loop.workflow_orchestrator.prepare_work_execution.assert_called_once()
-            loop.claude_executor.execute_work.assert_called_once()
+            loop.executor.execute_work.assert_called_once()
             loop.workflow_orchestrator.complete_work_execution.assert_called_once()
 
     def test_load_config_invalid_yaml(self, temp_dir):
@@ -305,6 +314,7 @@ class TestSugarLoop:
         with (
             patch("sugar.core.loop.WorkQueue"),
             patch("sugar.core.loop.ClaudeWrapper"),
+            patch("sugar.core.loop.AgentSDKExecutor"),
             patch("sugar.core.loop.ErrorLogMonitor"),
             patch("sugar.core.loop.FeedbackProcessor") as mock_feedback,
             patch("sugar.core.loop.AdaptiveScheduler") as mock_scheduler,

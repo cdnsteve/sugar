@@ -14,6 +14,7 @@ from ..discovery.github_watcher import GitHubWatcher
 from ..discovery.code_quality import CodeQualityScanner
 from ..discovery.test_coverage import TestCoverageAnalyzer
 from ..executor.claude_wrapper import ClaudeWrapper
+from ..executor.agent_sdk_executor import AgentSDKExecutor
 from ..storage.work_queue import WorkQueue
 from ..learning.feedback_processor import FeedbackProcessor
 from ..learning.adaptive_scheduler import AdaptiveScheduler
@@ -31,11 +32,9 @@ class SugarLoop:
         self.config = self._load_config(config_path)
         self.running = False
         self.work_queue = WorkQueue(self.config["sugar"]["storage"]["database"])
-        # Pass the full config so ClaudeWrapper can access dry_run setting
-        claude_config = self.config["sugar"]["claude"].copy()
-        claude_config["dry_run"] = self.config["sugar"]["dry_run"]
-        claude_config["database_path"] = self.config["sugar"]["storage"]["database"]
-        self.claude_executor = ClaudeWrapper(claude_config)
+
+        # Initialize executor based on config
+        self.executor = self._create_executor()
 
         # Initialize learning components
         self.feedback_processor = FeedbackProcessor(self.work_queue)
@@ -99,6 +98,25 @@ class SugarLoop:
         except yaml.YAMLError as e:
             logger.error(f"Invalid YAML config: {e}")
             raise
+
+    def _create_executor(self):
+        """Create the appropriate executor based on configuration"""
+        claude_config = self.config["sugar"]["claude"].copy()
+        claude_config["dry_run"] = self.config["sugar"]["dry_run"]
+        claude_config["database_path"] = self.config["sugar"]["storage"]["database"]
+
+        # Check which executor to use (default to sdk for v3.0+)
+        executor_type = claude_config.get("executor", "sdk")
+
+        if executor_type == "sdk":
+            logger.info("🚀 Using Agent SDK executor (v3.0)")
+            return AgentSDKExecutor(claude_config)
+        elif executor_type == "legacy":
+            logger.info("📦 Using legacy Claude wrapper executor")
+            return ClaudeWrapper(claude_config)
+        else:
+            logger.warning(f"Unknown executor type '{executor_type}', defaulting to SDK")
+            return AgentSDKExecutor(claude_config)
 
     async def start(self):
         """Start the autonomous loop"""
@@ -312,7 +330,7 @@ class SugarLoop:
 
             try:
                 # Execute with Claude Code
-                result = await self.claude_executor.execute_work(work_item)
+                result = await self.executor.execute_work(work_item)
 
                 # Calculate execution time
                 execution_time = (datetime.utcnow() - start_time).total_seconds()
