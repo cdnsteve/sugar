@@ -456,6 +456,12 @@ def add(
     help="Filter by type",
 )
 @click.option(
+    "--priority",
+    type=click.IntRange(1, 5),
+    default=None,
+    help="Filter by priority (1-5)",
+)
+@click.option(
     "--format",
     "output_format",
     type=click.Choice(["pretty", "text", "json"]),
@@ -463,7 +469,7 @@ def add(
     help="Output format",
 )
 @click.pass_context
-def list(ctx, status, limit, task_type, output_format):
+def list(ctx, status, limit, task_type, priority, output_format):
     """List tasks in Sugar work queue"""
 
     from .storage.work_queue import WorkQueue
@@ -477,7 +483,9 @@ def list(ctx, status, limit, task_type, output_format):
         work_queue = WorkQueue(config["sugar"]["storage"]["database"])
 
         # Get tasks
-        tasks = asyncio.run(_list_tasks_async(work_queue, status, limit, task_type))
+        tasks = asyncio.run(
+            _list_tasks_async(work_queue, status, limit, task_type, priority)
+        )
 
         if not tasks:
             click.echo(f"No {status if status != 'all' else ''} tasks found")
@@ -1486,7 +1494,9 @@ async def _add_task_async(work_queue, task_data):
     return task_id
 
 
-async def _list_tasks_async(work_queue, status_filter, limit, task_type_filter):
+async def _list_tasks_async(
+    work_queue, status_filter, limit, task_type_filter, priority_filter=None
+):
     """Helper to list tasks asynchronously"""
     await work_queue.initialize()
 
@@ -1498,6 +1508,10 @@ async def _list_tasks_async(work_queue, status_filter, limit, task_type_filter):
     # Filter by task type if specified
     if task_type_filter != "all":
         tasks = [task for task in tasks if task["type"] == task_type_filter]
+
+    # Filter by priority if specified
+    if priority_filter is not None:
+        tasks = [task for task in tasks if task.get("priority") == priority_filter]
 
     return tasks
 

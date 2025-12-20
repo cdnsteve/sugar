@@ -14,6 +14,7 @@ logger = logging.getLogger(__name__)
 
 class HookContext:
     """Context passed to hook callbacks (placeholder for SDK's HookContext)"""
+
     pass
 
 
@@ -42,21 +43,27 @@ class QualityGateHooks:
         self._security_violations: List[Dict[str, Any]] = []
 
         # Configuration
-        self._protected_paths = self.config.get("protected_paths", [
-            ".env",
-            ".env.local",
-            "credentials.json",
-            "secrets.yaml",
-            ".git/config",
-        ])
-        self._dangerous_commands = self.config.get("dangerous_commands", [
-            "rm -rf /",
-            "rm -rf ~",
-            "> /dev/sda",
-            "mkfs.",
-            ":(){:|:&};:",
-            "chmod -R 777 /",
-        ])
+        self._protected_paths = self.config.get(
+            "protected_paths",
+            [
+                ".env",
+                ".env.local",
+                "credentials.json",
+                "secrets.yaml",
+                ".git/config",
+            ],
+        )
+        self._dangerous_commands = self.config.get(
+            "dangerous_commands",
+            [
+                "rm -rf /",
+                "rm -rf ~",
+                "> /dev/sda",
+                "mkfs.",
+                ":(){:|:&};:",
+                "chmod -R 777 /",
+            ],
+        )
 
     async def pre_tool_security_check(
         self,
@@ -103,7 +110,9 @@ class QualityGateHooks:
 
                 return {
                     "hookSpecificOutput": {
-                        "hookEventName": "PreToolUse",
+                        "hookEventName": input_data.get(
+                            "hook_event_name", "PreToolUse"
+                        ),
                         "permissionDecision": "deny",
                         "permissionDecisionReason": (
                             f"Access to protected file '{file_path}' is not allowed. "
@@ -129,7 +138,9 @@ class QualityGateHooks:
 
                 return {
                     "hookSpecificOutput": {
-                        "hookEventName": "PreToolUse",
+                        "hookEventName": input_data.get(
+                            "hook_event_name", "PreToolUse"
+                        ),
                         "permissionDecision": "deny",
                         "permissionDecisionReason": (
                             "This command has been blocked for safety reasons. "
@@ -139,13 +150,15 @@ class QualityGateHooks:
                 }
 
         # Track the tool execution (will be completed in post hook)
-        self._tool_executions.append({
-            "tool_use_id": tool_use_id,
-            "tool_name": tool_name,
-            "tool_input": tool_input,
-            "started_at": datetime.now(timezone.utc).isoformat(),
-            "completed": False,
-        })
+        self._tool_executions.append(
+            {
+                "tool_use_id": tool_use_id,
+                "tool_name": tool_name,
+                "tool_input": tool_input,
+                "started_at": datetime.now(timezone.utc).isoformat(),
+                "completed": False,
+            }
+        )
 
         return {}
 
@@ -176,7 +189,9 @@ class QualityGateHooks:
 
         # Find and update the matching execution record
         for execution in self._tool_executions:
-            if execution.get("tool_use_id") == tool_use_id and not execution.get("completed"):
+            if execution.get("tool_use_id") == tool_use_id and not execution.get(
+                "completed"
+            ):
                 execution["completed"] = True
                 execution["completed_at"] = datetime.now(timezone.utc).isoformat()
                 execution["response"] = tool_response
@@ -270,7 +285,9 @@ def create_preflight_hook(
             if not check(input_data):
                 return {
                     "hookSpecificOutput": {
-                        "hookEventName": "PreToolUse",
+                        "hookEventName": input_data.get(
+                            "hook_event_name", "PreToolUse"
+                        ),
                         "permissionDecision": "deny",
                         "permissionDecisionReason": "Preflight check failed",
                     }
@@ -338,7 +355,9 @@ def create_security_hook(
                 if protected.lower() in file_path.lower():
                     return {
                         "hookSpecificOutput": {
-                            "hookEventName": "PreToolUse",
+                            "hookEventName": input_data.get(
+                                "hook_event_name", "PreToolUse"
+                            ),
                             "permissionDecision": "deny",
                             "permissionDecisionReason": f"Access to {protected} is blocked",
                         }
@@ -351,7 +370,9 @@ def create_security_hook(
                 if dangerous.lower() in command.lower():
                     return {
                         "hookSpecificOutput": {
-                            "hookEventName": "PreToolUse",
+                            "hookEventName": input_data.get(
+                                "hook_event_name", "PreToolUse"
+                            ),
                             "permissionDecision": "deny",
                             "permissionDecisionReason": "Dangerous command blocked",
                         }

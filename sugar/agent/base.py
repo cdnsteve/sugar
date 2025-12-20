@@ -10,23 +10,102 @@ This is the core agent implementation for Sugar 3.0, providing:
 
 import asyncio
 import logging
+import os
 from dataclasses import dataclass, field
-from datetime import datetime
-from typing import Any, AsyncIterator, Dict, List, Optional
+from datetime import datetime, timezone
+from typing import Any, AsyncIterator, Dict, List, Optional, Type
 
+# Claude Agent SDK imports
+# The SDK provides query() as an async generator for streaming responses
 from claude_agent_sdk import (
-    ClaudeSDKClient,
     ClaudeAgentOptions,
     HookMatcher,
-    AssistantMessage,
-    TextBlock,
-    ToolUseBlock,
-    ToolResultBlock,
+    query,
 )
 
-from .hooks import QualityGateHooks
+# Message types for parsing responses - SDK uses dicts, but may have type classes
+try:
+    from claude_agent_sdk.types import (
+        AssistantMessage,
+        TextBlock,
+        ToolUseBlock,
+        ToolResultBlock,
+        ResultMessage,
+        SystemMessage,
+    )
+
+    SDK_HAS_TYPES = True
+except ImportError:
+    # SDK returns plain dicts, define helper types
+    AssistantMessage = dict
+    TextBlock = dict
+    ToolUseBlock = dict
+    ToolResultBlock = dict
+    ResultMessage = dict
+    SystemMessage = dict
+    SDK_HAS_TYPES = False
+
+from .hooks import QualityGateHooks, HookContext
 
 logger = logging.getLogger(__name__)
+
+
+# Transient errors that warrant retry
+TRANSIENT_ERRORS = (
+    "rate_limit",
+    "timeout",
+    "connection",
+    "temporarily unavailable",
+    "overloaded",
+    "503",
+    "429",
+)
+
+
+def is_transient_error(error: Exception) -> bool:
+    """Check if an error is transient and worth retrying."""
+    error_str = str(error).lower()
+    return any(term in error_str for term in TRANSIENT_ERRORS)
+
+
+async def retry_with_backoff(
+    func,
+    max_retries: int = 3,
+    base_delay: float = 1.0,
+    max_delay: float = 30.0,
+) -> Any:
+    """
+    Execute an async function with exponential backoff retry.
+
+    Args:
+        func: Async callable to execute
+        max_retries: Maximum number of retry attempts
+        base_delay: Initial delay between retries in seconds
+        max_delay: Maximum delay between retries in seconds
+
+    Returns:
+        Result from successful function execution
+
+    Raises:
+        Last exception if all retries fail
+    """
+    last_error = None
+    for attempt in range(max_retries + 1):
+        try:
+            return await func()
+        except Exception as e:
+            last_error = e
+            if attempt == max_retries or not is_transient_error(e):
+                raise
+
+            delay = min(base_delay * (2**attempt), max_delay)
+            logger.warning(
+                f"Transient error (attempt {attempt + 1}/{max_retries + 1}): {e}. "
+                f"Retrying in {delay:.1f}s..."
+            )
+            await asyncio.sleep(delay)
+
+    raise last_error
 
 
 @dataclass
@@ -57,6 +136,11 @@ class SugarAgentConfig:
 
     # Timeout for operations (seconds)
     timeout: int = 300
+
+    # Retry settings for transient errors
+    max_retries: int = 3
+    retry_base_delay: float = 1.0
+    retry_max_delay: float = 30.0
 
 
 @dataclass
@@ -93,7 +177,7 @@ class SugarAgent:
     - Custom hooks for quality gates
     - MCP server integration
     - Observable execution
-    - Continuous conversation context
+    - Streaming responses
     """
 
     def __init__(
@@ -110,10 +194,10 @@ class SugarAgent:
         """
         self.config = config
         self.quality_gates_config = quality_gates_config or {}
-        self.client: Optional[ClaudeSDKClient] = None
         self.hooks = QualityGateHooks(self.quality_gates_config)
         self._session_active = False
         self._execution_history: List[Dict[str, Any]] = []
+        self._current_options: Optional[ClaudeAgentOptions] = None
 
         logger.debug(f"SugarAgent initialized with model: {config.model}")
 
@@ -140,9 +224,7 @@ Guidelines:
 
         return base_prompt
 
-    def _build_options(
-        self, task_context: Optional[str] = None
-    ) -> ClaudeAgentOptions:
+    def _build_options(self, task_context: Optional[str] = None) -> ClaudeAgentOptions:
         """Build ClaudeAgentOptions with hooks and configuration"""
         hooks_config = {}
 
@@ -180,23 +262,99 @@ Guidelines:
         return options
 
     async def start_session(self, task_context: Optional[str] = None) -> None:
-        """Start a new agent session"""
+        """
+        Initialize agent session with configured options.
+
+        The SDK uses query() as an async generator, so we just prepare
+        the options here for use in execute().
+        """
         if self._session_active:
             await self.end_session()
 
-        options = self._build_options(task_context)
-        self.client = ClaudeSDKClient(options=options)
-        await self.client.__aenter__()
+        self._current_options = self._build_options(task_context)
         self._session_active = True
+        self.hooks.reset()  # Reset tracking state for new session
         logger.info("Sugar agent session started")
 
     async def end_session(self) -> None:
         """End the current agent session"""
-        if self.client and self._session_active:
-            await self.client.__aexit__(None, None, None)
+        if self._session_active:
             self._session_active = False
-            self.client = None
+            self._current_options = None
             logger.info("Sugar agent session ended")
+
+    async def _execute_with_streaming(
+        self,
+        prompt: str,
+        options: ClaudeAgentOptions,
+    ) -> tuple:
+        """
+        Internal method to execute query with streaming.
+
+        Returns tuple of (content_parts, tool_uses, files_modified).
+        Separated for retry logic.
+        """
+        content_parts = []
+        tool_uses = []
+        files_modified = []
+
+        # Use the SDK's query() function which returns an async generator
+        async for message in query(prompt=prompt, options=options):
+            # Handle different message types from the SDK
+            # The SDK may return dicts or typed objects depending on version
+            if SDK_HAS_TYPES and isinstance(message, AssistantMessage):
+                # Typed SDK - iterate through content blocks
+                for block in message.content:
+                    if isinstance(block, TextBlock):
+                        content_parts.append(block.text)
+                    elif isinstance(block, ToolUseBlock):
+                        tool_use = {
+                            "tool": block.name,
+                            "input": block.input,
+                        }
+                        tool_uses.append(tool_use)
+
+                        # Track file modifications
+                        if block.name in ("Write", "Edit"):
+                            file_path = block.input.get("file_path")
+                            if file_path and file_path not in files_modified:
+                                files_modified.append(file_path)
+
+            elif isinstance(message, dict):
+                # Dict-based SDK response
+                msg_type = message.get("type", "")
+
+                if msg_type == "assistant":
+                    # Process content blocks
+                    content = message.get("content", [])
+                    for block in content:
+                        block_type = block.get("type", "")
+                        if block_type == "text":
+                            content_parts.append(block.get("text", ""))
+                        elif block_type == "tool_use":
+                            tool_use = {
+                                "tool": block.get("name", ""),
+                                "input": block.get("input", {}),
+                            }
+                            tool_uses.append(tool_use)
+
+                            # Track file modifications
+                            tool_name = block.get("name", "")
+                            if tool_name in ("Write", "Edit"):
+                                file_path = block.get("input", {}).get("file_path")
+                                if file_path and file_path not in files_modified:
+                                    files_modified.append(file_path)
+
+                elif msg_type == "text":
+                    # Direct text message
+                    content_parts.append(message.get("text", ""))
+
+                elif msg_type == "result":
+                    # Final result message
+                    if message.get("content"):
+                        content_parts.append(str(message.get("content", "")))
+
+        return content_parts, tool_uses, files_modified
 
     async def execute(
         self,
@@ -204,7 +362,10 @@ Guidelines:
         task_context: Optional[str] = None,
     ) -> AgentResponse:
         """
-        Execute a task with the agent.
+        Execute a task with the agent using Claude Agent SDK.
+
+        Uses the SDK's query() function which returns an async generator
+        for streaming responses. Includes retry logic for transient errors.
 
         Args:
             prompt: The task prompt to execute
@@ -213,40 +374,27 @@ Guidelines:
         Returns:
             AgentResponse with execution results
         """
-        start_time = datetime.utcnow()
+        start_time = datetime.now(timezone.utc)
 
         try:
-            # Start session if not active
+            # Build options fresh if no session, or use existing
             if not self._session_active:
                 await self.start_session(task_context)
 
-            # Send the prompt
-            await self.client.query(prompt)
+            options = self._current_options
 
-            # Collect response
-            content_parts = []
-            tool_uses = []
-            files_modified = []
+            # Execute with retry logic for transient errors
+            async def do_query():
+                return await self._execute_with_streaming(prompt, options)
 
-            async for message in self.client.receive_response():
-                if isinstance(message, AssistantMessage):
-                    for block in message.content:
-                        if isinstance(block, TextBlock):
-                            content_parts.append(block.text)
-                        elif isinstance(block, ToolUseBlock):
-                            tool_use = {
-                                "tool": block.name,
-                                "input": block.input,
-                            }
-                            tool_uses.append(tool_use)
+            content_parts, tool_uses, files_modified = await retry_with_backoff(
+                do_query,
+                max_retries=self.config.max_retries,
+                base_delay=self.config.retry_base_delay,
+                max_delay=self.config.retry_max_delay,
+            )
 
-                            # Track file modifications
-                            if block.name in ("Write", "Edit"):
-                                file_path = block.input.get("file_path")
-                                if file_path and file_path not in files_modified:
-                                    files_modified.append(file_path)
-
-            execution_time = (datetime.utcnow() - start_time).total_seconds()
+            execution_time = (datetime.now(timezone.utc) - start_time).total_seconds()
 
             # Get quality gate results from hooks
             quality_gate_results = self.hooks.get_execution_summary()
@@ -261,11 +409,13 @@ Guidelines:
             )
 
             # Store in execution history
-            self._execution_history.append({
-                "prompt": prompt,
-                "response": response.to_dict(),
-                "timestamp": datetime.utcnow().isoformat(),
-            })
+            self._execution_history.append(
+                {
+                    "prompt": prompt,
+                    "response": response.to_dict(),
+                    "timestamp": datetime.now(timezone.utc).isoformat(),
+                }
+            )
 
             logger.info(
                 f"Task completed in {execution_time:.2f}s, "
@@ -276,7 +426,7 @@ Guidelines:
             return response
 
         except Exception as e:
-            execution_time = (datetime.utcnow() - start_time).total_seconds()
+            execution_time = (datetime.now(timezone.utc) - start_time).total_seconds()
             logger.error(f"Agent execution error: {e}")
 
             return AgentResponse(
@@ -286,9 +436,7 @@ Guidelines:
                 error=str(e),
             )
 
-    async def execute_work_item(
-        self, work_item: Dict[str, Any]
-    ) -> Dict[str, Any]:
+    async def execute_work_item(self, work_item: Dict[str, Any]) -> Dict[str, Any]:
         """
         Execute a Sugar work item (compatibility with existing workflow).
 
@@ -312,14 +460,12 @@ Guidelines:
                 "stdout": response.content,
                 "execution_time": response.execution_time,
             },
-            "timestamp": datetime.utcnow().isoformat(),
+            "timestamp": datetime.now(timezone.utc).isoformat(),
             "work_item_id": work_item.get("id"),
             "execution_time": response.execution_time,
             "output": response.content,
             "files_changed": response.files_modified,
-            "actions_taken": [
-                f"Used {tu['tool']}" for tu in response.tool_uses
-            ],
+            "actions_taken": [f"Used {tu['tool']}" for tu in response.tool_uses],
             "summary": self._extract_summary(response.content),
             "agent_sdk": True,
             "quality_gate_results": response.quality_gate_results,
@@ -355,7 +501,10 @@ Focus on the specific requirements and follow existing code patterns.
 
         if work_item.get("context"):
             import json
-            context_parts.append(f"Additional Context: {json.dumps(work_item['context'])}")
+
+            context_parts.append(
+                f"Additional Context: {json.dumps(work_item['context'])}"
+            )
 
         return "\n".join(context_parts)
 
