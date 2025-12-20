@@ -65,7 +65,9 @@ class TestPreToolSecurityCheck:
         )
         assert "hookSpecificOutput" in result
         assert result["hookSpecificOutput"]["permissionDecision"] == "deny"
-        assert "protected file" in result["hookSpecificOutput"]["permissionDecisionReason"]
+        assert (
+            "protected file" in result["hookSpecificOutput"]["permissionDecisionReason"]
+        )
 
     @pytest.mark.asyncio
     async def test_blocks_env_local_file(self, quality_gate_hooks):
@@ -137,7 +139,9 @@ class TestPreToolSecurityCheck:
         )
         assert "hookSpecificOutput" in result
         assert result["hookSpecificOutput"]["permissionDecision"] == "deny"
-        assert "safety reasons" in result["hookSpecificOutput"]["permissionDecisionReason"]
+        assert (
+            "safety reasons" in result["hookSpecificOutput"]["permissionDecisionReason"]
+        )
 
     @pytest.mark.asyncio
     async def test_blocks_rm_rf_home(self, quality_gate_hooks):
@@ -272,9 +276,7 @@ class TestPostToolAudit:
             "tool_name": "Read",
             "tool_response": {"content": "file contents"},
         }
-        await quality_gate_hooks.post_tool_audit(
-            post_input, "tool_123", HookContext()
-        )
+        await quality_gate_hooks.post_tool_audit(post_input, "tool_123", HookContext())
 
         execution = quality_gate_hooks._tool_executions[0]
         assert execution["completed"] is True
@@ -296,9 +298,7 @@ class TestPostToolAudit:
             "tool_input": {"file_path": "/src/new_file.py"},
             "tool_response": {"success": True},
         }
-        await quality_gate_hooks.post_tool_audit(
-            post_input, "tool_123", HookContext()
-        )
+        await quality_gate_hooks.post_tool_audit(post_input, "tool_123", HookContext())
 
         assert "/src/new_file.py" in quality_gate_hooks._files_modified
 
@@ -317,9 +317,7 @@ class TestPostToolAudit:
             "tool_input": {"file_path": "/src/existing.py"},
             "tool_response": {"success": True},
         }
-        await quality_gate_hooks.post_tool_audit(
-            post_input, "tool_123", HookContext()
-        )
+        await quality_gate_hooks.post_tool_audit(post_input, "tool_123", HookContext())
 
         assert "/src/existing.py" in quality_gate_hooks._files_modified
 
@@ -393,20 +391,26 @@ class TestExecutionSummary:
         # Simulate some tool executions
         await quality_gate_hooks.pre_tool_security_check(
             {"tool_name": "Read", "tool_input": {"file_path": "/src/a.py"}},
-            "tool_1", HookContext()
+            "tool_1",
+            HookContext(),
         )
         await quality_gate_hooks.post_tool_audit(
-            {"tool_name": "Read", "tool_response": {}},
-            "tool_1", HookContext()
+            {"tool_name": "Read", "tool_response": {}}, "tool_1", HookContext()
         )
 
         await quality_gate_hooks.pre_tool_security_check(
             {"tool_name": "Write", "tool_input": {"file_path": "/src/b.py"}},
-            "tool_2", HookContext()
+            "tool_2",
+            HookContext(),
         )
         await quality_gate_hooks.post_tool_audit(
-            {"tool_name": "Write", "tool_input": {"file_path": "/src/b.py"}, "tool_response": {}},
-            "tool_2", HookContext()
+            {
+                "tool_name": "Write",
+                "tool_input": {"file_path": "/src/b.py"},
+                "tool_response": {},
+            },
+            "tool_2",
+            HookContext(),
         )
 
         summary = quality_gate_hooks.get_execution_summary()
@@ -418,7 +422,8 @@ class TestExecutionSummary:
     async def test_summary_with_violations(self, quality_gate_hooks):
         await quality_gate_hooks.pre_tool_security_check(
             {"tool_name": "Read", "tool_input": {"file_path": "/project/.env"}},
-            "tool_1", HookContext()
+            "tool_1",
+            HookContext(),
         )
 
         summary = quality_gate_hooks.get_execution_summary()
@@ -435,11 +440,13 @@ class TestReset:
         # Populate state
         await quality_gate_hooks.pre_tool_security_check(
             {"tool_name": "Read", "tool_input": {"file_path": "/src/a.py"}},
-            "tool_1", HookContext()
+            "tool_1",
+            HookContext(),
         )
         await quality_gate_hooks.pre_tool_security_check(
             {"tool_name": "Read", "tool_input": {"file_path": "/.env"}},
-            "tool_2", HookContext()
+            "tool_2",
+            HookContext(),
         )
 
         # Verify state is populated
@@ -532,14 +539,16 @@ class TestCreateSecurityHook:
         # Should block .env
         result = await hook(
             {"tool_name": "Read", "tool_input": {"file_path": "/.env"}},
-            "tool_1", HookContext()
+            "tool_1",
+            HookContext(),
         )
         assert "hookSpecificOutput" in result
 
         # Should allow normal files
         result = await hook(
             {"tool_name": "Read", "tool_input": {"file_path": "/src/main.py"}},
-            "tool_2", HookContext()
+            "tool_2",
+            HookContext(),
         )
         assert result == {}
 
@@ -550,14 +559,16 @@ class TestCreateSecurityHook:
         # Should block custom paths
         result = await hook(
             {"tool_name": "Read", "tool_input": {"file_path": "/.secret"}},
-            "tool_1", HookContext()
+            "tool_1",
+            HookContext(),
         )
         assert "hookSpecificOutput" in result
 
         # Should allow .env (not in custom list)
         result = await hook(
             {"tool_name": "Read", "tool_input": {"file_path": "/.env"}},
-            "tool_2", HookContext()
+            "tool_2",
+            HookContext(),
         )
         assert result == {}
 
@@ -568,14 +579,16 @@ class TestCreateSecurityHook:
         # Should block rm -rf /
         result = await hook(
             {"tool_name": "Bash", "tool_input": {"command": "rm -rf /"}},
-            "tool_1", HookContext()
+            "tool_1",
+            HookContext(),
         )
         assert "hookSpecificOutput" in result
 
         # Should allow safe commands
         result = await hook(
             {"tool_name": "Bash", "tool_input": {"command": "ls -la"}},
-            "tool_2", HookContext()
+            "tool_2",
+            HookContext(),
         )
         assert result == {}
 
@@ -586,13 +599,15 @@ class TestCreateSecurityHook:
         # Should block custom command
         result = await hook(
             {"tool_name": "Bash", "tool_input": {"command": "drop database users"}},
-            "tool_1", HookContext()
+            "tool_1",
+            HookContext(),
         )
         assert "hookSpecificOutput" in result
 
         # Should allow rm -rf (not in custom list)
         result = await hook(
             {"tool_name": "Bash", "tool_input": {"command": "rm -rf /"}},
-            "tool_2", HookContext()
+            "tool_2",
+            HookContext(),
         )
         assert result == {}

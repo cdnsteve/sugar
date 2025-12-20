@@ -271,7 +271,9 @@ class TestV3RetryLogic:
                 raise Exception("rate_limit exceeded")
             return "success"
 
-        result = await retry_with_backoff(flaky_function, max_retries=3, base_delay=0.01)
+        result = await retry_with_backoff(
+            flaky_function, max_retries=3, base_delay=0.01
+        )
         assert result == "success"
         assert call_count == 3
 
@@ -341,9 +343,9 @@ class TestPerformanceComparison:
         metrics.stop()
 
         # V3 agent creation should be fast (under 100ms)
-        assert metrics.execution_time < 0.1, (
-            f"Agent creation took {metrics.execution_time:.3f}s"
-        )
+        assert (
+            metrics.execution_time < 0.1
+        ), f"Agent creation took {metrics.execution_time:.3f}s"
 
     @pytest.mark.asyncio
     async def test_v3_session_management(self, mock_sugar_agent):

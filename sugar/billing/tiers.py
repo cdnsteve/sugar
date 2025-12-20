@@ -273,11 +273,13 @@ class TierManager:
             # Suggest next tier
             if current_index < len(tier_order) - 1:
                 next_tier = self.get_tier(tier_order[current_index + 1])
-                suggestions.append({
-                    "reason": f"You've used {issues_percent:.0f}% of your monthly issues",
-                    "suggested_tier": next_tier.to_dict(),
-                    "savings": f"Upgrading unlocks {next_tier.issues_per_month - current_tier.issues_per_month} more issues/month",
-                })
+                suggestions.append(
+                    {
+                        "reason": f"You've used {issues_percent:.0f}% of your monthly issues",
+                        "suggested_tier": next_tier.to_dict(),
+                        "savings": f"Upgrading unlocks {next_tier.issues_per_month - current_tier.issues_per_month} more issues/month",
+                    }
+                )
 
         return suggestions
 

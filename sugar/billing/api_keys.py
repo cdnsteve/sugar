@@ -44,7 +44,9 @@ class APIKey:
             "name": self.name,
             "created_at": self.created_at.isoformat(),
             "expires_at": self.expires_at.isoformat() if self.expires_at else None,
-            "last_used_at": self.last_used_at.isoformat() if self.last_used_at else None,
+            "last_used_at": (
+                self.last_used_at.isoformat() if self.last_used_at else None
+            ),
             "scopes": self.scopes,
             "rate_limit": self.rate_limit,
             "is_active": self.is_active,
@@ -59,8 +61,16 @@ class APIKey:
             customer_id=data["customer_id"],
             name=data["name"],
             created_at=datetime.fromisoformat(data["created_at"]),
-            expires_at=datetime.fromisoformat(data["expires_at"]) if data.get("expires_at") else None,
-            last_used_at=datetime.fromisoformat(data["last_used_at"]) if data.get("last_used_at") else None,
+            expires_at=(
+                datetime.fromisoformat(data["expires_at"])
+                if data.get("expires_at")
+                else None
+            ),
+            last_used_at=(
+                datetime.fromisoformat(data["last_used_at"])
+                if data.get("last_used_at")
+                else None
+            ),
             scopes=data.get("scopes", []),
             rate_limit=data.get("rate_limit", 1000),
             is_active=data.get("is_active", True),

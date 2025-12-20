@@ -199,10 +199,15 @@ class GitHubClient:
 
     def get_issue(self, issue_number: int) -> GitHubIssue:
         """Get a single issue by number"""
-        result = self._run_gh([
-            "issue", "view", str(issue_number), "--json",
-            "number,title,body,state,author,labels,createdAt,updatedAt,comments,url"
-        ])
+        result = self._run_gh(
+            [
+                "issue",
+                "view",
+                str(issue_number),
+                "--json",
+                "number,title,body,state,author,labels,createdAt,updatedAt,comments,url",
+            ]
+        )
 
         data = json.loads(result.stdout)
 
@@ -227,7 +232,9 @@ class GitHubClient:
             comment = GitHubComment(
                 id=comment_data.get("id", 0),
                 body=comment_data.get("body", ""),
-                user=GitHubUser(login=comment_data.get("author", {}).get("login", "unknown")),
+                user=GitHubUser(
+                    login=comment_data.get("author", {}).get("login", "unknown")
+                ),
                 created_at=comment_data.get("createdAt", ""),
                 updated_at=comment_data.get("updatedAt", ""),
             )
@@ -243,10 +250,14 @@ class GitHubClient:
     ) -> List[GitHubIssue]:
         """List issues with optional filters"""
         args = [
-            "issue", "list",
-            "--state", state,
-            "--limit", str(limit),
-            "--json", "number,title,body,state,author,labels,createdAt,updatedAt,comments,url"
+            "issue",
+            "list",
+            "--state",
+            state,
+            "--limit",
+            str(limit),
+            "--json",
+            "number,title,body,state,author,labels,createdAt,updatedAt,comments,url",
         ]
 
         if labels:
@@ -275,10 +286,15 @@ class GitHubClient:
 
     def post_comment(self, issue_number: int, body: str) -> GitHubComment:
         """Post a comment on an issue"""
-        result = self._run_gh([
-            "issue", "comment", str(issue_number),
-            "--body", body,
-        ])
+        result = self._run_gh(
+            [
+                "issue",
+                "comment",
+                str(issue_number),
+                "--body",
+                body,
+            ]
+        )
 
         logger.info(f"Posted comment on issue #{issue_number}")
 
@@ -296,10 +312,15 @@ class GitHubClient:
         if not labels:
             return
 
-        self._run_gh([
-            "issue", "edit", str(issue_number),
-            "--add-label", ",".join(labels),
-        ])
+        self._run_gh(
+            [
+                "issue",
+                "edit",
+                str(issue_number),
+                "--add-label",
+                ",".join(labels),
+            ]
+        )
 
         logger.info(f"Added labels {labels} to issue #{issue_number}")
 
@@ -308,10 +329,15 @@ class GitHubClient:
         if not labels:
             return
 
-        self._run_gh([
-            "issue", "edit", str(issue_number),
-            "--remove-label", ",".join(labels),
-        ])
+        self._run_gh(
+            [
+                "issue",
+                "edit",
+                str(issue_number),
+                "--remove-label",
+                ",".join(labels),
+            ]
+        )
 
         logger.info(f"Removed labels {labels} from issue #{issue_number}")
 
@@ -327,10 +353,13 @@ class GitHubClient:
             search_query = f"repo:{self.repo} {query}"
 
         args = [
-            "search", "issues",
+            "search",
+            "issues",
             search_query,
-            "--limit", str(limit),
-            "--json", "number,title,body,state,author,labels,createdAt,updatedAt,url"
+            "--limit",
+            str(limit),
+            "--json",
+            "number,title,body,state,author,labels,createdAt,updatedAt,url",
         ]
 
         result = self._run_gh(args)

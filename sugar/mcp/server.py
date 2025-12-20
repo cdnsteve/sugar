@@ -283,10 +283,12 @@ class SugarMCPServer:
 
         try:
             response = await agent.execute(prompt, task_context=f"Repository: {repo}")
-            result = await profile.process_output({
-                "content": response.content,
-                "success": response.success,
-            })
+            result = await profile.process_output(
+                {
+                    "content": response.content,
+                    "success": response.success,
+                }
+            )
             return result.get("response", {})
         finally:
             await agent.end_session()
@@ -313,9 +315,7 @@ class SugarMCPServer:
             lines = result.stdout.strip().split("\n")[:20]  # Limit results
             return {
                 "query": query,
-                "matches": [
-                    {"line": line} for line in lines if line
-                ],
+                "matches": [{"line": line} for line in lines if line],
                 "total_matches": len(lines),
             }
         except Exception as e:
@@ -424,7 +424,9 @@ class SugarMCPServer:
     async def run(self):
         """Run the MCP server"""
         transport = SseServerTransport("/mcp")
-        logger.info(f"Starting Sugar MCP server on {self.config.host}:{self.config.port}")
+        logger.info(
+            f"Starting Sugar MCP server on {self.config.host}:{self.config.port}"
+        )
 
         # Note: In production, you'd use a proper ASGI server like uvicorn
         # This is a simplified example

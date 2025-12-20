@@ -68,9 +68,7 @@ class BaseProfile(ABC):
         pass
 
     @abstractmethod
-    async def process_input(
-        self, input_data: Dict[str, Any]
-    ) -> Dict[str, Any]:
+    async def process_input(self, input_data: Dict[str, Any]) -> Dict[str, Any]:
         """
         Pre-process input before agent execution.
 
@@ -83,9 +81,7 @@ class BaseProfile(ABC):
         pass
 
     @abstractmethod
-    async def process_output(
-        self, output_data: Dict[str, Any]
-    ) -> Dict[str, Any]:
+    async def process_output(self, output_data: Dict[str, Any]) -> Dict[str, Any]:
         """
         Post-process agent output.
 

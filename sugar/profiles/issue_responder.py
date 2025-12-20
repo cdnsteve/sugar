@@ -167,8 +167,7 @@ Only auto-post responses with confidence >= 0.8.
         raw_labels = issue.get("labels", [])
         # Handle labels as either strings or dicts with 'name' key
         labels = [
-            l.get("name", str(l)) if isinstance(l, dict) else str(l)
-            for l in raw_labels
+            l.get("name", str(l)) if isinstance(l, dict) else str(l) for l in raw_labels
         ]
         author = issue.get("user", {}).get("login", "unknown")
 
@@ -242,7 +241,7 @@ Provide your response in this format:
         # Truncate if needed
         max_length = self.config.settings.get("max_response_length", 2000)
         if len(response_content) > max_length:
-            response_content = response_content[:max_length - 3] + "..."
+            response_content = response_content[: max_length - 3] + "..."
 
         confidence = parsed.get("confidence", 0.5)
         auto_post_threshold = self.config.settings.get("auto_post_threshold", 0.8)
@@ -269,20 +268,25 @@ Provide your response in this format:
         issue_type = "question"
         if any(word in text for word in ["bug", "error", "crash", "fail", "broken"]):
             issue_type = "bug"
-        elif any(word in text for word in ["feature", "request", "would be nice", "add support"]):
+        elif any(
+            word in text
+            for word in ["feature", "request", "would be nice", "add support"]
+        ):
             issue_type = "feature"
-        elif any(word in text for word in ["docs", "documentation", "readme", "example"]):
+        elif any(
+            word in text for word in ["docs", "documentation", "readme", "example"]
+        ):
             issue_type = "documentation"
 
         # Extract file mentions
-        file_pattern = r'[\w/.-]+\.(py|js|ts|go|rs|java|md|yaml|json|tsx|jsx)'
+        file_pattern = r"[\w/.-]+\.(py|js|ts|go|rs|java|md|yaml|json|tsx|jsx)"
         mentioned_files = list(set(re.findall(file_pattern, f"{title} {body}")))
 
         # Extract error patterns
         error_patterns = [
             r'error:?\s*["\']?([^"\']+)["\']?',
-            r'exception:?\s*([^\n]+)',
-            r'traceback[^\n]*\n([^\n]+)',
+            r"exception:?\s*([^\n]+)",
+            r"traceback[^\n]*\n([^\n]+)",
         ]
         mentioned_errors = []
         for pattern in error_patterns:
@@ -292,9 +296,23 @@ Provide your response in this format:
         # Extract key topics (simple keyword extraction)
         key_topics = []
         topic_keywords = [
-            "api", "auth", "database", "config", "install", "import",
-            "test", "build", "deploy", "docker", "cli", "hook",
-            "mcp", "agent", "sdk", "permission", "timeout",
+            "api",
+            "auth",
+            "database",
+            "config",
+            "install",
+            "import",
+            "test",
+            "build",
+            "deploy",
+            "docker",
+            "cli",
+            "hook",
+            "mcp",
+            "agent",
+            "sdk",
+            "permission",
+            "timeout",
         ]
         for keyword in topic_keywords:
             if keyword in text:
@@ -318,9 +336,7 @@ Provide your response in this format:
 
         # Extract confidence score
         confidence_match = re.search(
-            r'confidence\s*(?:score)?[:\s]*([0-9.]+)',
-            content,
-            re.IGNORECASE
+            r"confidence\s*(?:score)?[:\s]*([0-9.]+)", content, re.IGNORECASE
         )
         if confidence_match:
             try:
@@ -330,40 +346,39 @@ Provide your response in this format:
 
         # Extract suggested labels
         labels_match = re.search(
-            r'suggested\s*labels[:\s]*([^\n]+)',
-            content,
-            re.IGNORECASE
+            r"suggested\s*labels[:\s]*([^\n]+)", content, re.IGNORECASE
         )
         if labels_match:
             labels_text = labels_match.group(1)
             result["suggested_labels"] = [
-                l.strip() for l in labels_text.split(",")
+                l.strip()
+                for l in labels_text.split(",")
                 if l.strip() and l.strip() not in ["None", "none", "-"]
             ]
 
         # Extract the actual response section
         response_match = re.search(
-            r'###\s*Response\s*\n(.*?)(?=###|$)',
-            content,
-            re.DOTALL | re.IGNORECASE
+            r"###\s*Response\s*\n(.*?)(?=###|$)", content, re.DOTALL | re.IGNORECASE
         )
         if response_match:
             result["response"] = response_match.group(1).strip()
 
         # Extract code references
         refs_match = re.search(
-            r'###\s*Code\s*References\s*\n(.*?)(?=###|$)',
+            r"###\s*Code\s*References\s*\n(.*?)(?=###|$)",
             content,
-            re.DOTALL | re.IGNORECASE
+            re.DOTALL | re.IGNORECASE,
         )
         if refs_match:
             refs_text = refs_match.group(1)
-            ref_pattern = r'([^\s:]+):(\d+)'
+            ref_pattern = r"([^\s:]+):(\d+)"
             for match in re.finditer(ref_pattern, refs_text):
-                result["code_references"].append({
-                    "file": match.group(1),
-                    "line": int(match.group(2)),
-                })
+                result["code_references"].append(
+                    {
+                        "file": match.group(1),
+                        "line": int(match.group(2)),
+                    }
+                )
 
         return result
 
@@ -384,7 +399,9 @@ Provide your response in this format:
 
         # Check confidence threshold
         if confidence < self.config.confidence_threshold:
-            logger.warning(f"Confidence {confidence} below threshold {self.config.confidence_threshold}")
+            logger.warning(
+                f"Confidence {confidence} below threshold {self.config.confidence_threshold}"
+            )
             return False
 
         return True

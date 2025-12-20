@@ -102,9 +102,7 @@ class BaseExecutor(ABC):
         """
         return self.__class__.__name__
 
-    async def _simulate_execution(
-        self, work_item: Dict[str, Any]
-    ) -> Dict[str, Any]:
+    async def _simulate_execution(self, work_item: Dict[str, Any]) -> Dict[str, Any]:
         """
         Simulate execution for dry run mode.
 

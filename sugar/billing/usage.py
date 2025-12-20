@@ -219,8 +219,7 @@ class UsageTracker:
 
         while current_date <= period_end.date():
             file_path = os.path.join(
-                self.storage_path,
-                f"{current_date.strftime('%Y-%m-%d')}.jsonl"
+                self.storage_path, f"{current_date.strftime('%Y-%m-%d')}.jsonl"
             )
 
             if os.path.exists(file_path):

@@ -55,7 +55,10 @@ class TestDefaultProfile:
 
     def test_default_profile_init(self, default_profile):
         assert default_profile.name == "default"
-        assert default_profile.config.description == "General-purpose development assistance"
+        assert (
+            default_profile.config.description
+            == "General-purpose development assistance"
+        )
         assert "Read" in default_profile.config.allowed_tools
         assert "Write" in default_profile.config.allowed_tools
         assert "Edit" in default_profile.config.allowed_tools
@@ -255,16 +258,18 @@ class TestIssueResponderProfile:
         analysis = issue_responder_profile._pre_analyze_issue(
             title="Application crashes on startup",
             body="I get an error when running the app: AttributeError in main.py",
-            labels=[]
+            labels=[],
         )
         assert analysis["issue_type"] == "bug"
-        assert "main.py" in analysis["mentioned_files"] or any("py" in f for f in analysis["mentioned_files"])
+        assert "main.py" in analysis["mentioned_files"] or any(
+            "py" in f for f in analysis["mentioned_files"]
+        )
 
     def test_pre_analyze_issue_feature(self, issue_responder_profile):
         analysis = issue_responder_profile._pre_analyze_issue(
             title="Feature request: Add dark mode",
             body="It would be nice to have dark mode support in the UI.",
-            labels=[]
+            labels=[],
         )
         assert analysis["issue_type"] == "feature"
 
@@ -272,7 +277,7 @@ class TestIssueResponderProfile:
         analysis = issue_responder_profile._pre_analyze_issue(
             title="Update documentation",
             body="The README needs an example for the API usage.",
-            labels=[]
+            labels=[],
         )
         assert analysis["issue_type"] == "documentation"
 
@@ -280,7 +285,7 @@ class TestIssueResponderProfile:
         analysis = issue_responder_profile._pre_analyze_issue(
             title="How do I configure the settings?",
             body="I'm trying to understand how to set up the configuration.",
-            labels=[]
+            labels=[],
         )
         assert analysis["issue_type"] == "question"
 
@@ -288,7 +293,7 @@ class TestIssueResponderProfile:
         analysis = issue_responder_profile._pre_analyze_issue(
             title="API authentication failing",
             body="The auth endpoint returns 401 when using the CLI with docker.",
-            labels=[]
+            labels=[],
         )
         assert "api" in analysis["key_topics"]
         assert "auth" in analysis["key_topics"]
@@ -368,7 +373,9 @@ src/main.py:10
         assert "Sugar" in response["content"]  # Signature added
 
     @pytest.mark.asyncio
-    async def test_process_output_truncates_long_response(self, issue_responder_profile):
+    async def test_process_output_truncates_long_response(
+        self, issue_responder_profile
+    ):
         long_content = "A" * 3000
         output_data = {
             "content": f"### Response\n{long_content}",
@@ -378,10 +385,14 @@ src/main.py:10
         response = processed["response"]
 
         # Should be truncated to max_response_length (2000)
-        assert len(response["content"]) <= 2000 + len(issue_responder_profile.config.settings["signature"])
+        assert len(response["content"]) <= 2000 + len(
+            issue_responder_profile.config.settings["signature"]
+        )
 
     @pytest.mark.asyncio
-    async def test_process_output_low_confidence_no_auto_post(self, issue_responder_profile):
+    async def test_process_output_low_confidence_no_auto_post(
+        self, issue_responder_profile
+    ):
         output_data = {
             "content": """### Confidence Score
 0.6
@@ -432,7 +443,9 @@ class TestProfileInheritance:
         assert isinstance(default_profile, BaseProfile)
         assert isinstance(issue_responder_profile, BaseProfile)
 
-    def test_profiles_implement_required_methods(self, default_profile, issue_responder_profile):
+    def test_profiles_implement_required_methods(
+        self, default_profile, issue_responder_profile
+    ):
         # All profiles must implement these methods
         for profile in [default_profile, issue_responder_profile]:
             assert hasattr(profile, "get_system_prompt")

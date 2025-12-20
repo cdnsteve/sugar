@@ -115,7 +115,9 @@ class SugarLoop:
             logger.info("📦 Using legacy Claude wrapper executor")
             return ClaudeWrapper(claude_config)
         else:
-            logger.warning(f"Unknown executor type '{executor_type}', defaulting to SDK")
+            logger.warning(
+                f"Unknown executor type '{executor_type}', defaulting to SDK"
+            )
             return AgentSDKExecutor(claude_config)
 
     async def start(self):
