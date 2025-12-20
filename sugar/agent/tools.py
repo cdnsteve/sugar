@@ -7,7 +7,7 @@ for Sugar-specific functionality.
 
 import json
 import logging
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional
 
 logger = logging.getLogger(__name__)
@@ -49,7 +49,7 @@ async def sugar_task_status(args: Dict[str, Any]) -> Dict[str, Any]:
         "queue_length": 0,  # Would be populated from work queue
         "active_tasks": 0,
         "completed_today": 0,
-        "timestamp": datetime.utcnow().isoformat(),
+        "timestamp": datetime.now(timezone.utc).isoformat(),
     }
 
     if include_history:
@@ -81,7 +81,7 @@ async def sugar_quality_gate_check(args: Dict[str, Any]) -> Dict[str, Any]:
         "check_type": check_type,
         "passed": True,
         "issues": [],
-        "timestamp": datetime.utcnow().isoformat(),
+        "timestamp": datetime.now(timezone.utc).isoformat(),
     }
 
     return {
@@ -109,7 +109,7 @@ async def sugar_learning_query(args: Dict[str, Any]) -> Dict[str, Any]:
         "query": query,
         "relevant_patterns": [],
         "suggestions": [],
-        "timestamp": datetime.utcnow().isoformat(),
+        "timestamp": datetime.now(timezone.utc).isoformat(),
     }
 
     return {

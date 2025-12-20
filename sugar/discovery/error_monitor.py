@@ -5,7 +5,7 @@ Error Log Monitor - Discover work by analyzing error logs and feedback
 import asyncio
 import json
 import logging
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import List, Dict, Any
 import glob
@@ -152,7 +152,7 @@ class ErrorLogMonitor:
             "source_file": source_file,
             "context": {
                 "log_entry": log_entry,
-                "discovered_at": datetime.utcnow().isoformat(),
+                "discovered_at": datetime.now(timezone.utc).isoformat(),
                 "source_type": "json_log",
             },
         }
@@ -300,7 +300,7 @@ class ErrorLogMonitor:
             "source_file": source_file,
             "context": {
                 "error_lines": error_lines,
-                "discovered_at": datetime.utcnow().isoformat(),
+                "discovered_at": datetime.now(timezone.utc).isoformat(),
                 "source_type": "text_log",
             },
         }
@@ -412,7 +412,7 @@ class ErrorLogMonitor:
                         "context": {
                             "maintenance_task": True,
                             "task_type": task_type["type"],
-                            "discovered_at": datetime.utcnow().isoformat(),
+                            "discovered_at": datetime.now(timezone.utc).isoformat(),
                             "source_type": "maintenance",
                         },
                     }

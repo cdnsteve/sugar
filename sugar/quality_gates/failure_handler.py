@@ -9,7 +9,7 @@ Handles verification failures with:
 """
 
 import json
-from datetime import datetime
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 import logging
@@ -24,7 +24,7 @@ class FailureReport:
         self.task_id = task_id
         self.failure_type = failure_type
         self.reason = reason
-        self.timestamp = datetime.utcnow().isoformat()
+        self.timestamp = datetime.now(timezone.utc).isoformat()
         self.evidence = []
         self.retry_attempts = 0
         self.escalated = False
@@ -35,7 +35,7 @@ class FailureReport:
             {
                 "type": evidence_type,
                 "data": data,
-                "timestamp": datetime.utcnow().isoformat(),
+                "timestamp": datetime.now(timezone.utc).isoformat(),
             }
         )
 

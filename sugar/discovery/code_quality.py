@@ -5,7 +5,7 @@ Code Quality Scanner - Discover improvement opportunities in the codebase
 import asyncio
 import os
 import logging
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import List, Dict, Any, Set
 from pathlib import Path
 import ast
@@ -386,7 +386,7 @@ class CodeQualityScanner:
             "source_file": file_path,
             "context": {
                 "quality_issue": issue,
-                "discovered_at": datetime.utcnow().isoformat(),
+                "discovered_at": datetime.now(timezone.utc).isoformat(),
                 "source_type": "code_quality",
             },
         }

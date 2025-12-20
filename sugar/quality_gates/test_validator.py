@@ -8,7 +8,7 @@ Blocks commits if tests haven't been executed or if they fail.
 import asyncio
 import re
 import subprocess
-from datetime import datetime
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Dict, List, Optional, Tuple
 import logging
@@ -40,7 +40,7 @@ class TestExecutionResult:
         self.errors = errors
         self.pending = pending
         self.examples = examples
-        self.timestamp = datetime.utcnow().isoformat()
+        self.timestamp = datetime.now(timezone.utc).isoformat()
 
     @property
     def passed(self) -> bool:
@@ -178,7 +178,7 @@ class TestExecutionValidator:
             TestExecutionResult with execution details
         """
         logger.info(f"Executing test command: {command}")
-        start_time = datetime.utcnow()
+        start_time = datetime.now(timezone.utc)
 
         try:
             # Run the test command
@@ -195,7 +195,7 @@ class TestExecutionValidator:
             exit_code = process.returncode
 
             # Calculate duration
-            end_time = datetime.utcnow()
+            end_time = datetime.now(timezone.utc)
             duration = (end_time - start_time).total_seconds()
 
             # Parse test output to extract stats

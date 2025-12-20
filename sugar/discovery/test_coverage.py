@@ -5,7 +5,7 @@ Test Coverage Analyzer - Discover testing gaps and opportunities
 import asyncio
 import os
 import logging
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import List, Dict, Any, Set
 from pathlib import Path
 import ast
@@ -507,7 +507,7 @@ class TestCoverageAnalyzer:
                 "test_analysis": {
                     "work_type": work_type,
                     "details": details,
-                    "discovered_at": datetime.utcnow().isoformat(),
+                    "discovered_at": datetime.now(timezone.utc).isoformat(),
                     "source_type": "test_coverage",
                 }
             },

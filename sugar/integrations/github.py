@@ -13,7 +13,7 @@ import logging
 import os
 import subprocess
 from dataclasses import dataclass, field
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional
 
 logger = logging.getLogger(__name__)
@@ -303,8 +303,8 @@ class GitHubClient:
             id=0,
             body=body,
             user=GitHubUser(login="sugar[bot]"),
-            created_at=datetime.utcnow().isoformat(),
-            updated_at=datetime.utcnow().isoformat(),
+            created_at=datetime.now(timezone.utc).isoformat(),
+            updated_at=datetime.now(timezone.utc).isoformat(),
         )
 
     def add_labels(self, issue_number: int, labels: List[str]) -> None:

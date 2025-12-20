@@ -9,7 +9,7 @@ import signal
 import sys
 from pathlib import Path
 import click
-from datetime import datetime
+from datetime import datetime, timezone
 
 from .core.loop import SugarLoop
 from .__version__ import get_version_info, __version__
@@ -397,7 +397,7 @@ def add(
             "source": "cli",
             "context": {
                 "added_via": "sugar_cli",
-                "timestamp": datetime.utcnow().isoformat(),
+                "timestamp": datetime.now(timezone.utc).isoformat(),
             },
         }
 
@@ -835,7 +835,7 @@ def update(ctx, task_id, title, description, priority, task_type, status):
         if status:
             updates["status"] = status
 
-        updates["updated_at"] = datetime.utcnow().isoformat()
+        updates["updated_at"] = datetime.now(timezone.utc).isoformat()
 
         # Update the task
         success = asyncio.run(_update_task_async(work_queue, task_id, updates))

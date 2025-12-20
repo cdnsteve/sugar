@@ -5,7 +5,7 @@ Feedback Processor - Learn from execution results and adapt behavior
 import asyncio
 import json
 import logging
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from typing import Dict, List, Any, Optional, Tuple
 from collections import defaultdict
 import statistics
@@ -54,7 +54,7 @@ class FeedbackProcessor:
                 "recommendations": await self._generate_recommendations(
                     completed_tasks, failed_tasks
                 ),
-                "timestamp": datetime.utcnow().isoformat(),
+                "timestamp": datetime.now(timezone.utc).isoformat(),
             }
 
             # Cache for future use

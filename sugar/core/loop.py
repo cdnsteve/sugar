@@ -4,7 +4,7 @@ Sugar Core Loop - The heart of autonomous development
 
 import asyncio
 import logging
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from typing import Optional, List
 import yaml
 from pathlib import Path
@@ -155,7 +155,7 @@ class SugarLoop:
 
         while self.running:
             try:
-                cycle_start = datetime.utcnow()
+                cycle_start = datetime.now(timezone.utc)
                 logger.info(f"🔄 Starting Sugar cycle at {cycle_start}")
 
                 # Phase 1: Discover new work
@@ -168,7 +168,9 @@ class SugarLoop:
                 await self._process_feedback()
 
                 # Wait for next cycle
-                cycle_duration = (datetime.utcnow() - cycle_start).total_seconds()
+                cycle_duration = (
+                    datetime.now(timezone.utc) - cycle_start
+                ).total_seconds()
                 sleep_time = max(0, loop_interval - cycle_duration)
 
                 logger.info(
@@ -186,7 +188,7 @@ class SugarLoop:
 
         while self.running and not shutdown_event.is_set():
             try:
-                cycle_start = datetime.utcnow()
+                cycle_start = datetime.now(timezone.utc)
                 logger.info(f"🔄 Starting Sugar cycle at {cycle_start}")
 
                 # Phase 1: Discover new work
@@ -209,7 +211,9 @@ class SugarLoop:
                 await self._process_feedback()
 
                 # Wait for next cycle or shutdown
-                cycle_duration = (datetime.utcnow() - cycle_start).total_seconds()
+                cycle_duration = (
+                    datetime.now(timezone.utc) - cycle_start
+                ).total_seconds()
                 sleep_time = max(0, loop_interval - cycle_duration)
 
                 logger.info(
@@ -327,7 +331,7 @@ class SugarLoop:
             # Track execution timing
             from datetime import datetime
 
-            start_time = datetime.utcnow()
+            start_time = datetime.now(timezone.utc)
             execution_time = 0.0
 
             try:
@@ -335,7 +339,9 @@ class SugarLoop:
                 result = await self.executor.execute_work(work_item)
 
                 # Calculate execution time
-                execution_time = (datetime.utcnow() - start_time).total_seconds()
+                execution_time = (
+                    datetime.now(timezone.utc) - start_time
+                ).total_seconds()
 
                 # Complete unified workflow (commit, branch, PR, issues)
                 workflow_success = (
@@ -362,7 +368,9 @@ class SugarLoop:
 
             except Exception as e:
                 # Calculate execution time even on failure
-                execution_time = (datetime.utcnow() - start_time).total_seconds()
+                execution_time = (
+                    datetime.now(timezone.utc) - start_time
+                ).total_seconds()
 
                 logger.error(f"❌ Work execution failed [{work_item['id']}]: {e}")
                 await self.work_queue.fail_work(
@@ -1200,7 +1208,7 @@ class SugarLoop:
         return {
             "status": "running" if self.running else "stopped",
             "queue_stats": await self.work_queue.get_stats(),
-            "last_cycle": datetime.utcnow().isoformat(),
+            "last_cycle": datetime.now(timezone.utc).isoformat(),
             "discovery_modules": len(self.discovery_modules),
             "config_loaded": bool(self.config),
         }

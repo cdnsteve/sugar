@@ -11,7 +11,7 @@ Claude Agent SDK integration, providing:
 
 import asyncio
 import logging
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional
 
 from .base import BaseExecutor, ExecutionResult
@@ -97,13 +97,13 @@ class AgentSDKExecutor(BaseExecutor):
             logger.info(f"DRY RUN: Simulating execution of {work_item.get('title')}")
             return await self._simulate_execution(work_item)
 
-        start_time = datetime.utcnow()
+        start_time = datetime.now(timezone.utc)
 
         try:
             agent = await self._get_agent()
             result = await agent.execute_work_item(work_item)
 
-            execution_time = (datetime.utcnow() - start_time).total_seconds()
+            execution_time = (datetime.now(timezone.utc) - start_time).total_seconds()
 
             # Enhance result with executor metadata
             result["executor"] = "agent_sdk"
@@ -118,13 +118,13 @@ class AgentSDKExecutor(BaseExecutor):
             return result
 
         except Exception as e:
-            execution_time = (datetime.utcnow() - start_time).total_seconds()
+            execution_time = (datetime.now(timezone.utc) - start_time).total_seconds()
             logger.error(f"Agent SDK execution failed: {e}")
 
             return {
                 "success": False,
                 "error": str(e),
-                "timestamp": datetime.utcnow().isoformat(),
+                "timestamp": datetime.now(timezone.utc).isoformat(),
                 "work_item_id": work_item.get("id"),
                 "execution_time": execution_time,
                 "executor": "agent_sdk",

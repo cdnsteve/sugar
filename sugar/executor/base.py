@@ -7,7 +7,7 @@ Both the legacy ClaudeWrapper and new AgentSDKExecutor implement this interface.
 
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional
 
 
@@ -129,7 +129,7 @@ class BaseExecutor(ABC):
                 "files_modified": [],
                 "summary": f"Simulated completion of: {work_item.get('title', 'task')}",
             },
-            "timestamp": datetime.utcnow().isoformat(),
+            "timestamp": datetime.now(timezone.utc).isoformat(),
             "work_item_id": work_item.get("id"),
             "execution_time": 1.0,
             "output": "Simulation completed",
