@@ -5,6 +5,75 @@ All notable changes to the Sugar autonomous development system will be documente
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [3.0.0] - 2025-12-19
+
+### 🚀 MAJOR RELEASE: Claude Agent SDK Integration
+
+Sugar 3.0 is a major re-platform from CLI subprocess wrapper to native Claude Agent SDK integration, providing improved performance, better control, and new capabilities.
+
+### Added
+
+#### Claude Agent SDK Integration
+- **SugarAgent class** - Native SDK integration with streaming and tool use
+- **AgentSDKExecutor** - New executor replacing subprocess-based ClaudeWrapper
+- **PreToolUse/PostToolUse hooks** - Quality gate security checks
+- **Workflow profiles** - Specialized behaviors for different tasks
+
+#### New Modules
+- **sugar/agent/** - Core agent SDK integration
+  - `base.py` - SugarAgent class with SDK integration
+  - `hooks.py` - Quality gate hooks for security
+  - `tools.py` - Custom Sugar tools
+- **sugar/profiles/** - Workflow profiles
+  - `default.py` - General-purpose development profile
+  - `issue_responder.py` - GitHub issue analysis and response
+- **sugar/billing/** - SaaS billing infrastructure
+  - `usage.py` - Usage tracking per customer
+  - `api_keys.py` - API key management with rate limiting
+  - `tiers.py` - Pricing tiers (Free, Starter, Pro, Team, Enterprise)
+- **sugar/integrations/** - External integrations
+  - `github.py` - GitHub API client using gh CLI
+- **sugar/mcp/** - Native Python MCP server
+  - `server.py` - MCP server with 6 tools
+
+#### Distribution Options
+- **GitHub Action** - Event-driven, BYOK (Bring Your Own Key) in `action/`
+- **Python MCP Server** - Docker-deployable in `sugar/mcp/`
+- **mcp.Dockerfile** - Container for MCP server deployment
+
+#### Testing
+- **115 new tests** for v3.0 modules
+  - `test_billing.py` - 35 tests for billing module
+  - `test_profiles.py` - 37 tests for profiles module
+  - `test_hooks.py` - 43 tests for security hooks
+
+### Changed
+- **Default executor** - Now uses AgentSDKExecutor (SDK-based) instead of ClaudeWrapper
+- **Executor selection** - New `executor` config option: `sdk` (default) or `legacy`
+- **Version fallback** - Updated to 3.0.0
+
+### Fixed
+- **datetime deprecation** - Replaced `datetime.utcnow()` with timezone-aware `datetime.now(timezone.utc)`
+- **IssueResponderProfile labels** - Fixed handling of GitHub label dicts vs strings
+
+### Configuration
+
+New executor option in `.sugar/config.yaml`:
+```yaml
+claude:
+  # Executor selection (v3.0+)
+  # - "sdk": Use Claude Agent SDK (recommended, native integration)
+  # - "legacy": Use subprocess-based CLI wrapper (backwards compatible)
+  executor: "sdk"
+```
+
+### Migration Notes
+- Existing configurations continue working with `executor: "legacy"`
+- New installations default to SDK executor
+- No breaking changes to CLI commands or task management
+
+---
+
 ## [2.2.0] - 2025-12-11
 
 ### 🚀 MINOR RELEASE: Goose Extension & MCP Server

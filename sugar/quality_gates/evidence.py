@@ -9,7 +9,7 @@ Collects and stores proof for all quality gate verifications:
 """
 
 import json
-from datetime import datetime
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 import logging
@@ -30,7 +30,7 @@ class Evidence:
         self.type = evidence_type
         self.data = data
         self.verified = verified
-        self.timestamp = timestamp or datetime.utcnow().isoformat()
+        self.timestamp = timestamp or datetime.now(timezone.utc).isoformat()
 
     def to_dict(self) -> dict:
         """Convert to dictionary"""
@@ -247,7 +247,7 @@ class EvidenceCollector:
 
         report = {
             "task_id": self.task_id,
-            "timestamp": datetime.utcnow().isoformat(),
+            "timestamp": datetime.now(timezone.utc).isoformat(),
             "summary": self.get_evidence_summary(),
             "evidence": [e.to_dict() for e in self.evidence_items],
         }

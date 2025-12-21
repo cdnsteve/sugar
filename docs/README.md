@@ -14,6 +14,8 @@ Documentation for developers who want to **use** Sugar in their projects:
 - **[GitHub Integration](user/github-integration.md)** - Connect Sugar to GitHub issues and PRs
 - **[Examples](user/examples.md)** - Real-world usage examples
 - **[Configuration Best Practices](user/configuration-best-practices.md)** - Essential config patterns and exclusions
+- **[Agent SDK Guide](user/agent-sdk.md)** - Native Claude Agent SDK integration (v3.0)
+- **[Billing & Pricing](user/billing.md)** - Pricing tiers and API key management
 - **[Configuration Reference](user/configuration.md)** - Complete configuration options
 - **[Troubleshooting](user/troubleshooting.md)** - Common issues and solutions
 - **[FAQ](user/faq.md)** - Frequently asked questions
@@ -50,5 +52,5 @@ Documentation for developers who want to **contribute** to Sugar:
 
 ---
 
-**Sugar v0.1.0** - AI-powered autonomous development system  
+**Sugar v3.0.0** - Autonomous development powered by Claude Agent SDK
 Created by [Steven Leggett](https://github.com/cdnsteve) | [Robotic Force](https://roboticforce.io)

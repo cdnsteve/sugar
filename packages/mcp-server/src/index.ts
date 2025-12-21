@@ -219,7 +219,7 @@ async function main(): Promise<void> {
     "List Sugar tasks with optional filtering",
     {
       status: z
-        .enum(["pending", "active", "completed", "failed"])
+        .enum(["pending", "hold", "active", "completed", "failed"])
         .optional()
         .describe("Filter by status"),
       type: z.string().optional().describe("Filter by task type"),
@@ -304,7 +304,7 @@ async function main(): Promise<void> {
         .optional()
         .describe("New priority level"),
       status: z
-        .enum(["pending", "active", "completed", "failed"])
+        .enum(["pending", "hold", "active", "completed", "failed"])
         .optional()
         .describe("New status"),
       description: z.string().optional().describe("New description"),

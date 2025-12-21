@@ -4,7 +4,7 @@ Sugar Core Loop - The heart of autonomous development
 
 import asyncio
 import logging
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from typing import Optional, List
 import yaml
 from pathlib import Path
@@ -14,6 +14,7 @@ from ..discovery.github_watcher import GitHubWatcher
 from ..discovery.code_quality import CodeQualityScanner
 from ..discovery.test_coverage import TestCoverageAnalyzer
 from ..executor.claude_wrapper import ClaudeWrapper
+from ..executor.agent_sdk_executor import AgentSDKExecutor
 from ..storage.work_queue import WorkQueue
 from ..learning.feedback_processor import FeedbackProcessor
 from ..learning.adaptive_scheduler import AdaptiveScheduler
@@ -31,11 +32,9 @@ class SugarLoop:
         self.config = self._load_config(config_path)
         self.running = False
         self.work_queue = WorkQueue(self.config["sugar"]["storage"]["database"])
-        # Pass the full config so ClaudeWrapper can access dry_run setting
-        claude_config = self.config["sugar"]["claude"].copy()
-        claude_config["dry_run"] = self.config["sugar"]["dry_run"]
-        claude_config["database_path"] = self.config["sugar"]["storage"]["database"]
-        self.claude_executor = ClaudeWrapper(claude_config)
+
+        # Initialize executor based on config
+        self.executor = self._create_executor()
 
         # Initialize learning components
         self.feedback_processor = FeedbackProcessor(self.work_queue)
@@ -100,6 +99,27 @@ class SugarLoop:
             logger.error(f"Invalid YAML config: {e}")
             raise
 
+    def _create_executor(self):
+        """Create the appropriate executor based on configuration"""
+        claude_config = self.config["sugar"]["claude"].copy()
+        claude_config["dry_run"] = self.config["sugar"]["dry_run"]
+        claude_config["database_path"] = self.config["sugar"]["storage"]["database"]
+
+        # Check which executor to use (default to sdk for v3.0+)
+        executor_type = claude_config.get("executor", "sdk")
+
+        if executor_type == "sdk":
+            logger.info("🚀 Using Agent SDK executor (v3.0)")
+            return AgentSDKExecutor(claude_config)
+        elif executor_type == "legacy":
+            logger.info("📦 Using legacy Claude wrapper executor")
+            return ClaudeWrapper(claude_config)
+        else:
+            logger.warning(
+                f"Unknown executor type '{executor_type}', defaulting to SDK"
+            )
+            return AgentSDKExecutor(claude_config)
+
     async def start(self):
         """Start the autonomous loop"""
         logger.info(f"🤖 Starting {get_version_info()}")
@@ -135,7 +155,7 @@ class SugarLoop:
 
         while self.running:
             try:
-                cycle_start = datetime.utcnow()
+                cycle_start = datetime.now(timezone.utc)
                 logger.info(f"🔄 Starting Sugar cycle at {cycle_start}")
 
                 # Phase 1: Discover new work
@@ -148,7 +168,9 @@ class SugarLoop:
                 await self._process_feedback()
 
                 # Wait for next cycle
-                cycle_duration = (datetime.utcnow() - cycle_start).total_seconds()
+                cycle_duration = (
+                    datetime.now(timezone.utc) - cycle_start
+                ).total_seconds()
                 sleep_time = max(0, loop_interval - cycle_duration)
 
                 logger.info(
@@ -166,7 +188,7 @@ class SugarLoop:
 
         while self.running and not shutdown_event.is_set():
             try:
-                cycle_start = datetime.utcnow()
+                cycle_start = datetime.now(timezone.utc)
                 logger.info(f"🔄 Starting Sugar cycle at {cycle_start}")
 
                 # Phase 1: Discover new work
@@ -189,7 +211,9 @@ class SugarLoop:
                 await self._process_feedback()
 
                 # Wait for next cycle or shutdown
-                cycle_duration = (datetime.utcnow() - cycle_start).total_seconds()
+                cycle_duration = (
+                    datetime.now(timezone.utc) - cycle_start
+                ).total_seconds()
                 sleep_time = max(0, loop_interval - cycle_duration)
 
                 logger.info(
@@ -307,15 +331,17 @@ class SugarLoop:
             # Track execution timing
             from datetime import datetime
 
-            start_time = datetime.utcnow()
+            start_time = datetime.now(timezone.utc)
             execution_time = 0.0
 
             try:
                 # Execute with Claude Code
-                result = await self.claude_executor.execute_work(work_item)
+                result = await self.executor.execute_work(work_item)
 
                 # Calculate execution time
-                execution_time = (datetime.utcnow() - start_time).total_seconds()
+                execution_time = (
+                    datetime.now(timezone.utc) - start_time
+                ).total_seconds()
 
                 # Complete unified workflow (commit, branch, PR, issues)
                 workflow_success = (
@@ -342,7 +368,9 @@ class SugarLoop:
 
             except Exception as e:
                 # Calculate execution time even on failure
-                execution_time = (datetime.utcnow() - start_time).total_seconds()
+                execution_time = (
+                    datetime.now(timezone.utc) - start_time
+                ).total_seconds()
 
                 logger.error(f"❌ Work execution failed [{work_item['id']}]: {e}")
                 await self.work_queue.fail_work(
@@ -1180,7 +1208,7 @@ class SugarLoop:
         return {
             "status": "running" if self.running else "stopped",
             "queue_stats": await self.work_queue.get_stats(),
-            "last_cycle": datetime.utcnow().isoformat(),
+            "last_cycle": datetime.now(timezone.utc).isoformat(),
             "discovery_modules": len(self.discovery_modules),
             "config_loaded": bool(self.config),
         }

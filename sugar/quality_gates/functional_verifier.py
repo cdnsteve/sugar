@@ -10,7 +10,7 @@ Verifies that fixes actually work in the running application through:
 import asyncio
 import json
 import subprocess
-from datetime import datetime
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple
 import logging
@@ -35,7 +35,7 @@ class FunctionalVerificationResult:
         self.expected = expected
         self.actual = actual
         self.metadata = kwargs
-        self.timestamp = datetime.utcnow().isoformat()
+        self.timestamp = datetime.now(timezone.utc).isoformat()
 
     def to_dict(self) -> dict:
         """Convert to dictionary"""

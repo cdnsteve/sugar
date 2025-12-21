@@ -25,7 +25,7 @@ def _get_version() -> str:
         return pyproject["project"]["version"]
     except (FileNotFoundError, KeyError, Exception):
         # Final fallback version
-        return "0.1.0"
+        return "3.0.0"
 
 
 __version__ = _get_version()

@@ -298,10 +298,30 @@ goose configure
 - `getStatus` - Get system metrics
 - `runOnce` - Execute one autonomous cycle
 
+## Architecture (v3.0)
+
+Sugar 3.0 is built natively on the **Claude Agent SDK**, providing:
+
+**Agent Foundation**
+- `SugarAgent` - Native SDK integration with streaming and tool use
+- Quality gate hooks - PreToolUse/PostToolUse security checks
+- Workflow profiles - Specialized behaviors for different tasks
+
+**Distribution Options**
+- **GitHub Action** - Event-driven, BYOK (Bring Your Own Key)
+- **MCP Server** - Native Python or Node.js for Claude Desktop/Goose
+- **Python Package** - Direct library usage
+- **CLI** - Local development
+
+**SaaS Features** (Enterprise)
+- Usage tracking per customer
+- API key management with rate limiting
+- Tiered pricing (Free → Enterprise)
+
 ## Requirements
 
 - Python 3.11+
-- [Claude Code CLI](https://docs.anthropic.com/en/docs/claude-code)
+- [Claude Code CLI](https://docs.anthropic.com/en/docs/claude-code) (for CLI mode)
 
 ## Documentation
 
@@ -393,6 +413,6 @@ MIT - see [LICENSE](LICENSE) and [TERMS.md](TERMS.md)
 
 ---
 
-**Sugar v2.2.0** - Autonomous development for any project
+**Sugar v3.0.0** - Autonomous development powered by Claude Agent SDK
 
 > ⚠️ Sugar is provided "AS IS" without warranty. Review all AI-generated code before use. See [TERMS.md](TERMS.md) for details.
