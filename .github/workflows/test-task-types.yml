@@ -144,7 +144,6 @@ jobs:
         python -m pip install --upgrade pip
         pip install -r requirements.txt
         pip install -e .
-        pip install sqlite3
 
     - name: Test Migration from Old Database
       run: |
@@ -185,7 +184,6 @@ jobs:
         python -m pip install --upgrade pip
         pip install -r requirements.txt
         pip install -e .
-        pip install time
 
     - name: Performance Test - Task Type Operations
       run: |
