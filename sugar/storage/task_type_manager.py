@@ -19,9 +19,163 @@ class TaskTypeManager:
 
     def __init__(self, db_path: str):
         self.db_path = db_path
+        self._initialized = False
+
+    async def initialize(self):
+        """Initialize the task_types table if it doesn't exist"""
+        if self._initialized:
+            return
+
+        async with aiosqlite.connect(self.db_path) as db:
+            # Check if task_types table exists
+            cursor = await db.execute(
+                "SELECT name FROM sqlite_master WHERE type='table' AND name='task_types'"
+            )
+            table_exists = await cursor.fetchone()
+
+            if not table_exists:
+                # Create task_types table
+                await db.execute(
+                    """
+                    CREATE TABLE task_types (
+                        id TEXT PRIMARY KEY,
+                        name TEXT NOT NULL,
+                        description TEXT,
+                        agent TEXT DEFAULT 'general-purpose',
+                        commit_template TEXT,
+                        emoji TEXT,
+                        file_patterns TEXT DEFAULT '[]',
+                        is_default INTEGER DEFAULT 0,
+                        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                    )
+                    """
+                )
+
+                # Populate with default types
+                default_types = self._get_default_task_types()
+                for task_type in default_types:
+                    await db.execute(
+                        """
+                        INSERT INTO task_types
+                        (id, name, description, agent, commit_template, emoji, file_patterns, is_default)
+                        VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+                        """,
+                        (
+                            task_type["id"],
+                            task_type["name"],
+                            task_type["description"],
+                            task_type["agent"],
+                            task_type["commit_template"],
+                            task_type["emoji"],
+                            json.dumps(task_type.get("file_patterns", [])),
+                            1,
+                        ),
+                    )
+
+                await db.commit()
+                logger.info("Created task_types table and populated with default types")
+
+        self._initialized = True
+
+    def _get_default_task_types(self) -> List[Dict]:
+        """Get the default task types"""
+        return [
+            {
+                "id": "feature",
+                "name": "Feature",
+                "description": "New feature implementation",
+                "agent": "general-purpose",
+                "commit_template": "feat: {title}",
+                "emoji": "✨",
+                "file_patterns": [],
+            },
+            {
+                "id": "bug_fix",
+                "name": "Bug Fix",
+                "description": "Bug fix or error correction",
+                "agent": "general-purpose",
+                "commit_template": "fix: {title}",
+                "emoji": "🐛",
+                "file_patterns": [],
+            },
+            {
+                "id": "refactor",
+                "name": "Refactor",
+                "description": "Code refactoring",
+                "agent": "general-purpose",
+                "commit_template": "refactor: {title}",
+                "emoji": "♻️",
+                "file_patterns": [],
+            },
+            {
+                "id": "docs",
+                "name": "Documentation",
+                "description": "Documentation updates",
+                "agent": "general-purpose",
+                "commit_template": "docs: {title}",
+                "emoji": "📝",
+                "file_patterns": ["*.md", "docs/**"],
+            },
+            {
+                "id": "test",
+                "name": "Test",
+                "description": "Test creation or updates",
+                "agent": "general-purpose",
+                "commit_template": "test: {title}",
+                "emoji": "🧪",
+                "file_patterns": ["test_*.py", "*_test.py", "tests/**"],
+            },
+            {
+                "id": "chore",
+                "name": "Chore",
+                "description": "Maintenance and chores",
+                "agent": "general-purpose",
+                "commit_template": "chore: {title}",
+                "emoji": "🔧",
+                "file_patterns": [],
+            },
+            {
+                "id": "style",
+                "name": "Style",
+                "description": "Code style and formatting",
+                "agent": "general-purpose",
+                "commit_template": "style: {title}",
+                "emoji": "💄",
+                "file_patterns": [],
+            },
+            {
+                "id": "perf",
+                "name": "Performance",
+                "description": "Performance improvements",
+                "agent": "general-purpose",
+                "commit_template": "perf: {title}",
+                "emoji": "⚡",
+                "file_patterns": [],
+            },
+            {
+                "id": "ci",
+                "name": "CI/CD",
+                "description": "CI/CD configuration",
+                "agent": "general-purpose",
+                "commit_template": "ci: {title}",
+                "emoji": "👷",
+                "file_patterns": [".github/**", "Dockerfile", "docker-compose*.yml"],
+            },
+            {
+                "id": "security",
+                "name": "Security",
+                "description": "Security fixes and improvements",
+                "agent": "general-purpose",
+                "commit_template": "security: {title}",
+                "emoji": "🔒",
+                "file_patterns": [],
+            },
+        ]
 
     async def get_all_task_types(self) -> List[Dict]:
         """Get all task types from the database"""
+        await self.initialize()
         async with aiosqlite.connect(self.db_path) as db:
             db.row_factory = aiosqlite.Row
             cursor = await db.execute(
@@ -48,6 +202,7 @@ class TaskTypeManager:
 
     async def get_task_type(self, type_id: str) -> Optional[Dict]:
         """Get a specific task type by ID"""
+        await self.initialize()
         async with aiosqlite.connect(self.db_path) as db:
             db.row_factory = aiosqlite.Row
             cursor = await db.execute(
@@ -73,6 +228,7 @@ class TaskTypeManager:
 
     async def get_task_type_ids(self) -> List[str]:
         """Get all task type IDs for CLI validation"""
+        await self.initialize()
         async with aiosqlite.connect(self.db_path) as db:
             cursor = await db.execute("SELECT id FROM task_types ORDER BY name ASC")
             rows = await cursor.fetchall()
@@ -89,6 +245,7 @@ class TaskTypeManager:
         file_patterns: List[str] = None,
     ) -> bool:
         """Add a new task type"""
+        await self.initialize()
         if not commit_template:
             commit_template = f"{type_id}: {{title}}"
 
@@ -134,6 +291,7 @@ class TaskTypeManager:
         file_patterns: List[str] = None,
     ) -> bool:
         """Update an existing task type"""
+        await self.initialize()
         # First check if task type exists
         existing = await self.get_task_type(type_id)
         if not existing:
@@ -184,6 +342,7 @@ class TaskTypeManager:
 
     async def remove_task_type(self, type_id: str) -> bool:
         """Remove a task type (if not default and no active tasks)"""
+        await self.initialize()
         # Check if task type exists and is not default
         existing = await self.get_task_type(type_id)
         if not existing:
@@ -219,6 +378,7 @@ class TaskTypeManager:
 
     async def export_task_types(self) -> List[Dict]:
         """Export all non-default task types for version control"""
+        await self.initialize()
         async with aiosqlite.connect(self.db_path) as db:
             db.row_factory = aiosqlite.Row
             cursor = await db.execute(
@@ -253,6 +413,7 @@ class TaskTypeManager:
         self, task_types: List[Dict], overwrite: bool = False
     ) -> int:
         """Import task types from external source"""
+        await self.initialize()
         imported_count = 0
 
         for task_type in task_types:
@@ -297,11 +458,13 @@ class TaskTypeManager:
 
     async def validate_task_type_id(self, type_id: str) -> bool:
         """Validate that a task type ID exists"""
+        await self.initialize()
         existing = await self.get_task_type(type_id)
         return existing is not None
 
     async def get_agent_for_type(self, type_id: str) -> str:
         """Get the agent configured for a task type"""
+        await self.initialize()
         task_type = await self.get_task_type(type_id)
         return (
             task_type.get("agent", "general-purpose")
@@ -311,6 +474,7 @@ class TaskTypeManager:
 
     async def get_commit_template_for_type(self, type_id: str) -> str:
         """Get the commit template for a task type"""
+        await self.initialize()
         task_type = await self.get_task_type(type_id)
         return (
             task_type.get("commit_template", f"{type_id}: {{title}}")
@@ -320,5 +484,6 @@ class TaskTypeManager:
 
     async def get_file_patterns_for_type(self, type_id: str) -> List[str]:
         """Get the file patterns for a task type"""
+        await self.initialize()
         task_type = await self.get_task_type(type_id)
         return task_type.get("file_patterns", []) if task_type else []
