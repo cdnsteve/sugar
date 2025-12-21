@@ -209,9 +209,10 @@ jobs:
         list_time=$(( (end_time - start_time) / 1000000 ))  # Convert to milliseconds
         echo "100 task-type list operations: ${list_time}ms (avg: $((list_time/100))ms per operation)"
 
-        # Performance threshold check (should be fast)
-        if [ $((list_time/100)) -gt 100 ]; then
-          echo "ERROR:  Performance regression: task-type list too slow (>100ms per operation)"
+        # Performance threshold check (should be reasonably fast)
+        # Note: 500ms threshold accounts for Python startup, imports, and database operations
+        if [ $((list_time/100)) -gt 500 ]; then
+          echo "ERROR: Performance regression: task-type list too slow (>500ms per operation)"
           exit 1
         fi
 

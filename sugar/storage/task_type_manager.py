@@ -175,7 +175,16 @@ class TaskTypeManager:
 
     async def get_all_task_types(self) -> List[Dict]:
         """Get all task types from the database"""
-        await self.initialize()
+        try:
+            return await self._get_all_task_types_internal()
+        except aiosqlite.OperationalError as e:
+            if "no such table: task_types" in str(e):
+                await self.initialize()
+                return await self._get_all_task_types_internal()
+            raise
+
+    async def _get_all_task_types_internal(self) -> List[Dict]:
+        """Internal method to get all task types"""
         async with aiosqlite.connect(self.db_path) as db:
             db.row_factory = aiosqlite.Row
             cursor = await db.execute(
@@ -202,7 +211,16 @@ class TaskTypeManager:
 
     async def get_task_type(self, type_id: str) -> Optional[Dict]:
         """Get a specific task type by ID"""
-        await self.initialize()
+        try:
+            return await self._get_task_type_internal(type_id)
+        except aiosqlite.OperationalError as e:
+            if "no such table: task_types" in str(e):
+                await self.initialize()
+                return await self._get_task_type_internal(type_id)
+            raise
+
+    async def _get_task_type_internal(self, type_id: str) -> Optional[Dict]:
+        """Internal method to get a specific task type"""
         async with aiosqlite.connect(self.db_path) as db:
             db.row_factory = aiosqlite.Row
             cursor = await db.execute(
@@ -228,11 +246,21 @@ class TaskTypeManager:
 
     async def get_task_type_ids(self) -> List[str]:
         """Get all task type IDs for CLI validation"""
-        await self.initialize()
-        async with aiosqlite.connect(self.db_path) as db:
-            cursor = await db.execute("SELECT id FROM task_types ORDER BY name ASC")
-            rows = await cursor.fetchall()
-            return [row[0] for row in rows]
+        try:
+            async with aiosqlite.connect(self.db_path) as db:
+                cursor = await db.execute("SELECT id FROM task_types ORDER BY name ASC")
+                rows = await cursor.fetchall()
+                return [row[0] for row in rows]
+        except aiosqlite.OperationalError as e:
+            if "no such table: task_types" in str(e):
+                await self.initialize()
+                async with aiosqlite.connect(self.db_path) as db:
+                    cursor = await db.execute(
+                        "SELECT id FROM task_types ORDER BY name ASC"
+                    )
+                    rows = await cursor.fetchall()
+                    return [row[0] for row in rows]
+            raise
 
     async def add_task_type(
         self,
