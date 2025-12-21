@@ -118,6 +118,13 @@ jobs:
         # Test editing and removing
         sugar task-type edit smoke_test --description "Updated smoke test description"
         sugar task-type show smoke_test | grep "Updated smoke test"
+
+        # Remove the task first (required before removing task type)
+        TASK_ID=$(sugar list --type smoke_test --format json | python3 -c "import sys, json; tasks=json.load(sys.stdin); print(tasks[0]['id'] if tasks else '')")
+        if [ -n "$TASK_ID" ]; then
+          sugar remove "$TASK_ID"
+        fi
+
         sugar task-type remove smoke_test --force
 
         # Verify removal
