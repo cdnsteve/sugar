@@ -3,7 +3,7 @@
   "name": "Sugar",
   "description": "Autonomous AI development system - delegate tasks, run 24/7, auto-discover work from errors and GitHub issues",
   "command": "npx -y sugarai-mcp",
-  "link": "https://github.com/cdnsteve/sugar",
+  "link": "https://github.com/roboticforce/sugar",
   "installation_notes": "Requires Python 3.11+ and Sugar CLI installed: pip install sugarai && sugar init in your project directory",
   "is_builtin": false,
   "endorsed": false,

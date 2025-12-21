@@ -30,12 +30,12 @@
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "https://github.com/cdnsteve/sugar.git",
+    "url": "https://github.com/roboticforce/sugar.git",
     "directory": "packages/mcp-server"
   },
-  "homepage": "https://github.com/cdnsteve/sugar",
+  "homepage": "https://github.com/roboticforce/sugar",
   "bugs": {
-    "url": "https://github.com/cdnsteve/sugar/issues"
+    "url": "https://github.com/roboticforce/sugar/issues"
   },
   "engines": {
     "node": ">=18.0.0"

@@ -17,7 +17,7 @@ This is the easiest way to test Sugar locally:
 
 ```bash
 # 1. Clone Sugar repository
-git clone https://github.com/cdnsteve/sugar.git
+git clone https://github.com/roboticforce/sugar.git
 cd sugar
 
 # 2. Create virtual environment (recommended)
@@ -59,7 +59,7 @@ If you prefer not to install:
 
 ```bash
 # 1. Clone and setup
-git clone https://github.com/cdnsteve/sugar.git
+git clone https://github.com/roboticforce/sugar.git
 cd sugar
 pip install -r requirements.txt
 
@@ -76,7 +76,7 @@ Create a convenient wrapper:
 
 ```bash
 # 1. Clone Sugar
-git clone https://github.com/cdnsteve/sugar.git
+git clone https://github.com/roboticforce/sugar.git
 
 # 2. Create wrapper script
 cat > sugar-dev << 'EOF'
@@ -246,7 +246,7 @@ fi
 # Clone Sugar if not already present
 if [ ! -d "sugar" ]; then
     echo "📥 Cloning Sugar repository..."
-    git clone https://github.com/cdnsteve/sugar.git
+    git clone https://github.com/roboticforce/sugar.git
 fi
 
 cd sugar

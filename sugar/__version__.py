@@ -25,7 +25,7 @@ def _get_version() -> str:
         return pyproject["project"]["version"]
     except (FileNotFoundError, KeyError, Exception):
         # Final fallback version
-        return "0.1.0"
+        return "3.0.0"
 
 
 __version__ = _get_version()
@@ -33,7 +33,7 @@ __title__ = "Sugar ✨ 🍰 ✨ "
 __description__ = "Autonomous development assistant"
 __author__ = "Steven Leggett"
 __author_email__ = "contact@roboticforce.io"
-__url__ = "https://github.com/cdnsteve/sugar"
+__url__ = "https://github.com/roboticforce/sugar"
 
 
 def get_version_info() -> str:

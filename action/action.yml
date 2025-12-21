@@ -1,0 +1,62 @@
+name: 'Sugar Issue Responder'
+description: 'AI-powered GitHub issue assistant built on Claude Agent SDK'
+author: 'RoboticForce'
+branding:
+  icon: 'message-circle'
+  color: 'purple'
+
+inputs:
+  anthropic-api-key:
+    description: 'Anthropic API key for Claude'
+    required: true
+  github-token:
+    description: 'GitHub token for API access (defaults to GITHUB_TOKEN)'
+    required: false
+    default: ${{ github.token }}
+  mode:
+    description: 'Response mode: auto | mention | triage'
+    required: false
+    default: 'auto'
+  model:
+    description: 'Claude model to use'
+    required: false
+    default: 'claude-sonnet-4-20250514'
+  confidence-threshold:
+    description: 'Minimum confidence to auto-post (0.0-1.0)'
+    required: false
+    default: '0.7'
+  max-response-length:
+    description: 'Maximum response length in characters'
+    required: false
+    default: '2000'
+  skip-labels:
+    description: 'Comma-separated labels to skip (e.g., "wontfix,duplicate")'
+    required: false
+    default: ''
+  dry-run:
+    description: 'If true, generate but do not post responses'
+    required: false
+    default: 'false'
+
+outputs:
+  responded:
+    description: 'Whether a response was posted'
+  confidence:
+    description: 'Confidence score of the response'
+  response:
+    description: 'The generated response (if any)'
+  issue-number:
+    description: 'The issue number that was processed'
+
+runs:
+  using: 'docker'
+  image: 'Dockerfile'
+  env:
+    ANTHROPIC_API_KEY: ${{ inputs.anthropic-api-key }}
+    GITHUB_TOKEN: ${{ inputs.github-token }}
+    SUGAR_MODE: ${{ inputs.mode }}
+    SUGAR_MODEL: ${{ inputs.model }}
+    SUGAR_CONFIDENCE_THRESHOLD: ${{ inputs.confidence-threshold }}
+    SUGAR_MAX_RESPONSE_LENGTH: ${{ inputs.max-response-length }}
+    SUGAR_SKIP_LABELS: ${{ inputs.skip-labels }}
+    SUGAR_DRY_RUN: ${{ inputs.dry-run }}

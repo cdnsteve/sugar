@@ -17,6 +17,8 @@ Think of Sugar as **Claude Code with persistence**. Instead of one-off interacti
 
 You plan the work. Sugar executes it.
 
+**Works with:** [Claude Code](https://docs.anthropic.com/en/docs/claude-code) | [Goose](https://block.github.io/goose/docs/mcp/sugar-mcp) | [Claude Desktop](https://claude.ai/download)
+
 ## Install
 
 ```bash
@@ -211,10 +213,10 @@ discovery:
 ### Install the Plugin
 
 ```
-/plugin install cdnsteve/sugar
+/plugin install roboticforce/sugar
 ```
 
-> **Note**: If you see "Plugin not found in any marketplace", make sure you're using `cdnsteve/sugar` (the GitHub repository path).
+> **Note**: If you see "Plugin not found in any marketplace", make sure you're using `roboticforce/sugar` (the GitHub repository path).
 
 ### Delegate Work from Claude
 
@@ -263,6 +265,9 @@ Task created! You can check progress with /sugar-status
 Sugar provides an MCP server for integration with Goose, Claude Desktop, and other MCP clients.
 
 **Using with Goose:**
+
+Sugar is an official extension in the [Goose extensions library](https://block.github.io/goose/docs/mcp/sugar-mcp).
+
 ```bash
 # Via Goose CLI
 goose configure
@@ -293,10 +298,30 @@ goose configure
 - `getStatus` - Get system metrics
 - `runOnce` - Execute one autonomous cycle
 
+## Architecture (v3.0)
+
+Sugar 3.0 is built natively on the **Claude Agent SDK**, providing:
+
+**Agent Foundation**
+- `SugarAgent` - Native SDK integration with streaming and tool use
+- Quality gate hooks - PreToolUse/PostToolUse security checks
+- Workflow profiles - Specialized behaviors for different tasks
+
+**Distribution Options**
+- **GitHub Action** - Event-driven, BYOK (Bring Your Own Key)
+- **MCP Server** - Native Python or Node.js for Claude Desktop/Goose
+- **Python Package** - Direct library usage
+- **CLI** - Local development
+
+**SaaS Features** (Enterprise)
+- Usage tracking per customer
+- API key management with rate limiting
+- Tiered pricing (Free → Enterprise)
+
 ## Requirements
 
 - Python 3.11+
-- [Claude Code CLI](https://docs.anthropic.com/en/docs/claude-code)
+- [Claude Code CLI](https://docs.anthropic.com/en/docs/claude-code) (for CLI mode)
 
 ## Documentation
 
@@ -358,7 +383,7 @@ sugar run --once
 
 **Need help?**
 - [Troubleshooting Guide](docs/user/troubleshooting.md)
-- [GitHub Issues](https://github.com/cdnsteve/sugar/issues)
+- [GitHub Issues](https://github.com/roboticforce/sugar/issues)
 
 ## Contributing
 
@@ -366,7 +391,7 @@ Contributions welcome! See [CONTRIBUTING.md](docs/dev/contributing.md) for guide
 
 ```bash
 # Development setup
-git clone https://github.com/cdnsteve/sugar.git
+git clone https://github.com/roboticforce/sugar.git
 cd sugar
 
 # Install with uv (recommended)
@@ -388,6 +413,6 @@ MIT - see [LICENSE](LICENSE) and [TERMS.md](TERMS.md)
 
 ---
 
-**Sugar v2.0.1** - Autonomous development for any project
+**Sugar v3.0.0** - Autonomous development powered by Claude Agent SDK
 
 > ⚠️ Sugar is provided "AS IS" without warranty. Review all AI-generated code before use. See [TERMS.md](TERMS.md) for details.

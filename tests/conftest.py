@@ -177,3 +177,104 @@ async def mock_work_queue(temp_dir):
     await queue.initialize()
     yield queue
     await queue.close()
+
+
+# ============================================================================
+# Sugar 3.0 Fixtures - Billing, Profiles, Hooks
+# ============================================================================
+
+
+@pytest.fixture
+def billing_storage_path(temp_dir):
+    """Temporary storage for billing tests"""
+    path = temp_dir / "billing"
+    path.mkdir(exist_ok=True)
+    return path
+
+
+@pytest.fixture
+def usage_tracker(billing_storage_path):
+    """UsageTracker with temp storage"""
+    from sugar.billing import UsageTracker
+
+    tracker = UsageTracker(storage_path=str(billing_storage_path / "usage"))
+    return tracker
+
+
+@pytest.fixture
+def api_key_manager(billing_storage_path):
+    """APIKeyManager with temp storage"""
+    from sugar.billing import APIKeyManager
+
+    manager = APIKeyManager(
+        storage_path=str(billing_storage_path / "keys"),
+        signing_secret="test_secret_for_testing_only",
+    )
+    return manager
+
+
+@pytest.fixture
+def tier_manager():
+    """TierManager instance"""
+    from sugar.billing import TierManager
+
+    return TierManager()
+
+
+@pytest.fixture
+def default_profile():
+    """DefaultProfile instance"""
+    from sugar.profiles import DefaultProfile
+
+    return DefaultProfile()
+
+
+@pytest.fixture
+def issue_responder_profile():
+    """IssueResponderProfile instance"""
+    from sugar.profiles import IssueResponderProfile
+
+    return IssueResponderProfile()
+
+
+@pytest.fixture
+def quality_gate_hooks():
+    """QualityGateHooks instance"""
+    from sugar.agent.hooks import QualityGateHooks
+
+    return QualityGateHooks(config={"enabled": True})
+
+
+@pytest.fixture
+def quality_gate_hooks_disabled():
+    """QualityGateHooks instance with hooks disabled"""
+    from sugar.agent.hooks import QualityGateHooks
+
+    return QualityGateHooks(config={"enabled": False})
+
+
+@pytest.fixture
+def sample_github_issue():
+    """Sample GitHub issue data"""
+    return {
+        "number": 123,
+        "title": "Bug: Application crashes on startup",
+        "body": "When I run `python main.py`, I get an AttributeError in src/config.py:42",
+        "state": "open",
+        "user": {"login": "testuser", "type": "User"},
+        "labels": [{"name": "bug", "color": "d73a4a"}],
+        "created_at": "2025-01-01T12:00:00Z",
+        "updated_at": "2025-01-01T12:00:00Z",
+        "comments": 0,
+        "html_url": "https://github.com/test/repo/issues/123",
+    }
+
+
+@pytest.fixture
+def mock_gh_cli():
+    """Mock gh CLI subprocess calls"""
+    with patch("subprocess.run") as mock_run:
+        mock_run.return_value.returncode = 0
+        mock_run.return_value.stdout = "{}"
+        mock_run.return_value.stderr = ""
+        yield mock_run

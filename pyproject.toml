@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "sugarai"
-version = "2.2.0"
+version = "3.0.0"
 description = "Sugar 🍰 - A dev team that never stops. Delegate full tasks to AI in the background."
 readme = "README.md"
 requires-python = ">=3.11"
@@ -32,7 +32,8 @@ dependencies = [
     "sqlalchemy>=2.0.0",
     "python-dotenv>=1.0.0",
     "asyncio-throttle>=1.0.0",
-    "setuptools>=45"
+    "setuptools>=45",
+    "claude-agent-sdk>=0.1.0",
 ]
 
 [project.optional-dependencies]
@@ -63,10 +64,10 @@ test = [
 sugar = "sugar.main:cli"
 
 [project.urls]
-Homepage = "https://github.com/cdnsteve/sugar"
+Homepage = "https://github.com/roboticforce/sugar"
 Documentation = "https://docs.roboticforce.io/sugar"
-Repository = "https://github.com/cdnsteve/sugar"
-"Bug Tracker" = "https://github.com/cdnsteve/sugar/issues"
+Repository = "https://github.com/roboticforce/sugar"
+"Bug Tracker" = "https://github.com/roboticforce/sugar/issues"
 
 [tool.setuptools.packages.find]
 where = ["."]

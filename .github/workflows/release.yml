@@ -43,7 +43,7 @@ jobs:
         echo "" >> $GITHUB_OUTPUT
         echo "Or from source:" >> $GITHUB_OUTPUT
         echo '```bash' >> $GITHUB_OUTPUT
-        echo "git clone https://github.com/cdnsteve/sugar.git" >> $GITHUB_OUTPUT
+        echo "git clone https://github.com/roboticforce/sugar.git" >> $GITHUB_OUTPUT
         echo "cd sugar" >> $GITHUB_OUTPUT
         echo "git checkout ${GITHUB_REF_NAME}" >> $GITHUB_OUTPUT
         echo "pip install -e ." >> $GITHUB_OUTPUT
@@ -52,7 +52,7 @@ jobs:
         echo "## Docker" >> $GITHUB_OUTPUT
         echo "" >> $GITHUB_OUTPUT
         echo '```bash' >> $GITHUB_OUTPUT
-        echo "docker pull ghcr.io/cdnsteve/sugar:${GITHUB_REF_NAME}" >> $GITHUB_OUTPUT
+        echo "docker pull ghcr.io/roboticforce/sugar:${GITHUB_REF_NAME}" >> $GITHUB_OUTPUT
         echo '```' >> $GITHUB_OUTPUT
         echo "EOF" >> $GITHUB_OUTPUT
     

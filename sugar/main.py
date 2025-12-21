@@ -9,7 +9,7 @@ import signal
 import sys
 from pathlib import Path
 import click
-from datetime import datetime
+from datetime import datetime, timezone
 
 from .core.loop import SugarLoop
 from .__version__ import get_version_info, __version__
@@ -397,7 +397,7 @@ def add(
             "source": "cli",
             "context": {
                 "added_via": "sugar_cli",
-                "timestamp": datetime.utcnow().isoformat(),
+                "timestamp": datetime.now(timezone.utc).isoformat(),
             },
         }
 
@@ -456,6 +456,12 @@ def add(
     help="Filter by type",
 )
 @click.option(
+    "--priority",
+    type=click.IntRange(1, 5),
+    default=None,
+    help="Filter by priority (1-5)",
+)
+@click.option(
     "--format",
     "output_format",
     type=click.Choice(["pretty", "text", "json"]),
@@ -463,7 +469,7 @@ def add(
     help="Output format",
 )
 @click.pass_context
-def list(ctx, status, limit, task_type, output_format):
+def list(ctx, status, limit, task_type, priority, output_format):
     """List tasks in Sugar work queue"""
 
     from .storage.work_queue import WorkQueue
@@ -477,7 +483,9 @@ def list(ctx, status, limit, task_type, output_format):
         work_queue = WorkQueue(config["sugar"]["storage"]["database"])
 
         # Get tasks
-        tasks = asyncio.run(_list_tasks_async(work_queue, status, limit, task_type))
+        tasks = asyncio.run(
+            _list_tasks_async(work_queue, status, limit, task_type, priority)
+        )
 
         if not tasks:
             click.echo(f"No {status if status != 'all' else ''} tasks found")
@@ -827,7 +835,7 @@ def update(ctx, task_id, title, description, priority, task_type, status):
         if status:
             updates["status"] = status
 
-        updates["updated_at"] = datetime.utcnow().isoformat()
+        updates["updated_at"] = datetime.now(timezone.utc).isoformat()
 
         # Update the task
         success = asyncio.run(_update_task_async(work_queue, task_id, updates))
@@ -1298,7 +1306,7 @@ Complete documentation: docs/README.md
 🆘 NEED HELP?
 --------------
 • Check troubleshooting guide: docs/user/troubleshooting.md
-• GitHub Issues: https://github.com/cdnsteve/sugar/issues
+• GitHub Issues: https://github.com/roboticforce/sugar/issues
 • Email: contact@roboticforce.io
 
 💡 TIPS
@@ -1486,7 +1494,9 @@ async def _add_task_async(work_queue, task_data):
     return task_id
 
 
-async def _list_tasks_async(work_queue, status_filter, limit, task_type_filter):
+async def _list_tasks_async(
+    work_queue, status_filter, limit, task_type_filter, priority_filter=None
+):
     """Helper to list tasks asynchronously"""
     await work_queue.initialize()
 
@@ -1498,6 +1508,10 @@ async def _list_tasks_async(work_queue, status_filter, limit, task_type_filter):
     # Filter by task type if specified
     if task_type_filter != "all":
         tasks = [task for task in tasks if task["type"] == task_type_filter]
+
+    # Filter by priority if specified
+    if priority_filter is not None:
+        tasks = [task for task in tasks if task.get("priority") == priority_filter]
 
     return tasks
 
@@ -1815,7 +1829,12 @@ sugar:
     command: "{claude_cmd}"  # Auto-detected Claude CLI path
     timeout: 1800       # 30 minutes max per task
     context_file: ".sugar/context.json"
-    
+
+    # Executor selection (v3.0+)
+    # - "sdk": Use Claude Agent SDK (recommended, native integration)
+    # - "legacy": Use subprocess-based CLI wrapper (backwards compatible)
+    executor: "sdk"
+
     # Structured Claude Agent Integration System (Complete Implementation)
     use_structured_requests: true  # Enable structured JSON communication
     structured_input_file: ".sugar/claude_input.json"  # Temp file for complex inputs

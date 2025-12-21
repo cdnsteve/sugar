@@ -166,7 +166,7 @@ Sugar v1.3.0 introduces **Bidirectional Traceability** and **Pretty JSON Formatt
 ### Installation Methods
 ```bash
 # Current - Git installation
-pip install -e git+ssh://git@github.com/cdnsteve/sugar.git@main#egg=sugar
+pip install -e git+ssh://git@github.com/roboticforce/sugar.git@main#egg=sugar
 
 # Planned - PyPI package
 pip install sugar-ai

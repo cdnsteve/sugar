@@ -15,13 +15,13 @@ pip install sugarai
 In Claude Code:
 
 ```
-/plugin install sugar@cdnsteve
+/plugin install sugar@roboticforce
 ```
 
 Or manually:
 ```bash
 # Clone Sugar repository
-git clone https://github.com/cdnsteve/sugar.git
+git clone https://github.com/roboticforce/sugar.git
 
 # Link plugin (from your project directory)
 ln -s /path/to/sugar/.claude-plugin ./.claude-plugins/sugar
@@ -337,7 +337,7 @@ cat .claude-plugins/sugar/.claude-plugin/plugin.json
 
 # Reinstall
 /plugin uninstall sugar
-/plugin install sugar@cdnsteve
+/plugin install sugar@roboticforce
 ```
 
 ### MCP Server Issues
@@ -368,8 +368,8 @@ which sugar
 
 - **Plugin Documentation**: [.claude-plugin/README.md](../../.claude-plugin/README.md)
 - **Sugar Documentation**: [docs/](../../docs/)
-- **Issues**: [GitHub Issues](https://github.com/cdnsteve/sugar/issues)
-- **Discussions**: [GitHub Discussions](https://github.com/cdnsteve/sugar/discussions)
+- **Issues**: [GitHub Issues](https://github.com/roboticforce/sugar/issues)
+- **Discussions**: [GitHub Discussions](https://github.com/roboticforce/sugar/discussions)
 
 ## Learn More
 

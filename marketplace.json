@@ -4,7 +4,7 @@
   "owner": {
     "name": "Steven Leggett",
     "email": "contact@roboticforce.io",
-    "website": "https://github.com/cdnsteve/sugar",
+    "website": "https://github.com/roboticforce/sugar",
     "github": "cdnsteve"
   },
   "plugins": [
@@ -21,15 +21,15 @@
       },
       "source": {
         "type": "git",
-        "url": "https://github.com/cdnsteve/sugar.git",
+        "url": "https://github.com/roboticforce/sugar.git",
         "branch": "main",
         "subdirectory": ".claude-plugin"
       },
-      "homepage": "https://github.com/cdnsteve/sugar",
-      "repository": "https://github.com/cdnsteve/sugar",
-      "documentation": "https://github.com/cdnsteve/sugar/blob/main/.claude-plugin/README.md",
-      "examples": "https://github.com/cdnsteve/sugar/blob/main/examples/claude-code-plugin/README.md",
-      "changelog": "https://github.com/cdnsteve/sugar/blob/main/CHANGELOG.md",
+      "homepage": "https://github.com/roboticforce/sugar",
+      "repository": "https://github.com/roboticforce/sugar",
+      "documentation": "https://github.com/roboticforce/sugar/blob/main/.claude-plugin/README.md",
+      "examples": "https://github.com/roboticforce/sugar/blob/main/examples/claude-code-plugin/README.md",
+      "changelog": "https://github.com/roboticforce/sugar/blob/main/CHANGELOG.md",
       "license": "MIT",
       "keywords": [
         "autonomous",
@@ -155,19 +155,19 @@
       ],
       "screenshots": [
         {
-          "url": "https://raw.githubusercontent.com/cdnsteve/sugar/main/docs/screenshots/task-creation.png",
+          "url": "https://raw.githubusercontent.com/roboticforce/sugar/main/docs/screenshots/task-creation.png",
           "caption": "Rich task creation with comprehensive context"
         },
         {
-          "url": "https://raw.githubusercontent.com/cdnsteve/sugar/main/docs/screenshots/status-dashboard.png",
+          "url": "https://raw.githubusercontent.com/roboticforce/sugar/main/docs/screenshots/status-dashboard.png",
           "caption": "Real-time system status and task queue monitoring"
         },
         {
-          "url": "https://raw.githubusercontent.com/cdnsteve/sugar/main/docs/screenshots/autonomous-execution.png",
+          "url": "https://raw.githubusercontent.com/roboticforce/sugar/main/docs/screenshots/autonomous-execution.png",
           "caption": "Safe autonomous execution with validation"
         },
         {
-          "url": "https://raw.githubusercontent.com/cdnsteve/sugar/main/docs/screenshots/agent-orchestration.png",
+          "url": "https://raw.githubusercontent.com/roboticforce/sugar/main/docs/screenshots/agent-orchestration.png",
           "caption": "Multi-agent workflow coordination"
         }
       ],
@@ -185,7 +185,7 @@
         "steps": [
           "Install Sugar CLI: pip install sugarai",
           "Initialize in your project: sugar init",
-          "Install plugin in Claude Code: /plugin install sugar@cdnsteve",
+          "Install plugin in Claude Code: /plugin install sugar@roboticforce",
           "Start using: /sugar-task \"Your first task\""
         ],
         "verification": [
@@ -195,9 +195,9 @@
         ]
       },
       "support": {
-        "documentation": "https://github.com/cdnsteve/sugar/tree/main/docs",
-        "issues": "https://github.com/cdnsteve/sugar/issues",
-        "discussions": "https://github.com/cdnsteve/sugar/discussions",
+        "documentation": "https://github.com/roboticforce/sugar/tree/main/docs",
+        "issues": "https://github.com/roboticforce/sugar/issues",
+        "discussions": "https://github.com/roboticforce/sugar/discussions",
         "email": "contact@roboticforce.io"
       },
       "stats": {

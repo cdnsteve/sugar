@@ -342,7 +342,7 @@ pkill -f "sugar run"
 
 If you can't resolve the issue:
 
-1. **Search Issues:** Check [GitHub Issues](https://github.com/cdnsteve/sugar/issues)
+1. **Search Issues:** Check [GitHub Issues](https://github.com/roboticforce/sugar/issues)
 2. **Create Issue:** Include:
    - Sugar version (`sugar --version`)
    - Operating system

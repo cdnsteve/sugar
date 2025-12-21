@@ -6,7 +6,7 @@ Provides unified request/response format for both basic Claude and agent mode in
 
 import json
 from typing import Dict, Any, Optional, List, Union
-from datetime import datetime
+from datetime import datetime, timezone
 from dataclasses import dataclass, asdict
 from enum import Enum
 
@@ -110,7 +110,7 @@ class StructuredRequest:
     def __post_init__(self):
         """Set defaults after initialization"""
         if self.timestamp is None:
-            self.timestamp = datetime.utcnow().isoformat()
+            self.timestamp = datetime.now(timezone.utc).isoformat()
 
         if self.sugar_version is None:
             try:
@@ -207,7 +207,7 @@ class StructuredResponse:
     def __post_init__(self):
         """Set defaults after initialization"""
         if self.timestamp is None:
-            self.timestamp = datetime.utcnow().isoformat()
+            self.timestamp = datetime.now(timezone.utc).isoformat()
 
         if self.files_modified is None:
             self.files_modified = []

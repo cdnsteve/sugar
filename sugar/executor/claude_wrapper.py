@@ -5,7 +5,7 @@ Claude Code CLI Wrapper - Execute development tasks with Claude and context pers
 import asyncio
 import json
 import logging
-from datetime import datetime
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Dict, Any, Optional, Union
 import tempfile
@@ -104,7 +104,7 @@ class ClaudeWrapper:
             return {
                 "success": False,
                 "error": str(e),
-                "timestamp": datetime.utcnow().isoformat(),
+                "timestamp": datetime.now(timezone.utc).isoformat(),
                 "work_item_id": work_item["id"],
             }
 
@@ -165,7 +165,7 @@ class ClaudeWrapper:
             last_time = datetime.fromisoformat(
                 session_state.get("last_execution_time", "")
             )
-            age_hours = (datetime.utcnow() - last_time).total_seconds() / 3600
+            age_hours = (datetime.now(timezone.utc) - last_time).total_seconds() / 3600
             return age_hours > self.max_context_age_hours
         except:
             return True
@@ -204,7 +204,7 @@ class ClaudeWrapper:
     def _update_session_state(self, work_item: Dict[str, Any], simulated: bool = False):
         """Update session state after execution"""
         session_state = {
-            "last_execution_time": datetime.utcnow().isoformat(),
+            "last_execution_time": datetime.now(timezone.utc).isoformat(),
             "last_task_type": work_item["type"],
             "last_task_title": work_item["title"],
             "last_task_description": work_item.get("description", ""),
@@ -232,7 +232,7 @@ class ClaudeWrapper:
         """Prepare execution context for Claude with continuation awareness"""
         context = {
             "work_item": work_item,
-            "timestamp": datetime.utcnow().isoformat(),
+            "timestamp": datetime.now(timezone.utc).isoformat(),
             "ccal_session": True,
             "safety_mode": True,
             "continue_session": continue_session,
@@ -334,7 +334,7 @@ Please implement this task by:
         self, prompt: str, context: Dict[str, Any], continue_session: bool = False
     ) -> Dict[str, Any]:
         """Execute the Claude CLI command with the given prompt and optional continuation"""
-        start_time = datetime.utcnow()
+        start_time = datetime.now(timezone.utc)
 
         if continue_session:
             # Use --continue flag to maintain conversation context with --print for non-interactive mode
@@ -383,7 +383,7 @@ Please implement this task by:
                 process.kill()
                 raise Exception(f"Claude CLI execution timed out after {self.timeout}s")
 
-            execution_time = (datetime.utcnow() - start_time).total_seconds()
+            execution_time = (datetime.now(timezone.utc) - start_time).total_seconds()
 
             # Detailed logging of results
             logger.debug(f"✅ Claude process completed in {execution_time:.2f}s")
@@ -476,7 +476,7 @@ Please implement this task by:
                 "execution_time": execution_time,
                 "continued_session": should_continue,
             },
-            "timestamp": datetime.utcnow().isoformat(),
+            "timestamp": datetime.now(timezone.utc).isoformat(),
             "work_item_id": work_item["id"],
             "used_continue": should_continue,
             "context_strategy": self.context_strategy,
@@ -743,7 +743,7 @@ Please implement this task by:
                     "success": True,
                     "result": result,
                     "structured_response": structured_response.to_dict(),
-                    "timestamp": datetime.utcnow().isoformat(),
+                    "timestamp": datetime.now(timezone.utc).isoformat(),
                     "work_item_id": work_item["id"],
                     "execution_time": result.get("execution_time", 0),
                     "agent_used": agent_type.value if agent_type else None,
@@ -803,7 +803,7 @@ Please implement this task by:
         return {
             "success": True,
             "result": result,
-            "timestamp": datetime.utcnow().isoformat(),
+            "timestamp": datetime.now(timezone.utc).isoformat(),
             "work_item_id": work_item["id"],
             "execution_time": result.get("execution_time", 0),
             "used_continue": should_continue,
@@ -992,7 +992,7 @@ Please process this structured request by:
         self, prompt: str, structured_request: StructuredRequest
     ) -> Dict[str, Any]:
         """Execute Claude CLI with structured request support"""
-        start_time = datetime.utcnow()
+        start_time = datetime.now(timezone.utc)
 
         # Determine if we should use agent mode
         if (
@@ -1037,7 +1037,7 @@ Please process this structured request by:
                 process.kill()
                 raise Exception(f"Claude CLI execution timed out after {self.timeout}s")
 
-            execution_time = (datetime.utcnow() - start_time).total_seconds()
+            execution_time = (datetime.now(timezone.utc) - start_time).total_seconds()
 
             stdout_text = stdout.decode("utf-8")
             stderr_text = stderr.decode("utf-8")

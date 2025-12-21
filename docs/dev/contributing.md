@@ -147,7 +147,7 @@ bandit -r sugar/
 
 ### 1. Choose an Issue
 
-- Look at [open issues](https://github.com/cdnsteve/sugar/issues)
+- Look at [open issues](https://github.com/roboticforce/sugar/issues)
 - Good first issues are labeled `good-first-issue`
 - Ask questions in the issue comments if unclear
 

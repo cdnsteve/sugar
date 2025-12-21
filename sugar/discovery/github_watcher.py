@@ -8,7 +8,7 @@ import logging
 import subprocess
 import json
 import os
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from typing import List, Dict, Any, Optional
 
 # Optional PyGithub import
@@ -226,7 +226,7 @@ class GitHubWatcher:
 
         try:
             # Get recent issues
-            since = datetime.utcnow() - timedelta(days=7)
+            since = datetime.now(timezone.utc) - timedelta(days=7)
             repo = self.github.get_repo(self.repo_name)
             issues = repo.get_issues(state="open", since=since, sort="created")
 
@@ -329,7 +329,7 @@ class GitHubWatcher:
                     "created_at": issue["createdAt"],
                     "updated_at": issue["updatedAt"],
                 },
-                "discovered_at": datetime.utcnow().isoformat(),
+                "discovered_at": datetime.now(timezone.utc).isoformat(),
                 "source_type": "github_issue",
             },
         }
@@ -389,7 +389,7 @@ class GitHubWatcher:
                     "method": method,
                     "repository": self.repo_name,
                     "authenticated": auth_ok,
-                    "last_check": datetime.utcnow().isoformat(),
+                    "last_check": datetime.now(timezone.utc).isoformat(),
                 }
             elif self.pygithub_available:
                 # Test PyGithub API access
@@ -404,7 +404,7 @@ class GitHubWatcher:
                         "limit": rate_limit.core.limit,
                         "reset": rate_limit.core.reset.isoformat(),
                     },
-                    "last_check": datetime.utcnow().isoformat(),
+                    "last_check": datetime.now(timezone.utc).isoformat(),
                 }
 
         except Exception as e:
@@ -412,7 +412,7 @@ class GitHubWatcher:
                 "enabled": True,
                 "method": method,
                 "error": str(e),
-                "last_check": datetime.utcnow().isoformat(),
+                "last_check": datetime.now(timezone.utc).isoformat(),
             }
 
     async def comment_on_issue(self, issue_number: int, comment_body: str) -> bool:

@@ -119,7 +119,7 @@ Maintainers will handle releases. Version bumps follow [Semantic Versioning](htt
 
 ## Questions?
 
-Feel free to ask questions in [GitHub Discussions](https://github.com/cdnsteve/sugar/discussions) or open an issue.
+Feel free to ask questions in [GitHub Discussions](https://github.com/roboticforce/sugar/discussions) or open an issue.
 
 ## License
 
