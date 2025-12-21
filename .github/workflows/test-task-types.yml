@@ -123,7 +123,7 @@ jobs:
           exit 1
         fi
 
-        echo "✅ CLI smoke test passed!"
+        echo " CLI smoke test passed!"
 
   test-backwards-compatibility:
     runs-on: ubuntu-latest
@@ -164,7 +164,7 @@ jobs:
         sugar add "Another test" --type bug_fix --priority 5
         sugar list --type bug_fix --limit 1
 
-        echo "✅ Migration test passed!"
+        echo " Migration test passed!"
 
   performance-test:
     runs-on: ubuntu-latest
@@ -203,7 +203,7 @@ jobs:
 
         # Performance threshold check (should be fast)
         if [ $((list_time/100)) -gt 100 ]; then
-          echo "❌ Performance regression: task-type list too slow (>100ms per operation)"
+          echo "ERROR:  Performance regression: task-type list too slow (>100ms per operation)"
           exit 1
         fi
 
@@ -217,4 +217,4 @@ jobs:
         create_time=$(( (end_time - start_time) / 1000000 ))
         echo "10 custom type create+use operations: ${create_time}ms (avg: $((create_time/10))ms per operation)"
 
-        echo "✅ Performance test passed!"
+        echo " Performance test passed!"

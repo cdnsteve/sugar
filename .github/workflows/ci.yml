@@ -50,13 +50,13 @@ jobs:
     - name: Type check with mypy
       run: |
         # Temporarily disabled for release - TODO: Fix type annotations
-        echo "⚠️ Type checking temporarily disabled - extensive type annotation work needed"
-        echo "✅ Skipping mypy to unblock CI pipeline"
-    
+        echo "Type checking temporarily disabled - extensive type annotation work needed"
+        echo "Skipping mypy to unblock CI pipeline"
+
     - name: Validate V3 SDK Integration
       run: |
-        python -c "from sugar.agent.base import SugarAgent; print('✅ Agent SDK OK')"
-        python -c "from sugar.executor.agent_sdk_executor import AgentSDKExecutor; print('✅ Executor OK')"
+        python -c "from sugar.agent.base import SugarAgent; print('Agent SDK OK')"
+        python -c "from sugar.executor.agent_sdk_executor import AgentSDKExecutor; print('Executor OK')"
 
     - name: Test with pytest
       run: |
