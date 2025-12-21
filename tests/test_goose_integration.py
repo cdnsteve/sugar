@@ -64,6 +64,7 @@ def initialized_project(temp_project_dir, sugar_cmd):
         [sugar_cmd, "init"],
         cwd=temp_project_dir,
         capture_output=True,
+        encoding="utf-8",
         text=True,
     )
     assert result.returncode == 0, f"Init failed: {result.stderr}"
@@ -84,6 +85,7 @@ class TestCreateTaskCompatibility:
             [sugar_cmd, "add", "Test task title"],
             cwd=initialized_project,
             capture_output=True,
+            encoding="utf-8",
             text=True,
         )
         assert result.returncode == 0
@@ -96,6 +98,7 @@ class TestCreateTaskCompatibility:
                 [sugar_cmd, "add", f"Test {task_type}", "--type", task_type],
                 cwd=initialized_project,
                 capture_output=True,
+                encoding="utf-8",
                 text=True,
             )
             assert (
@@ -115,6 +118,7 @@ class TestCreateTaskCompatibility:
                 ],
                 cwd=initialized_project,
                 capture_output=True,
+                encoding="utf-8",
                 text=True,
             )
             assert (
@@ -127,6 +131,7 @@ class TestCreateTaskCompatibility:
             [sugar_cmd, "add", "Urgent task", "--urgent"],
             cwd=initialized_project,
             capture_output=True,
+            encoding="utf-8",
             text=True,
         )
         assert result.returncode == 0
@@ -145,6 +150,7 @@ class TestCreateTaskCompatibility:
             ],
             cwd=initialized_project,
             capture_output=True,
+            encoding="utf-8",
             text=True,
         )
         assert result.returncode == 0
@@ -160,12 +166,14 @@ class TestListTasksCompatibility:
             [sugar_cmd, "add", "Test task"],
             cwd=initialized_project,
             capture_output=True,
+            encoding="utf-8",
         )
 
         result = subprocess.run(
             [sugar_cmd, "list"],
             cwd=initialized_project,
             capture_output=True,
+            encoding="utf-8",
             text=True,
         )
         assert result.returncode == 0
@@ -177,6 +185,7 @@ class TestListTasksCompatibility:
                 [sugar_cmd, "list", "--status", status],
                 cwd=initialized_project,
                 capture_output=True,
+                encoding="utf-8",
                 text=True,
             )
             assert (
@@ -189,6 +198,7 @@ class TestListTasksCompatibility:
             [sugar_cmd, "list", "--type", "feature"],
             cwd=initialized_project,
             capture_output=True,
+            encoding="utf-8",
             text=True,
         )
         assert result.returncode == 0
@@ -200,11 +210,13 @@ class TestListTasksCompatibility:
             [sugar_cmd, "add", "Priority 3 task", "--priority", "3"],
             cwd=initialized_project,
             capture_output=True,
+            encoding="utf-8",
         )
         subprocess.run(
             [sugar_cmd, "add", "Priority 5 task", "--priority", "5"],
             cwd=initialized_project,
             capture_output=True,
+            encoding="utf-8",
         )
 
         # Filter by priority 5
@@ -212,6 +224,7 @@ class TestListTasksCompatibility:
             [sugar_cmd, "list", "--priority", "5", "--format", "json"],
             cwd=initialized_project,
             capture_output=True,
+            encoding="utf-8",
             text=True,
         )
         assert result.returncode == 0
@@ -227,6 +240,7 @@ class TestListTasksCompatibility:
             [sugar_cmd, "list", "--limit", "10"],
             cwd=initialized_project,
             capture_output=True,
+            encoding="utf-8",
             text=True,
         )
         assert result.returncode == 0
@@ -237,12 +251,14 @@ class TestListTasksCompatibility:
             [sugar_cmd, "add", "Test task"],
             cwd=initialized_project,
             capture_output=True,
+            encoding="utf-8",
         )
 
         result = subprocess.run(
             [sugar_cmd, "list", "--format", "json"],
             cwd=initialized_project,
             capture_output=True,
+            encoding="utf-8",
             text=True,
         )
         assert result.returncode == 0
@@ -262,6 +278,7 @@ class TestViewTaskCompatibility:
             [sugar_cmd, "add", "Task to view"],
             cwd=initialized_project,
             capture_output=True,
+            encoding="utf-8",
             text=True,
         )
         assert add_result.returncode == 0
@@ -271,6 +288,7 @@ class TestViewTaskCompatibility:
             [sugar_cmd, "list", "--format", "json"],
             cwd=initialized_project,
             capture_output=True,
+            encoding="utf-8",
             text=True,
         )
         tasks = json.loads(list_result.stdout)
@@ -281,6 +299,7 @@ class TestViewTaskCompatibility:
             [sugar_cmd, "view", task_id],
             cwd=initialized_project,
             capture_output=True,
+            encoding="utf-8",
             text=True,
         )
         assert result.returncode == 0
@@ -296,6 +315,7 @@ class TestUpdateTaskCompatibility:
             [sugar_cmd, "add", "Original title"],
             cwd=initialized_project,
             capture_output=True,
+            encoding="utf-8",
         )
 
         # Get task ID
@@ -303,6 +323,7 @@ class TestUpdateTaskCompatibility:
             [sugar_cmd, "list", "--format", "json"],
             cwd=initialized_project,
             capture_output=True,
+            encoding="utf-8",
             text=True,
         )
         tasks = json.loads(list_result.stdout)
@@ -313,6 +334,7 @@ class TestUpdateTaskCompatibility:
             [sugar_cmd, "update", task_id, "--title", "Updated title"],
             cwd=initialized_project,
             capture_output=True,
+            encoding="utf-8",
             text=True,
         )
         assert result.returncode == 0
@@ -323,12 +345,14 @@ class TestUpdateTaskCompatibility:
             [sugar_cmd, "add", "Test task", "--priority", "3"],
             cwd=initialized_project,
             capture_output=True,
+            encoding="utf-8",
         )
 
         list_result = subprocess.run(
             [sugar_cmd, "list", "--format", "json"],
             cwd=initialized_project,
             capture_output=True,
+            encoding="utf-8",
             text=True,
         )
         tasks = json.loads(list_result.stdout)
@@ -338,6 +362,7 @@ class TestUpdateTaskCompatibility:
             [sugar_cmd, "update", task_id, "--priority", "5"],
             cwd=initialized_project,
             capture_output=True,
+            encoding="utf-8",
             text=True,
         )
         assert result.returncode == 0
@@ -348,12 +373,14 @@ class TestUpdateTaskCompatibility:
             [sugar_cmd, "add", "Test task"],
             cwd=initialized_project,
             capture_output=True,
+            encoding="utf-8",
         )
 
         list_result = subprocess.run(
             [sugar_cmd, "list", "--format", "json"],
             cwd=initialized_project,
             capture_output=True,
+            encoding="utf-8",
             text=True,
         )
         tasks = json.loads(list_result.stdout)
@@ -365,6 +392,7 @@ class TestUpdateTaskCompatibility:
                 [sugar_cmd, "update", task_id, "--status", status],
                 cwd=initialized_project,
                 capture_output=True,
+                encoding="utf-8",
                 text=True,
             )
             assert (
@@ -381,12 +409,14 @@ class TestRemoveTaskCompatibility:
             [sugar_cmd, "add", "Task to remove"],
             cwd=initialized_project,
             capture_output=True,
+            encoding="utf-8",
         )
 
         list_result = subprocess.run(
             [sugar_cmd, "list", "--format", "json"],
             cwd=initialized_project,
             capture_output=True,
+            encoding="utf-8",
             text=True,
         )
         tasks = json.loads(list_result.stdout)
@@ -396,6 +426,7 @@ class TestRemoveTaskCompatibility:
             [sugar_cmd, "remove", task_id],
             cwd=initialized_project,
             capture_output=True,
+            encoding="utf-8",
             text=True,
         )
         assert result.returncode == 0
@@ -410,6 +441,7 @@ class TestGetStatusCompatibility:
             [sugar_cmd, "status"],
             cwd=initialized_project,
             capture_output=True,
+            encoding="utf-8",
             text=True,
         )
         assert result.returncode == 0
@@ -426,12 +458,14 @@ class TestRunOnceCompatibility:
             [sugar_cmd, "add", "Test task"],
             cwd=initialized_project,
             capture_output=True,
+            encoding="utf-8",
         )
 
         result = subprocess.run(
             [sugar_cmd, "run", "--once", "--dry-run"],
             cwd=initialized_project,
             capture_output=True,
+            encoding="utf-8",
             text=True,
             timeout=60,
         )
@@ -443,6 +477,7 @@ class TestRunOnceCompatibility:
             [sugar_cmd, "run", "--once", "--validate"],
             cwd=initialized_project,
             capture_output=True,
+            encoding="utf-8",
             text=True,
             timeout=60,
         )
@@ -459,6 +494,7 @@ class TestInitSugarCompatibility:
             [sugar_cmd, "init"],
             cwd=temp_project_dir,
             capture_output=True,
+            encoding="utf-8",
             text=True,
         )
         assert result.returncode == 0
@@ -470,6 +506,7 @@ class TestInitSugarCompatibility:
             [sugar_cmd, "init"],
             cwd=temp_project_dir,
             capture_output=True,
+            encoding="utf-8",
         )
         assert (Path(temp_project_dir) / ".sugar" / "config.yaml").exists()
 
@@ -488,11 +525,12 @@ class TestV3ExecutorIntegration:
             [sugar_cmd, "run", "--once", "--dry-run"],
             cwd=initialized_project,
             capture_output=True,
+            encoding="utf-8",
             text=True,
             timeout=60,
         )
-        # Should show Agent SDK executor in output
-        assert "Agent SDK" in result.stderr or result.returncode == 0
+        # Should show Agent SDK executor in output or succeed
+        assert "Agent SDK" in (result.stderr or "") or result.returncode == 0
 
     def test_quality_gates_enabled(self, initialized_project, sugar_cmd):
         """Test that quality gates are enabled in v3."""
@@ -523,6 +561,7 @@ class TestOutputParsingCompatibility:
             [sugar_cmd, "add", "Test task"],
             cwd=initialized_project,
             capture_output=True,
+            encoding="utf-8",
             text=True,
         )
         assert result.returncode == 0
@@ -553,6 +592,7 @@ class TestCLIHelpCompatibility:
         result = subprocess.run(
             [sugar_cmd, "add", "--help"],
             capture_output=True,
+            encoding="utf-8",
             text=True,
         )
         help_text = result.stdout
@@ -566,6 +606,7 @@ class TestCLIHelpCompatibility:
         result = subprocess.run(
             [sugar_cmd, "list", "--help"],
             capture_output=True,
+            encoding="utf-8",
             text=True,
         )
         help_text = result.stdout
@@ -579,6 +620,7 @@ class TestCLIHelpCompatibility:
         result = subprocess.run(
             [sugar_cmd, "update", "--help"],
             capture_output=True,
+            encoding="utf-8",
             text=True,
         )
         help_text = result.stdout
@@ -598,6 +640,7 @@ class TestCLIHelpCompatibility:
         result = subprocess.run(
             [sugar_cmd, "run", "--help"],
             capture_output=True,
+            encoding="utf-8",
             text=True,
         )
         help_text = result.stdout
