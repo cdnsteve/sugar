@@ -331,6 +331,112 @@ The search supports GitHub's advanced query syntax:
 - Useful for testing and review
 - Shows the generated response and posting decision
 
+## Custom Prompt Configuration
+
+Customize how Sugar responds to issues by creating a custom prompt configuration file.
+
+### Configuration File
+
+Create `.sugar/prompts/issue_responder.json` in your repository:
+
+```json
+{
+  "name": "my-project-responder",
+  "description": "Custom issue responder for my project",
+
+  "persona": {
+    "role": "Senior Developer",
+    "goal": "Help users resolve issues quickly and thoroughly",
+    "expertise": ["Python", "TypeScript", "REST APIs"]
+  },
+
+  "instructions": "You are a helpful assistant for this project. Be friendly and professional. When discussing APIs, reference our documentation at /docs. For authentication issues, point users to the auth guide.",
+
+  "guidelines": [
+    "Always search the codebase before responding",
+    "Include relevant file paths in your response",
+    "Provide code examples when helpful",
+    "Ask clarifying questions if the issue is ambiguous"
+  ],
+
+  "constraints": [
+    "Never share API keys or secrets",
+    "Don't promise specific release dates",
+    "Don't close issues automatically"
+  ]
+}
+```
+
+### Configuration Fields
+
+| Field | Required | Description |
+|-------|----------|-------------|
+| `name` | No | Identifier for this configuration |
+| `description` | No | Human-readable description |
+| `persona` | No | Agent identity configuration |
+| `persona.role` | No | The role Sugar plays (e.g., "Senior Developer") |
+| `persona.goal` | No | Primary objective |
+| `persona.expertise` | No | List of areas of expertise |
+| `instructions` | **Yes** | Core custom prompt - project-specific context and behavior |
+| `guidelines` | No | List of things Sugar SHOULD do |
+| `constraints` | No | List of things Sugar should NOT do |
+
+### How It Works
+
+When the configuration file exists:
+1. Sugar loads the custom configuration
+2. Validates that `instructions` is present
+3. Builds a custom prompt section with persona, instructions, guidelines, and constraints
+4. Appends this to the base system prompt
+
+If the file doesn't exist or is invalid, Sugar uses the default behavior.
+
+### Example Configurations
+
+**Open Source Project (Friendly)**
+```json
+{
+  "instructions": "You are a friendly assistant for this open source project. Welcome new contributors warmly. Point beginners to issues labeled 'good first issue'. Thank people for detailed bug reports.",
+  "guidelines": [
+    "Be encouraging and welcoming",
+    "Use emoji sparingly but warmly",
+    "Suggest contributing guidelines when appropriate"
+  ]
+}
+```
+
+**Enterprise API (Professional)**
+```json
+{
+  "persona": {
+    "role": "Technical Support Engineer",
+    "expertise": ["REST APIs", "OAuth 2.0", "Rate Limiting"]
+  },
+  "instructions": "You are a technical support assistant for the Acme API. Be professional and precise. Reference API documentation at docs.acme.com. For billing questions, direct users to support@acme.com.",
+  "constraints": [
+    "Don't discuss pricing or enterprise tiers",
+    "Don't speculate about roadmap or release dates",
+    "Don't share internal implementation details"
+  ]
+}
+```
+
+**Developer Tool (Technical)**
+```json
+{
+  "persona": {
+    "role": "CLI Tool Expert",
+    "expertise": ["Python", "CLI Design", "Unix"]
+  },
+  "instructions": "You assist users with this CLI tool. Provide command examples. Reference man pages and --help output when relevant.",
+  "guidelines": [
+    "Include full command examples",
+    "Show expected output when helpful",
+    "Mention related commands"
+  ]
+}
+```
+
 ## Confidence Scoring
 
 Sugar rates its confidence in generated responses on a scale from 0.0 to 1.0.
