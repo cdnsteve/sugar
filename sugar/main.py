@@ -1077,7 +1077,9 @@ def orchestrate(ctx, task_id, stages):
 
                         # Show ready subtasks
                         ready = await work_queue.get_ready_subtasks(task_id)
-                        click.echo(f"\nReady to execute: {len(ready)} of {len(subtasks)}")
+                        click.echo(
+                            f"\nReady to execute: {len(ready)} of {len(subtasks)}"
+                        )
 
                         # Show completion status
                         all_complete = await work_queue.check_subtasks_complete(task_id)
@@ -1097,7 +1099,12 @@ def orchestrate(ctx, task_id, stages):
                 # Show stages if requested
                 if stages:
                     click.echo("\n📋 Orchestration Stages:")
-                    default_stages = ["research", "planning", "implementation", "review"]
+                    default_stages = [
+                        "research",
+                        "planning",
+                        "implementation",
+                        "review",
+                    ]
                     skip_stages = task.get("context", {}).get("skip_stages", [])
                     current_stage = task.get("stage")
 
@@ -1129,9 +1136,13 @@ def orchestrate(ctx, task_id, stages):
                         "hold": "⏸️",
                     }.get(task["status"], "❓")
 
-                    stage_info = f" [Stage: {task['stage']}]" if task.get("stage") else ""
+                    stage_info = (
+                        f" [Stage: {task['stage']}]" if task.get("stage") else ""
+                    )
                     subtask_count = len(await work_queue.get_subtasks(task["id"]))
-                    subtask_info = f" ({subtask_count} subtasks)" if subtask_count > 0 else ""
+                    subtask_info = (
+                        f" ({subtask_count} subtasks)" if subtask_count > 0 else ""
+                    )
 
                     click.echo(
                         f"{status_emoji} {task['title']}{stage_info}{subtask_info}"
@@ -1143,6 +1154,7 @@ def orchestrate(ctx, task_id, stages):
     except Exception as e:
         click.echo(f"❌ Error showing orchestration: {e}", err=True)
         import traceback
+
         traceback.print_exc()
         sys.exit(1)
 
@@ -1205,6 +1217,7 @@ def context(ctx, task_id):
     except Exception as e:
         click.echo(f"❌ Error showing context: {e}", err=True)
         import traceback
+
         traceback.print_exc()
         sys.exit(1)
 

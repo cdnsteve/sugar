@@ -275,9 +275,7 @@ class TestSummaryExtraction:
     def test_extract_summary_truncates_long_content(self, subagent_manager):
         """Test that long summaries are truncated."""
         long_content = "A" * 300
-        response = AgentResponse(
-            success=True, content=long_content, execution_time=1.0
-        )
+        response = AgentResponse(success=True, content=long_content, execution_time=1.0)
 
         summary = subagent_manager._extract_summary(response)
         assert len(summary) == 200
@@ -337,7 +335,9 @@ class TestSpawnSubAgent:
         with patch("sugar.agent.subagent_manager.SugarAgent") as MockAgent:
             mock_instance = MockAgent.return_value
             mock_instance.execute = AsyncMock(
-                return_value=AgentResponse(success=True, content="Done", execution_time=1.0)
+                return_value=AgentResponse(
+                    success=True, content="Done", execution_time=1.0
+                )
             )
 
             result = await subagent_manager.spawn(
@@ -390,9 +390,7 @@ class TestSpawnSubAgent:
 
         with patch("sugar.agent.subagent_manager.SugarAgent") as MockAgent:
             mock_instance = MockAgent.return_value
-            mock_instance.execute = AsyncMock(
-                side_effect=Exception("Unexpected error")
-            )
+            mock_instance.execute = AsyncMock(side_effect=Exception("Unexpected error"))
 
             result = await subagent_manager.spawn(
                 task_id="test-exception", prompt="Task with exception"
@@ -544,9 +542,7 @@ class TestSpawnParallelSubAgents:
     async def test_spawn_parallel_respects_order(self, subagent_manager):
         """Test that results are returned in input order."""
 
-        tasks = [
-            {"task_id": f"task-{i}", "prompt": f"Task {i}"} for i in range(5)
-        ]
+        tasks = [{"task_id": f"task-{i}", "prompt": f"Task {i}"} for i in range(5)]
 
         with patch("sugar.agent.subagent_manager.SugarAgent") as MockAgent:
             mock_instance = MockAgent.return_value

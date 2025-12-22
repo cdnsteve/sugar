@@ -107,7 +107,9 @@ class SubAgentManager:
         subagent_context = f"\n\nYou are a sub-agent working on task: {task_id}"
         if task_context:
             subagent_context += f"\n{task_context}"
-        subagent_context += "\n\nFocus on completing your specific task and providing a clear summary."
+        subagent_context += (
+            "\n\nFocus on completing your specific task and providing a clear summary."
+        )
 
         config.system_prompt_additions = (
             self.parent_config.system_prompt_additions + subagent_context
@@ -191,9 +193,7 @@ class SubAgentManager:
                 return result
 
         except Exception as e:
-            execution_time = (
-                datetime.now(timezone.utc) - start_time
-            ).total_seconds()
+            execution_time = (datetime.now(timezone.utc) - start_time).total_seconds()
             logger.error(f"Sub-agent task {task_id} failed: {e}")
             return SubAgentResult(
                 task_id=task_id,

@@ -259,7 +259,9 @@ class WorkQueue:
 
             # Add assigned_agent column (specialist agent)
             if "assigned_agent" not in column_names:
-                await db.execute("ALTER TABLE work_items ADD COLUMN assigned_agent TEXT")
+                await db.execute(
+                    "ALTER TABLE work_items ADD COLUMN assigned_agent TEXT"
+                )
                 logger.info("Added assigned_agent column to existing database")
 
             # Create index for parent_task_id queries

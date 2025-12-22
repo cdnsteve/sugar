@@ -40,25 +40,18 @@ class AgentRouter:
     DEFAULT_PATTERNS = {
         # Frontend patterns
         r"\b(ui|frontend|component|design|css|html|react|vue|angular|interface|styling|layout)\b": "frontend-designer",
-
         # Backend patterns
         r"\b(api|backend|endpoint|service|database|db|server|route|middleware|orm|query)\b": "backend-developer",
-
         # Testing patterns
         r"\b(test|spec|coverage|qa|quality|e2e|integration|unit test|testing)\b": "qa-engineer",
-
         # Security patterns
         r"\b(security|auth|authentication|authorization|permission|oauth|jwt|token|vulnerability|encrypt)\b": "security-engineer",
-
         # DevOps patterns
         r"\b(devops|deploy|deployment|ci|cd|docker|kubernetes|k8s|container|pipeline|infrastructure)\b": "devops-engineer",
-
         # Documentation patterns
         r"\b(doc|documentation|readme|guide|tutorial|manual)\b": "general-purpose",
-
         # Architecture/planning patterns
         r"\b(architecture|design|planning|refactor|restructure|redesign)\b": "tech-lead",
-
         # Code review patterns
         r"\b(review|audit|quality|lint|analyze|inspect)\b": "code-reviewer",
     }
@@ -73,7 +66,9 @@ class AgentRouter:
         self.config = config
         self.patterns = self._load_routing_patterns()
 
-        logger.debug(f"AgentRouter initialized with {len(self.patterns)} routing patterns")
+        logger.debug(
+            f"AgentRouter initialized with {len(self.patterns)} routing patterns"
+        )
 
     def _load_routing_patterns(self) -> Dict[str, str]:
         """
@@ -135,7 +130,9 @@ class AgentRouter:
         # Try pattern matching
         for pattern, agent in self.patterns.items():
             if re.search(pattern, search_text, re.IGNORECASE):
-                logger.debug(f"Matched pattern '{pattern}' -> {agent} for task: {title[:50]}")
+                logger.debug(
+                    f"Matched pattern '{pattern}' -> {agent} for task: {title[:50]}"
+                )
                 return agent
 
         # Check task type mapping

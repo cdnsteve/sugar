@@ -309,7 +309,10 @@ def mock_task_orchestrator(orchestration_config, temp_dir):
                 )
             else:
                 return MockStageResult(
-                    stage=stage, success=True, output="Stage complete", execution_time=1.0
+                    stage=stage,
+                    success=True,
+                    output="Stage complete",
+                    execution_time=1.0,
                 )
 
         async def generate_subtasks(self, plan_output: str) -> List[MockTask]:
@@ -421,11 +424,15 @@ def mock_agent_router(orchestration_config):
             # Check each routing pattern (order matters for priority)
             # DevOps patterns
             if any(
-                keyword in content for keyword in ["devops", "deploy", "ci/cd", "docker"]
+                keyword in content
+                for keyword in ["devops", "deploy", "ci/cd", "docker"]
             ):
                 return "devops-engineer"
             # Documentation patterns (check specific keywords to avoid false positives)
-            elif any(keyword in content for keyword in ["readme", "guide", " doc ", "documentation", "api doc"]):
+            elif any(
+                keyword in content
+                for keyword in ["readme", "guide", " doc ", "documentation", "api doc"]
+            ):
                 return "general-purpose"
             # Frontend patterns
             elif any(
@@ -1075,7 +1082,11 @@ class TestOrchestrationConfiguration:
 
     def test_auto_decompose_mode(self, orchestration_config):
         """Auto decompose mode is configured."""
-        assert orchestration_config["auto_decompose"] in ["auto", "explicit", "disabled"]
+        assert orchestration_config["auto_decompose"] in [
+            "auto",
+            "explicit",
+            "disabled",
+        ]
 
     def test_detection_rules_configured(self, orchestration_config):
         """Detection rules are properly configured."""

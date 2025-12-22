@@ -25,6 +25,7 @@ logger = logging.getLogger(__name__)
 
 class OrchestrationStage(Enum):
     """Orchestration workflow stages"""
+
     RESEARCH = "research"
     PLANNING = "planning"
     IMPLEMENTATION = "implementation"
@@ -115,6 +116,7 @@ class TaskOrchestrator:
 
         # Initialize agent router
         from .agent_router import AgentRouter
+
         self.router = AgentRouter(config)
 
         logger.debug("TaskOrchestrator initialized")
@@ -217,7 +219,9 @@ class TaskOrchestrator:
 
         # Check explicit flag
         if task.get("orchestrate"):
-            logger.info(f"Task {task.get('id', 'unknown')} has explicit orchestrate flag")
+            logger.info(
+                f"Task {task.get('id', 'unknown')} has explicit orchestrate flag"
+            )
             return True
 
         auto_mode = self.orchestration_config.get("auto_decompose", "auto")
@@ -254,7 +258,9 @@ class TaskOrchestrator:
         min_complexity = detection.get("min_complexity", "high")
 
         complexity_levels = {"low": 1, "medium": 2, "high": 3}
-        if complexity_levels.get(complexity, 0) >= complexity_levels.get(min_complexity, 3):
+        if complexity_levels.get(complexity, 0) >= complexity_levels.get(
+            min_complexity, 3
+        ):
             logger.info(f"Task complexity '{complexity}' triggers orchestration")
             return True
 
@@ -275,15 +281,32 @@ class TaskOrchestrator:
 
         # High complexity indicators
         high_indicators = [
-            "system", "architecture", "infrastructure", "migration",
-            "redesign", "refactor entire", "complete rewrite", "full stack",
-            "end-to-end", "multiple", "integrate", "build from scratch"
+            "system",
+            "architecture",
+            "infrastructure",
+            "migration",
+            "redesign",
+            "refactor entire",
+            "complete rewrite",
+            "full stack",
+            "end-to-end",
+            "multiple",
+            "integrate",
+            "build from scratch",
         ]
 
         # Medium complexity indicators
         medium_indicators = [
-            "feature", "implement", "create", "add", "update", "enhance",
-            "improve", "extend", "integrate", "connect"
+            "feature",
+            "implement",
+            "create",
+            "add",
+            "update",
+            "enhance",
+            "improve",
+            "extend",
+            "integrate",
+            "connect",
         ]
 
         search_text = f"{title} {description}".lower()
@@ -319,7 +342,9 @@ class TaskOrchestrator:
         task_id = task.get("id", "unknown")
         start_time = datetime.now(timezone.utc)
 
-        logger.info(f"Starting orchestration for task {task_id}: {task.get('title', 'Untitled')}")
+        logger.info(
+            f"Starting orchestration for task {task_id}: {task.get('title', 'Untitled')}"
+        )
 
         stages_completed = []
         context = self._initialize_context(task)
@@ -330,9 +355,7 @@ class TaskOrchestrator:
             # Stage 1: Research
             if self.orchestration_config["stages"]["research"]["enabled"]:
                 research_result = await self.run_stage(
-                    OrchestrationStage.RESEARCH,
-                    task,
-                    context
+                    OrchestrationStage.RESEARCH, task, context
                 )
                 stages_completed.append(OrchestrationStage.RESEARCH)
 
@@ -346,9 +369,7 @@ class TaskOrchestrator:
             # Stage 2: Planning
             if self.orchestration_config["stages"]["planning"]["enabled"]:
                 planning_result = await self.run_stage(
-                    OrchestrationStage.PLANNING,
-                    task,
-                    context
+                    OrchestrationStage.PLANNING, task, context
                 )
                 stages_completed.append(OrchestrationStage.PLANNING)
 
@@ -358,8 +379,7 @@ class TaskOrchestrator:
 
                     # Generate subtasks from plan
                     subtasks = await self.generate_subtasks(
-                        planning_result.output,
-                        task
+                        planning_result.output, task
                     )
                     logger.info(f"Generated {len(subtasks)} subtasks from plan")
                 else:
@@ -368,11 +388,11 @@ class TaskOrchestrator:
                     raise Exception(error)
 
             # Stage 3: Implementation
-            if subtasks and self.orchestration_config["stages"]["implementation"].get("parallel"):
+            if subtasks and self.orchestration_config["stages"]["implementation"].get(
+                "parallel"
+            ):
                 impl_result = await self._run_implementation_stage(
-                    subtasks,
-                    task,
-                    context
+                    subtasks, task, context
                 )
                 stages_completed.append(OrchestrationStage.IMPLEMENTATION)
 
@@ -383,9 +403,7 @@ class TaskOrchestrator:
             # Stage 4: Review
             if self.orchestration_config["stages"]["review"]["enabled"]:
                 review_result = await self.run_stage(
-                    OrchestrationStage.REVIEW,
-                    task,
-                    context
+                    OrchestrationStage.REVIEW, task, context
                 )
                 stages_completed.append(OrchestrationStage.REVIEW)
 
@@ -419,10 +437,7 @@ class TaskOrchestrator:
             )
 
     async def run_stage(
-        self,
-        stage: OrchestrationStage,
-        task: Dict[str, Any],
-        context: Dict[str, Any]
+        self, stage: OrchestrationStage, task: Dict[str, Any], context: Dict[str, Any]
     ) -> StageResult:
         """
         Execute a single orchestration stage.
@@ -450,12 +465,12 @@ class TaskOrchestrator:
             # Execute using agent executor if available
             if self.agent_executor:
                 result = await self._execute_with_agent(
-                    agent_name,
-                    prompt,
-                    stage_config.get("timeout", 300)
+                    agent_name, prompt, stage_config.get("timeout", 300)
                 )
 
-                execution_time = (datetime.now(timezone.utc) - start_time).total_seconds()
+                execution_time = (
+                    datetime.now(timezone.utc) - start_time
+                ).total_seconds()
 
                 return StageResult(
                     stage=stage,
@@ -469,8 +484,12 @@ class TaskOrchestrator:
                 )
             else:
                 # Fallback: simulation mode
-                logger.warning(f"No agent executor available, simulating {stage.value} stage")
-                execution_time = (datetime.now(timezone.utc) - start_time).total_seconds()
+                logger.warning(
+                    f"No agent executor available, simulating {stage.value} stage"
+                )
+                execution_time = (
+                    datetime.now(timezone.utc) - start_time
+                ).total_seconds()
 
                 return StageResult(
                     stage=stage,
@@ -498,9 +517,7 @@ class TaskOrchestrator:
             )
 
     async def generate_subtasks(
-        self,
-        plan_output: str,
-        task: Dict[str, Any]
+        self, plan_output: str, task: Dict[str, Any]
     ) -> List[Dict]:
         """
         Parse planning output to generate subtasks with dependencies.
@@ -521,9 +538,11 @@ class TaskOrchestrator:
         #    Dependencies: task-1, task-2
 
         # Simple regex-based parsing
-        subtask_pattern = r'(\d+)\.\s+\*\*(.+?)\*\*\s*-?\s*(.+?)(?=\n(?:\d+\.|\Z)|Agent:)'
-        agent_pattern = r'Agent:\s*(\S+)'
-        deps_pattern = r'Dependencies?:\s*(.+?)(?=\n|$)'
+        subtask_pattern = (
+            r"(\d+)\.\s+\*\*(.+?)\*\*\s*-?\s*(.+?)(?=\n(?:\d+\.|\Z)|Agent:)"
+        )
+        agent_pattern = r"Agent:\s*(\S+)"
+        deps_pattern = r"Dependencies?:\s*(.+?)(?=\n|$)"
 
         matches = re.finditer(subtask_pattern, plan_output, re.DOTALL)
 
@@ -560,24 +579,25 @@ class TaskOrchestrator:
 
         # If parsing failed, create a single subtask
         if not subtasks:
-            logger.warning("No subtasks parsed from plan, creating single implementation task")
-            subtasks.append({
-                "id": f"{task.get('id', 'unknown')}-sub-1",
-                "parent_task_id": task.get("id"),
-                "title": f"Implement: {task.get('title', 'Unknown')}",
-                "description": plan_output[:500],  # Use plan as context
-                "type": task.get("type", "feature"),
-                "priority": task.get("priority", 3),
-                "status": "pending",
-            })
+            logger.warning(
+                "No subtasks parsed from plan, creating single implementation task"
+            )
+            subtasks.append(
+                {
+                    "id": f"{task.get('id', 'unknown')}-sub-1",
+                    "parent_task_id": task.get("id"),
+                    "title": f"Implement: {task.get('title', 'Unknown')}",
+                    "description": plan_output[:500],  # Use plan as context
+                    "type": task.get("type", "feature"),
+                    "priority": task.get("priority", 3),
+                    "status": "pending",
+                }
+            )
 
         return subtasks
 
     async def _run_implementation_stage(
-        self,
-        subtasks: List[Dict],
-        parent_task: Dict[str, Any],
-        context: Dict[str, Any]
+        self, subtasks: List[Dict], parent_task: Dict[str, Any], context: Dict[str, Any]
     ) -> StageResult:
         """
         Run implementation stage with parallel subtask execution.
@@ -677,10 +697,7 @@ class TaskOrchestrator:
         }
 
     def _build_stage_prompt(
-        self,
-        stage: OrchestrationStage,
-        task: Dict[str, Any],
-        context: Dict[str, Any]
+        self, stage: OrchestrationStage, task: Dict[str, Any], context: Dict[str, Any]
     ) -> str:
         """
         Build prompt for a specific stage.
@@ -704,7 +721,9 @@ class TaskOrchestrator:
 """
 
         if stage == OrchestrationStage.RESEARCH:
-            return base_prompt + """
+            return (
+                base_prompt
+                + """
 ## Your Role
 You are conducting research for this task. Your goals:
 1. Search for relevant best practices and documentation
@@ -719,13 +738,19 @@ Provide a research summary covering:
 - Technical requirements
 - Recommendations for implementation
 """
+            )
 
         elif stage == OrchestrationStage.PLANNING:
             research_context = ""
             if context.get("research_output"):
-                research_context = f"\n## Research Findings\n{context['research_output']}\n"
+                research_context = (
+                    f"\n## Research Findings\n{context['research_output']}\n"
+                )
 
-            return base_prompt + research_context + """
+            return (
+                base_prompt
+                + research_context
+                + """
 ## Your Role
 You are creating an implementation plan for this task. Your goals:
 1. Break down the task into manageable subtasks
@@ -750,12 +775,15 @@ Create a plan with subtasks in this format:
 ## Dependencies
 Explain the order of execution and why.
 """
+            )
 
         elif stage == OrchestrationStage.REVIEW:
             impl_results = context.get("subtask_results", [])
             files_modified = context.get("files_modified", [])
 
-            return base_prompt + f"""
+            return (
+                base_prompt
+                + f"""
 ## Implementation Complete
 The following subtasks have been completed:
 {json.dumps(impl_results, indent=2)}
@@ -778,14 +806,13 @@ Provide a review covering:
 - Recommendations for improvement
 - Overall assessment (pass/fail)
 """
+            )
 
         else:
             return base_prompt
 
     def _build_subtask_prompt(
-        self,
-        subtask: Dict[str, Any],
-        context: Dict[str, Any]
+        self, subtask: Dict[str, Any], context: Dict[str, Any]
     ) -> str:
         """
         Build prompt for a subtask.
@@ -827,11 +854,7 @@ This is part of a larger orchestrated task. Focus on completing your specific su
         """
         return f".sugar/orchestration/{task_id}/"
 
-    async def _save_stage_output(
-        self,
-        task_id: str,
-        result: StageResult
-    ) -> None:
+    async def _save_stage_output(self, task_id: str, result: StageResult) -> None:
         """
         Save stage output to context directory.
 
@@ -862,9 +885,7 @@ This is part of a larger orchestrated task. Focus on completing your specific su
             logger.warning(f"Failed to save stage output: {e}")
 
     def _extract_context_additions(
-        self,
-        stage: OrchestrationStage,
-        result: Dict[str, Any]
+        self, stage: OrchestrationStage, result: Dict[str, Any]
     ) -> Dict[str, Any]:
         """
         Extract context additions from stage result.
@@ -884,10 +905,7 @@ This is part of a larger orchestrated task. Focus on completing your specific su
         return additions
 
     async def _execute_with_agent(
-        self,
-        agent_name: str,
-        prompt: str,
-        timeout: int
+        self, agent_name: str, prompt: str, timeout: int
     ) -> Dict[str, Any]:
         """
         Execute a task using the agent executor.
@@ -928,6 +946,8 @@ This is part of a larger orchestrated task. Focus on completing your specific su
             model=self.config.get("model", "claude-sonnet-4-20250514"),
             max_tokens=self.config.get("max_tokens", 8192),
             permission_mode=self.config.get("permission_mode", "acceptEdits"),
-            quality_gates_enabled=self.config.get("quality_gates", {}).get("enabled", True),
+            quality_gates_enabled=self.config.get("quality_gates", {}).get(
+                "enabled", True
+            ),
             working_directory=self.config.get("working_directory"),
         )
