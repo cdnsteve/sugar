@@ -148,6 +148,34 @@ sugar list --status completed
 - Identifies missing tests
 - Auto-creates tasks from findings
 
+**Issue Responder**
+- AI-powered GitHub issue analysis
+- Generates contextual responses
+- Confidence-based auto-posting
+- Searchable issue history
+
+## Issue Responder
+
+Automatically analyze and respond to GitHub issues with AI-powered insights. Sugar understands issue context, codebase structure, and project patterns to generate helpful responses.
+
+```bash
+# List open issues
+sugar issue list
+
+# Analyze an issue
+sugar issue analyze 42
+
+# Generate AI response (preview)
+sugar issue respond 42
+
+# Generate and post if confident
+sugar issue respond 42 --post
+```
+
+The Issue Responder evaluates confidence before posting. Use `--force-post` to override the confidence check, or adjust the threshold with `--confidence-threshold`.
+
+**Full documentation:** [docs/issue-responder.md](docs/issue-responder.md)
+
 ## How It Works
 
 ```
