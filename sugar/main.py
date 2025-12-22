@@ -2050,118 +2050,82 @@ def _generate_default_config(
 ) -> str:
     """Generate default Sugar configuration"""
     return f"""# Sugar Configuration for {Path(project_root).name}
+# Documentation: https://github.com/roboticforce/sugar
 sugar:
   # Core Loop Settings
-  loop_interval: 300  # 5 minutes between cycles
-  max_concurrent_work: 3  # Execute multiple tasks per cycle
-  dry_run: true       # Start in safe mode - change to false when ready
-  
-  # Claude Code Integration
+  loop_interval: 300  # Seconds between discovery cycles
+  max_concurrent_work: 3  # Max tasks to execute per cycle
+  dry_run: true  # Safe mode - set to false to execute tasks
+
+  # Claude Agent SDK Integration (V3)
   claude:
     command: "{claude_cmd}"  # Auto-detected Claude CLI path
-    timeout: 1800       # 30 minutes max per task
-    context_file: ".sugar/context.json"
+    timeout: 1800  # Max seconds per task (30 min)
 
-    # Executor selection (v3.0+)
-    # - "sdk": Use Claude Agent SDK (recommended, native integration)
-    # - "legacy": Use subprocess-based CLI wrapper (backwards compatible)
-    executor: "sdk"
+    # Model and permissions
+    model: "claude-sonnet-4-20250514"
+    permission_mode: "acceptEdits"  # default | acceptEdits | bypassPermissions
 
-    # Structured Claude Agent Integration System (Complete Implementation)
-    use_structured_requests: true  # Enable structured JSON communication
-    structured_input_file: ".sugar/claude_input.json"  # Temp file for complex inputs
-    
-    # Note: Legacy agent_selection settings removed in v3.1
-    # The SDK executor handles agent routing internally via TaskOrchestrator
+    # Quality gates (pre/post execution checks)
+    quality_gates:
+      enabled: true
+
+    # MCP servers (optional - uncomment to configure)
+    # mcp_servers:
+    #   filesystem:
+    #     command: "npx"
+    #     args: ["-y", "@anthropic/mcp-fs"]
 
   # Work Discovery
   discovery:
-    # Global exclusions for all discovery modules
+    # Directories excluded from all discovery modules
     global_excluded_dirs: [
-      "node_modules", ".git", "__pycache__", 
-      "venv", ".venv", "env", ".env", "ENV", 
-      "env.bak", "venv.bak", "virtualenv",
+      "node_modules", ".git", "__pycache__",
+      "venv", ".venv", "env", ".env",
       "build", "dist", ".tox", ".nox",
       "coverage", "htmlcov", ".pytest_cache",
       ".sugar", ".claude"
     ]
-    
+
     error_logs:
       enabled: true
-      paths:
-        - "logs/errors/"
-        - "logs/feedback/"
-        - ".sugar/logs/"
-      patterns:
-        - "*.json"
-        - "*.log"
+      paths: ["logs/errors/", "logs/feedback/", ".sugar/logs/"]
+      patterns: ["*.json", "*.log"]
       max_age_hours: 24
-    
+
     github:{_get_github_config_section(github_config)}
-      
+
     code_quality:
       enabled: true
-      root_path: "."  # Analyze current project
+      root_path: "."
       file_extensions: [".py", ".js", ".ts", ".jsx", ".tsx"]
-      excluded_dirs: [
-        "node_modules", ".git", "__pycache__", 
-        "venv", ".venv", "env", ".env", "ENV", 
-        "env.bak", "venv.bak", "virtualenv",
-        "build", "dist", ".tox", ".nox",
-        "coverage", "htmlcov", ".pytest_cache",
-        ".sugar", ".claude"
-      ]
       max_files_per_scan: 50
-      
+
     test_coverage:
       enabled: true
-      root_path: "."  # Analyze current project
+      root_path: "."
       source_dirs: ["src", "lib", "app", "api", "server"]
       test_dirs: ["tests", "test", "__tests__", "spec"]
-      excluded_dirs: [
-        "node_modules", ".git", "__pycache__", 
-        "venv", ".venv", "env", ".env", "ENV", 
-        "env.bak", "venv.bak", "virtualenv",
-        "build", "dist", ".tox", ".nox",
-        "coverage", "htmlcov", ".pytest_cache",
-        ".sugar", ".claude"
-      ]
-      
+
   # Storage
   storage:
-    database: ".sugar/sugar.db"  # Project-specific database
-    backup_interval: 3600  # 1 hour
-    
+    database: ".sugar/sugar.db"
+    backup_interval: 3600
+
   # Safety
   safety:
     max_retries: 3
-    excluded_paths:
-      - "/System"
-      - "/usr/bin"
-      - "/etc"
-      - ".sugar"
-    
+    excluded_paths: ["/System", "/usr/bin", "/etc", ".sugar"]
+
   # Logging
   logging:
     level: "INFO"
-    file: ".sugar/sugar.log"  # Project-specific logs
-    
-  # Unified Workflow System
+    file: ".sugar/sugar.log"
+
+  # Workflow System
   workflow:
-    # Workflow profiles: solo (fast), balanced (process), enterprise (governance)
-    profile: "solo"  # Recommended for individual developers
-    
-    # Profile overrides (uncomment to customize beyond profiles)
-    # custom:
-    #   git:
-    #     workflow_type: "direct_commit"  # direct_commit | pull_request
-    #     commit_style: "conventional"    # conventional | simple
-    #     auto_commit: true
-    #   github:
-    #     auto_create_issues: false       # Create GitHub issues for discovered work
-    #     update_existing_issues: true    # Update issues from GitHub discovery
-    #   discovery:
-    #     handle_internally: true         # Keep test/quality improvements internal
+    # Profiles: solo (direct commits), balanced (PRs), enterprise (full governance)
+    profile: "solo"
 """
 
 
