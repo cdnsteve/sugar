@@ -46,6 +46,8 @@ except ImportError:
     SDK_HAS_TYPES = False
 
 from .hooks import QualityGateHooks, HookContext
+from .context_manager import ContextManager
+from ..utils.toon_encoder import execution_history_to_toon, work_queue_to_toon
 
 logger = logging.getLogger(__name__)
 
@@ -142,6 +144,11 @@ class SugarAgentConfig:
     retry_base_delay: float = 1.0
     retry_max_delay: float = 30.0
 
+    # Context management settings
+    context_token_threshold: int = 150000
+    context_preserve_recent: int = 10
+    context_summarization_enabled: bool = True
+
 
 @dataclass
 class AgentResponse:
@@ -198,6 +205,12 @@ class SugarAgent:
         self._session_active = False
         self._execution_history: List[Dict[str, Any]] = []
         self._current_options: Optional[ClaudeAgentOptions] = None
+
+        # Initialize context manager for automatic summarization
+        self.context_manager = ContextManager(
+            token_threshold=config.context_token_threshold,
+            preserve_recent=config.context_preserve_recent,
+        )
 
         logger.debug(f"SugarAgent initialized with model: {config.model}")
 
@@ -281,7 +294,22 @@ Guidelines:
         if self._session_active:
             self._session_active = False
             self._current_options = None
-            logger.info("Sugar agent session ended")
+            # Export context state before clearing (could be persisted)
+            context_stats = self.context_manager.get_stats()
+            logger.info(
+                f"Sugar agent session ended. Context stats: "
+                f"{context_stats['total_messages']} messages, "
+                f"{context_stats['total_tokens_saved']} tokens saved"
+            )
+
+    def get_context_stats(self) -> Dict[str, Any]:
+        """Get current context statistics"""
+        return self.context_manager.get_stats()
+
+    def clear_context(self) -> None:
+        """Clear the context history"""
+        self.context_manager.clear()
+        logger.info("Context cleared")
 
     async def _execute_with_streaming(
         self,
@@ -383,6 +411,9 @@ Guidelines:
 
             options = self._current_options
 
+            # Track user message in context manager
+            self.context_manager.add_message("user", prompt)
+
             # Execute with retry logic for transient errors
             async def do_query():
                 return await self._execute_with_streaming(prompt, options)
@@ -396,12 +427,26 @@ Guidelines:
 
             execution_time = (datetime.now(timezone.utc) - start_time).total_seconds()
 
+            # Track assistant response in context manager
+            assistant_content = "\n".join(content_parts)
+            self.context_manager.add_message("assistant", assistant_content)
+
+            # Trigger summarization if needed (async operation)
+            if self.config.context_summarization_enabled:
+                summary = await self.context_manager.trigger_summarization_if_needed()
+                if summary:
+                    logger.info(
+                        f"Context summarized: {summary.original_token_count} -> "
+                        f"{summary.summarized_token_count} tokens "
+                        f"({summary.messages_summarized} messages)"
+                    )
+
             # Get quality gate results from hooks
             quality_gate_results = self.hooks.get_execution_summary()
 
             response = AgentResponse(
                 success=True,
-                content="\n".join(content_parts),
+                content=assistant_content,
                 tool_uses=tool_uses,
                 files_modified=files_modified,
                 execution_time=execution_time,
@@ -473,8 +518,8 @@ Guidelines:
         }
 
     def _build_work_item_prompt(self, work_item: Dict[str, Any]) -> str:
-        """Build prompt from work item"""
-        return f"""# Task: {work_item.get('title', 'Development Task')}
+        """Build prompt from work item with TOON-encoded context"""
+        prompt = f"""# Task: {work_item.get('title', 'Development Task')}
 
 ## Type: {work_item.get('type', 'feature')}
 ## Priority: {work_item.get('priority', 3)}/5
@@ -482,7 +527,26 @@ Guidelines:
 ## Description
 {work_item.get('description', 'No description provided.')}
 
-## Instructions
+"""
+        # Add execution history in TOON format if available
+        if self._execution_history:
+            # Convert execution history to TOON format
+            history_data = [
+                {
+                    "title": h.get("prompt", "")[:50],
+                    "success": h.get("response", {}).get("success", False),
+                    "execution_time": h.get("response", {}).get("execution_time", 0),
+                    "files_modified": h.get("response", {}).get("files_modified", []),
+                }
+                for h in self._execution_history[-5:]  # Last 5 entries
+            ]
+            toon_history = execution_history_to_toon(history_data)
+            prompt += f"""## Recent Execution History (TOON format)
+{toon_history}
+
+"""
+
+        prompt += """## Instructions
 Please complete this task by:
 1. Analyzing the requirements
 2. Implementing the solution
@@ -491,6 +555,7 @@ Please complete this task by:
 
 Focus on the specific requirements and follow existing code patterns.
 """
+        return prompt
 
     def _build_work_item_context(self, work_item: Dict[str, Any]) -> str:
         """Build context from work item"""

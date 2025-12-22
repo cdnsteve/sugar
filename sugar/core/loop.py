@@ -20,6 +20,7 @@ from ..learning.feedback_processor import FeedbackProcessor
 from ..learning.adaptive_scheduler import AdaptiveScheduler
 from ..utils.git_operations import GitOperations
 from ..workflow.orchestrator import WorkflowOrchestrator
+from ..orchestration.task_orchestrator import TaskOrchestrator
 from ..__version__ import get_version_info
 
 logger = logging.getLogger(__name__)
@@ -48,6 +49,13 @@ class SugarLoop:
         # Initialize workflow orchestrator
         self.workflow_orchestrator = WorkflowOrchestrator(
             self.config, self.git_ops, self.work_queue
+        )
+
+        # Initialize task orchestrator for complex tasks
+        self.task_orchestrator = TaskOrchestrator(
+            config=self.config,
+            work_queue=self.work_queue,
+            agent_executor=self.executor,
         )
 
         # Initialize work discovery modules
@@ -335,8 +343,36 @@ class SugarLoop:
             execution_time = 0.0
 
             try:
-                # Execute with Claude Code
-                result = await self.executor.execute_work(work_item)
+                # Check if this task should be orchestrated (4-stage workflow)
+                should_orchestrate = await self.task_orchestrator.should_orchestrate(
+                    work_item
+                )
+
+                if should_orchestrate:
+                    logger.info(
+                        f"🎭 Running orchestrated execution for [{work_item['id']}]"
+                    )
+                    orchestration_result = await self.task_orchestrator.orchestrate(
+                        work_item
+                    )
+
+                    # Convert orchestration result to standard result format
+                    result = {
+                        "success": orchestration_result.success,
+                        "output": f"Orchestrated execution completed: {len(orchestration_result.stages_completed)} stages, {len(orchestration_result.subtasks)} subtasks",
+                        "orchestration": orchestration_result.to_dict(),
+                        "execution_time": orchestration_result.total_execution_time,
+                        "files_changed": [],  # Aggregated from subtasks
+                        "actions_taken": [
+                            f"Completed {s.value} stage"
+                            for s in orchestration_result.stages_completed
+                        ],
+                        "summary": f"Orchestrated task with {len(orchestration_result.subtasks)} subtasks",
+                        "error": orchestration_result.error,
+                    }
+                else:
+                    # Standard execution with Claude Code
+                    result = await self.executor.execute_work(work_item)
 
                 # Calculate execution time
                 execution_time = (

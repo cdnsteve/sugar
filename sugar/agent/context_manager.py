@@ -106,11 +106,14 @@ class ContextManager:
     summarization when thresholds are exceeded to keep context manageable.
     """
 
+    # Default model for summarization - can be overridden via config
+    DEFAULT_SUMMARIZATION_MODEL = "claude-haiku-4-5-20251101"
+
     def __init__(
         self,
         token_threshold: int = 150000,
         preserve_recent: int = 10,
-        summarization_model: str = "claude-3-haiku-20240307",
+        summarization_model: Optional[str] = None,
         anthropic_api_key: Optional[str] = None,
     ):
         """
@@ -119,9 +122,11 @@ class ContextManager:
         Args:
             token_threshold: Token limit before triggering summarization
             preserve_recent: Number of recent messages to preserve in full
-            summarization_model: Claude model to use for summarization
+            summarization_model: Claude model to use for summarization (defaults to class constant)
             anthropic_api_key: Optional API key (falls back to env var)
         """
+        # Use provided model or fall back to default
+        summarization_model = summarization_model or self.DEFAULT_SUMMARIZATION_MODEL
         self.token_threshold = token_threshold
         self.preserve_recent = preserve_recent
         self.summarization_model = summarization_model
@@ -262,9 +267,7 @@ class ContextManager:
             ContextSummary if successful, None otherwise
         """
         if not self._anthropic_client:
-            logger.warning(
-                "Summarization requested but Anthropic client not available"
-            )
+            logger.warning("Summarization requested but Anthropic client not available")
             return None
 
         # Determine which messages to summarize
@@ -418,10 +421,7 @@ class ContextManager:
                     if isinstance(match, tuple):
                         match = match[0]
                     # Filter out obviously wrong matches
-                    if (
-                        len(match) > 2
-                        and "/" in match or "\\" in match or "." in match
-                    ):
+                    if len(match) > 2 and "/" in match or "\\" in match or "." in match:
                         files.add(match)
 
         return sorted(list(files))
@@ -503,7 +503,9 @@ Provide a concise summary in 2-4 paragraphs that captures the essential informat
             )
 
             summary = response.content[0].text
-            logger.debug(f"Summarization API call successful, summary length: {len(summary)}")
+            logger.debug(
+                f"Summarization API call successful, summary length: {len(summary)}"
+            )
             return summary
 
         except Exception as e:

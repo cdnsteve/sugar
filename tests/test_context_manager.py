@@ -21,7 +21,7 @@ from typing import List
 # Import context_manager directly without triggering agent.__init__
 spec = importlib.util.spec_from_file_location(
     "context_manager",
-    Path(__file__).parent.parent / "sugar" / "agent" / "context_manager.py"
+    Path(__file__).parent.parent / "sugar" / "agent" / "context_manager.py",
 )
 context_manager_module = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(context_manager_module)
@@ -44,7 +44,7 @@ def context_manager():
     return ContextManager(
         token_threshold=1000,
         preserve_recent=5,
-        summarization_model="claude-3-haiku-20240307",
+        summarization_model="claude-haiku-4-5-20251101",
     )
 
 
@@ -56,7 +56,9 @@ def context_manager_with_mock_client():
     # Mock the Anthropic client
     mock_client = AsyncMock()
     mock_response = Mock()
-    mock_response.content = [Mock(text="This is a summarized version of the conversation.")]
+    mock_response.content = [
+        Mock(text="This is a summarized version of the conversation.")
+    ]
     mock_client.messages.create = AsyncMock(return_value=mock_response)
 
     manager._anthropic_client = mock_client
@@ -207,7 +209,7 @@ class TestContextManagerInit:
 
         assert manager.token_threshold == 150000
         assert manager.preserve_recent == 10
-        assert manager.summarization_model == "claude-3-haiku-20240307"
+        assert manager.summarization_model == ContextManager.DEFAULT_SUMMARIZATION_MODEL
         assert manager.total_tokens == 0
         assert manager.total_tokens_saved == 0
         assert len(manager.messages) == 0
@@ -619,7 +621,9 @@ class TestSummarization:
         assert summary is None
 
     @pytest.mark.asyncio
-    async def test_trigger_summarization_success(self, context_manager_with_mock_client):
+    async def test_trigger_summarization_success(
+        self, context_manager_with_mock_client
+    ):
         """Test successful summarization."""
         manager = context_manager_with_mock_client
         manager.preserve_recent = 3
@@ -860,7 +864,9 @@ class TestIntegration:
         assert len(manager.summaries) == 2
 
     @pytest.mark.asyncio
-    async def test_automatic_summarization_trigger(self, context_manager_with_mock_client):
+    async def test_automatic_summarization_trigger(
+        self, context_manager_with_mock_client
+    ):
         """Test that summarization is triggered automatically."""
         manager = context_manager_with_mock_client
         manager.token_threshold = 100
