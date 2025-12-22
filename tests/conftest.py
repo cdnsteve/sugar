@@ -2,17 +2,6 @@
 Pytest configuration and fixtures for Sugar tests
 """
 
-import sys
-from unittest.mock import MagicMock
-
-# Mock claude_agent_sdk before any imports that need it
-mock_sdk = MagicMock()
-mock_sdk.ClaudeAgentOptions = MagicMock
-mock_sdk.HookMatcher = MagicMock
-mock_sdk.query = MagicMock()
-sys.modules["claude_agent_sdk"] = mock_sdk
-sys.modules["claude_agent_sdk.types"] = MagicMock()
-
 import pytest
 import pytest_asyncio
 import tempfile
