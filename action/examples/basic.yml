@@ -1,0 +1,29 @@
+# Basic Issue Responder Workflow
+# Add this to .github/workflows/issue-responder.yml
+
+name: Issue Responder
+
+on:
+  issues:
+    types: [opened, reopened]
+  issue_comment:
+    types: [created]
+
+permissions:
+  issues: write
+  contents: read
+
+jobs:
+  respond:
+    runs-on: ubuntu-latest
+
+    # Skip bot issues
+    if: github.actor != 'dependabot[bot]'
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Respond to Issue
+        uses: roboticforce/sugar@main
+        with:
+          anthropic-api-key: ${{ secrets.ANTHROPIC_API_KEY }}

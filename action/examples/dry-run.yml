@@ -1,0 +1,43 @@
+# Dry Run Testing Workflow
+# Use this to test the action without posting responses
+# Add this to .github/workflows/test-issue-responder.yml
+
+name: Test Issue Responder (Dry Run)
+
+on:
+  workflow_dispatch:  # Manual trigger only
+    inputs:
+      issue_number:
+        description: 'Issue number to test on'
+        required: true
+        type: number
+
+permissions:
+  issues: read
+  contents: read
+
+jobs:
+  test-dry-run:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Test Response Generation
+        id: test
+        uses: roboticforce/sugar@main
+        with:
+          anthropic-api-key: ${{ secrets.ANTHROPIC_API_KEY }}
+          dry-run: 'true'
+          confidence-threshold: '0.5'  # Lower threshold for testing
+
+      - name: Show Results
+        run: |
+          echo "## Test Results" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "- Issue: #${{ steps.test.outputs.issue-number }}" >> $GITHUB_STEP_SUMMARY
+          echo "- Confidence: ${{ steps.test.outputs.confidence }}" >> $GITHUB_STEP_SUMMARY
+          echo "- Would post: ${{ steps.test.outputs.responded }}" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### Generated Response:" >> $GITHUB_STEP_SUMMARY
+          echo "${{ steps.test.outputs.response }}" >> $GITHUB_STEP_SUMMARY

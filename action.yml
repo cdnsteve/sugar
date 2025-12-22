@@ -22,9 +22,9 @@ inputs:
     required: false
     default: 'auto'
   model:
-    description: 'Claude model to use'
+    description: 'Claude model to use (claude-sonnet-4-5, claude-sonnet-4, claude-opus-4)'
     required: false
-    default: 'claude-sonnet-4-20250514'
+    default: 'claude-sonnet-4-5'
   confidence-threshold:
     description: 'Minimum confidence to auto-post (0.0-1.0)'
     required: false
@@ -54,7 +54,7 @@ outputs:
 
 runs:
   using: 'docker'
-  image: 'Dockerfile'
+  image: 'action/Dockerfile'
   env:
     ANTHROPIC_API_KEY: ${{ inputs.anthropic-api-key }}
     GITHUB_TOKEN: ${{ inputs.github-token }}

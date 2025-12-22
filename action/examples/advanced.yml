@@ -1,0 +1,90 @@
+# Advanced Issue Responder Workflow with Multiple Modes
+# Add this to .github/workflows/issue-responder.yml
+
+name: Smart Issue Responder
+
+on:
+  issues:
+    types: [opened, reopened, labeled]
+  issue_comment:
+    types: [created]
+
+permissions:
+  issues: write
+  contents: read
+
+jobs:
+  # Auto-respond to bug reports
+  auto-respond-bugs:
+    runs-on: ubuntu-latest
+    if: |
+      github.event_name == 'issues' &&
+      contains(github.event.issue.labels.*.name, 'bug')
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0  # Full history for better context
+
+      - name: Respond to Bug Report
+        uses: roboticforce/sugar@main
+        with:
+          anthropic-api-key: ${{ secrets.ANTHROPIC_API_KEY }}
+          model: claude-sonnet-4-5
+          confidence-threshold: '0.8'
+          max-response-length: '2000'
+
+  # Respond when mentioned
+  respond-on-mention:
+    runs-on: ubuntu-latest
+    if: |
+      github.event_name == 'issue_comment' &&
+      contains(github.event.comment.body, '@sugar')
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Respond to Mention
+        uses: roboticforce/sugar@main
+        with:
+          anthropic-api-key: ${{ secrets.ANTHROPIC_API_KEY }}
+          mode: mention
+          model: claude-opus-4  # Use most powerful model for mentions
+          confidence-threshold: '0.7'
+
+  # Triage new issues
+  triage-new-issues:
+    runs-on: ubuntu-latest
+    if: |
+      github.event_name == 'issues' &&
+      github.event.action == 'opened' &&
+      !contains(github.event.issue.labels.*.name, 'bug') &&
+      !contains(github.event.issue.labels.*.name, 'feature')
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Triage and Label
+        uses: roboticforce/sugar@main
+        with:
+          anthropic-api-key: ${{ secrets.ANTHROPIC_API_KEY }}
+          mode: triage
+          confidence-threshold: '0.6'
+
+  # Skip certain issue types
+  handle-questions:
+    runs-on: ubuntu-latest
+    if: |
+      github.event_name == 'issues' &&
+      contains(github.event.issue.labels.*.name, 'question')
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Answer Question
+        uses: roboticforce/sugar@main
+        with:
+          anthropic-api-key: ${{ secrets.ANTHROPIC_API_KEY }}
+          skip-labels: 'answered,wontfix,duplicate'
+          confidence-threshold: '0.75'
+          max-response-length: '1500'

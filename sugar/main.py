@@ -3034,5 +3034,328 @@ def import_task_types(ctx, file, overwrite):
         sys.exit(1)
 
 
+# =============================================================================
+# Issue Responder Commands
+# =============================================================================
+
+
+@cli.group()
+@click.pass_context
+def issue(ctx):
+    """Analyze and respond to GitHub issues with AI assistance"""
+    pass
+
+
+@issue.command("list")
+@click.option("--state", type=click.Choice(["open", "closed", "all"]), default="open")
+@click.option("--limit", default=10, help="Maximum number of issues to list")
+@click.option("--repo", help="Repository (owner/repo). Defaults to current repo.")
+@click.pass_context
+def issue_list(ctx, state, limit, repo):
+    """List GitHub issues"""
+    from .integrations.github import GitHubClient
+
+    try:
+        client = GitHubClient(repo=repo)
+        issues = client.list_issues(state=state, limit=limit)
+
+        if not issues:
+            click.echo(f"No {state} issues found.")
+            return
+
+        click.echo(f"\n{'#':<6} {'State':<8} {'Title':<60} {'Author':<15}")
+        click.echo("-" * 95)
+
+        for issue in issues:
+            title = issue.title[:57] + "..." if len(issue.title) > 60 else issue.title
+            click.echo(
+                f"#{issue.number:<5} {issue.state:<8} {title:<60} @{issue.user.login:<15}"
+            )
+
+        click.echo(f"\n{len(issues)} issues listed")
+
+    except Exception as e:
+        click.echo(f"❌ Error listing issues: {e}", err=True)
+        sys.exit(1)
+
+
+@issue.command("view")
+@click.argument("issue_number", type=int)
+@click.option("--repo", help="Repository (owner/repo). Defaults to current repo.")
+@click.pass_context
+def issue_view(ctx, issue_number, repo):
+    """View a specific GitHub issue"""
+    from .integrations.github import GitHubClient
+
+    try:
+        client = GitHubClient(repo=repo)
+        issue = client.get_issue(issue_number)
+
+        click.echo(f"\n{'='*80}")
+        click.echo(f"Issue #{issue.number}: {issue.title}")
+        click.echo(f"{'='*80}")
+        click.echo(f"State: {issue.state}")
+        click.echo(f"Author: @{issue.user.login}")
+        click.echo(f"Labels: {', '.join(l.name for l in issue.labels) or 'None'}")
+        click.echo(f"Created: {issue.created_at}")
+        click.echo(f"Comments: {issue.comments_count}")
+        click.echo(f"URL: {issue.html_url}")
+        click.echo(f"\n{'-'*80}")
+        click.echo(f"\n{issue.body or '(No description provided)'}\n")
+
+        if issue.comments:
+            click.echo(f"{'-'*80}")
+            click.echo(f"Comments ({len(issue.comments)}):\n")
+            for comment in issue.comments:
+                click.echo(f"  @{comment.user.login} ({comment.created_at}):")
+                click.echo(
+                    f"  {comment.body[:200]}{'...' if len(comment.body) > 200 else ''}\n"
+                )
+
+    except Exception as e:
+        click.echo(f"❌ Error viewing issue: {e}", err=True)
+        sys.exit(1)
+
+
+@issue.command("analyze")
+@click.argument("issue_number", type=int)
+@click.option("--repo", help="Repository (owner/repo). Defaults to current repo.")
+@click.option(
+    "--format", "output_format", type=click.Choice(["text", "json"]), default="text"
+)
+@click.pass_context
+def issue_analyze(ctx, issue_number, repo, output_format):
+    """Analyze a GitHub issue and show insights (no AI call)"""
+    from .integrations.github import GitHubClient
+    from .profiles import IssueResponderProfile
+
+    async def _analyze():
+        client = GitHubClient(repo=repo)
+        issue = client.get_issue(issue_number)
+
+        profile = IssueResponderProfile()
+        input_data = {"issue": issue.to_dict(), "repo": repo or ""}
+        processed = await profile.process_input(input_data)
+
+        analysis = processed.get("pre_analysis", {})
+
+        if output_format == "json":
+            click.echo(
+                json.dumps(
+                    {
+                        "issue_number": issue_number,
+                        "title": issue.title,
+                        "analysis": analysis,
+                        "has_maintainer_response": client.has_maintainer_response(
+                            issue
+                        ),
+                    },
+                    indent=2,
+                )
+            )
+        else:
+            click.echo(f"\n{'='*80}")
+            click.echo(f"Analysis: Issue #{issue_number}")
+            click.echo(f"{'='*80}")
+            click.echo(f"\nTitle: {issue.title}")
+            click.echo(f"\nDetected Type: {analysis.get('issue_type', 'unknown')}")
+            click.echo(
+                f"Key Topics: {', '.join(analysis.get('key_topics', [])) or 'None detected'}"
+            )
+            click.echo(
+                f"Mentioned Files: {', '.join(analysis.get('mentioned_files', [])) or 'None detected'}"
+            )
+            click.echo(
+                f"Error Patterns: {', '.join(analysis.get('mentioned_errors', [])) or 'None detected'}"
+            )
+            click.echo(
+                f"Maintainer Response: {'Yes' if client.has_maintainer_response(issue) else 'No'}"
+            )
+
+            # Find similar issues
+            similar = client.find_similar_issues(issue, limit=3)
+            if similar:
+                click.echo(f"\nSimilar Issues:")
+                for s in similar:
+                    click.echo(f"  #{s.number}: {s.title[:50]}... ({s.state})")
+
+    try:
+        asyncio.run(_analyze())
+    except Exception as e:
+        click.echo(f"❌ Error analyzing issue: {e}", err=True)
+        sys.exit(1)
+
+
+@issue.command("respond")
+@click.argument("issue_number", type=int)
+@click.option("--repo", help="Repository (owner/repo). Defaults to current repo.")
+@click.option(
+    "--post",
+    is_flag=True,
+    help="Actually post the response (requires confidence >= threshold)",
+)
+@click.option("--force-post", is_flag=True, help="Post regardless of confidence score")
+@click.option(
+    "--confidence-threshold",
+    default=0.8,
+    help="Minimum confidence to auto-post (0.0-1.0)",
+)
+@click.option(
+    "--dry-run", is_flag=True, help="Show what would be posted without posting"
+)
+@click.pass_context
+def issue_respond(
+    ctx, issue_number, repo, post, force_post, confidence_threshold, dry_run
+):
+    """Generate an AI response to a GitHub issue
+
+    By default, shows the generated response without posting.
+    Use --post to actually post if confidence is high enough.
+    Use --force-post to post regardless of confidence.
+    """
+    from .integrations.github import GitHubClient
+    from .profiles import IssueResponderProfile
+    from .agent import SugarAgent, SugarAgentConfig
+
+    async def _respond():
+        client = GitHubClient(repo=repo)
+        issue = client.get_issue(issue_number)
+
+        # Check if already responded
+        if client.has_maintainer_response(issue) and not force_post:
+            click.echo(
+                f"⚠️  Issue #{issue_number} already has responses. Use --force-post to respond anyway."
+            )
+            if not post and not force_post:
+                click.echo("Continuing with analysis...")
+
+        click.echo(f"\n🔍 Analyzing issue #{issue_number}: {issue.title}")
+        click.echo("-" * 60)
+
+        # Process with IssueResponderProfile
+        profile = IssueResponderProfile()
+        input_data = {"issue": issue.to_dict(), "repo": repo or ""}
+        processed = await profile.process_input(input_data)
+
+        click.echo(f"📋 Issue type: {processed['pre_analysis']['issue_type']}")
+        click.echo(
+            f"🏷️  Topics: {', '.join(processed['pre_analysis']['key_topics']) or 'None'}"
+        )
+
+        click.echo(f"\n🤖 Generating response with Claude...")
+
+        # Run the agent
+        agent_config = SugarAgentConfig(
+            model="claude-sonnet-4-20250514",
+            permission_mode="default",
+            allowed_tools=["Read", "Glob", "Grep"],  # Read-only tools
+            system_prompt_additions=profile.get_system_prompt({"repo": repo}),
+        )
+
+        agent = SugarAgent(agent_config)
+
+        try:
+            await agent.start_session()
+            response = await agent.execute(processed["prompt"])
+
+            # Process the output
+            output_data = {"content": response.content}
+            result = await profile.process_output(output_data)
+
+            response_data = result.get("response", {})
+            confidence = response_data.get("confidence", 0.0)
+            content = response_data.get("content", "")
+            suggested_labels = response_data.get("suggested_labels", [])
+            should_auto_post = response_data.get("should_auto_post", False)
+
+            click.echo(f"\n{'='*60}")
+            click.echo(f"📊 Confidence Score: {confidence:.2f}")
+            click.echo(f"🏷️  Suggested Labels: {', '.join(suggested_labels) or 'None'}")
+            click.echo(f"✅ Auto-post eligible: {'Yes' if should_auto_post else 'No'}")
+            click.echo(f"{'='*60}")
+            click.echo(f"\n📝 Generated Response:\n")
+            click.echo(content)
+            click.echo(f"\n{'='*60}")
+
+            # Decide whether to post
+            will_post = False
+            if force_post:
+                will_post = True
+                click.echo("⚠️  Force posting regardless of confidence...")
+            elif post and confidence >= confidence_threshold:
+                will_post = True
+                click.echo(
+                    f"✅ Confidence {confidence:.2f} >= {confidence_threshold}, posting..."
+                )
+            elif post and confidence < confidence_threshold:
+                click.echo(
+                    f"❌ Confidence {confidence:.2f} < {confidence_threshold}, not posting."
+                )
+                click.echo("   Use --force-post to override.")
+
+            if will_post and not dry_run:
+                client.post_comment(issue_number, content)
+                click.echo(f"\n✅ Response posted to issue #{issue_number}")
+
+                if suggested_labels:
+                    try:
+                        client.add_labels(issue_number, suggested_labels)
+                        click.echo(f"✅ Labels added: {', '.join(suggested_labels)}")
+                    except Exception as e:
+                        click.echo(f"⚠️  Could not add labels: {e}")
+            elif will_post and dry_run:
+                click.echo(
+                    f"\n🔍 DRY RUN: Would post response to issue #{issue_number}"
+                )
+                if suggested_labels:
+                    click.echo(
+                        f"🔍 DRY RUN: Would add labels: {', '.join(suggested_labels)}"
+                    )
+            elif not post and not force_post:
+                click.echo(f"\n💡 To post this response, run:")
+                click.echo(f"   sugar issue respond {issue_number} --post")
+
+        finally:
+            await agent.end_session()
+
+    try:
+        asyncio.run(_respond())
+    except Exception as e:
+        click.echo(f"❌ Error generating response: {e}", err=True)
+        sys.exit(1)
+
+
+@issue.command("search")
+@click.argument("query")
+@click.option("--repo", help="Repository (owner/repo). Defaults to current repo.")
+@click.option("--limit", default=10, help="Maximum results")
+@click.pass_context
+def issue_search(ctx, query, repo, limit):
+    """Search for issues matching a query"""
+    from .integrations.github import GitHubClient
+
+    try:
+        client = GitHubClient(repo=repo)
+        issues = client.search_issues(query, limit=limit)
+
+        if not issues:
+            click.echo(f"No issues found matching: {query}")
+            return
+
+        click.echo(f"\nSearch results for: {query}\n")
+        click.echo(f"{'#':<6} {'State':<8} {'Title':<60}")
+        click.echo("-" * 80)
+
+        for issue in issues:
+            title = issue.title[:57] + "..." if len(issue.title) > 60 else issue.title
+            click.echo(f"#{issue.number:<5} {issue.state:<8} {title:<60}")
+
+        click.echo(f"\n{len(issues)} issues found")
+
+    except Exception as e:
+        click.echo(f"❌ Error searching issues: {e}", err=True)
+        sys.exit(1)
+
+
 if __name__ == "__main__":
     cli()

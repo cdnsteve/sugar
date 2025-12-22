@@ -388,8 +388,16 @@ class GitHubClient:
         limit: int = 5,
     ) -> List[GitHubIssue]:
         """Find issues similar to the given issue"""
+        import re
+
         # Build search query from issue title keywords
-        keywords = issue.title.split()[:5]  # First 5 words
+        # Remove special characters that break GitHub search
+        clean_title = re.sub(r"[\[\]\(\)\{\}:\"'`]", " ", issue.title)
+        keywords = [w for w in clean_title.split() if len(w) > 2][:5]
+
+        if not keywords:
+            return []
+
         query = " ".join(keywords)
 
         similar = self.search_issues(f"{query} is:issue", limit=limit + 1)

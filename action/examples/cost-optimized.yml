@@ -1,0 +1,32 @@
+# Cost-Optimized Issue Responder
+# Uses cheaper models and stricter thresholds to minimize API costs
+# Add this to .github/workflows/issue-responder.yml
+
+name: Cost-Optimized Issue Responder
+
+on:
+  issues:
+    types: [opened]
+
+permissions:
+  issues: write
+  contents: read
+
+jobs:
+  respond:
+    runs-on: ubuntu-latest
+
+    # Only run on issues without existing comments
+    if: github.event.issue.comments == 0
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Respond to Issue
+        uses: roboticforce/sugar@main
+        with:
+          anthropic-api-key: ${{ secrets.ANTHROPIC_API_KEY }}
+          model: claude-sonnet-4  # Use Sonnet instead of Opus
+          confidence-threshold: '0.85'  # Higher threshold = fewer posts
+          max-response-length: '1000'  # Shorter responses = lower cost
+          skip-labels: 'wontfix,duplicate,spam,invalid'
