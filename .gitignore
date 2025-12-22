@@ -197,3 +197,6 @@ Thumbs.db:encryptable
 docs/_build/
 docs/build/
 site/
+
+# Research (local only)
+research/
