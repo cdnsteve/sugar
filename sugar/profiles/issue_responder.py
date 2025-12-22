@@ -357,8 +357,13 @@ Provide your response in this format:
             ]
 
         # Extract the actual response section
+        # Use greedy match but stop only at known section headers (Code References)
+        # or end of content. Don't stop at arbitrary ### headers since the response
+        # itself may contain ### headers.
         response_match = re.search(
-            r"###\s*Response\s*\n(.*?)(?=###|$)", content, re.DOTALL | re.IGNORECASE
+            r"###\s*Response\s*\n(.*?)(?=###\s*Code\s*References|$)",
+            content,
+            re.DOTALL | re.IGNORECASE,
         )
         if response_match:
             result["response"] = response_match.group(1).strip()
