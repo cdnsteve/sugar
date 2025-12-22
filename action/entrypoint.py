@@ -82,7 +82,7 @@ def set_output(name: str, value: str) -> None:
 async def run_issue_responder(issue: dict, repo: str) -> dict:
     """Run the issue responder on an issue"""
     # Configuration from environment
-    model = get_env("SUGAR_MODEL", "claude-sonnet-4-20250514")
+    model = get_env("SUGAR_MODEL", "claude-sonnet-4-5")
     confidence_threshold = float(get_env("SUGAR_CONFIDENCE_THRESHOLD", "0.7"))
     max_response_length = int(get_env("SUGAR_MAX_RESPONSE_LENGTH", "2000"))
     dry_run = get_env("SUGAR_DRY_RUN", "false").lower() == "true"

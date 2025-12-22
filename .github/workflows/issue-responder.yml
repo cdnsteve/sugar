@@ -1,0 +1,49 @@
+name: Issue Responder
+
+on:
+  issues:
+    types: [opened, reopened, labeled]
+  issue_comment:
+    types: [created]
+
+permissions:
+  issues: write
+  contents: read
+
+jobs:
+  respond:
+    name: Respond to Issue
+    runs-on: ubuntu-latest
+
+    # Skip if the issue is from a bot or has certain labels
+    if: |
+      github.actor != 'dependabot[bot]' &&
+      !contains(github.event.issue.labels.*.name, 'wontfix') &&
+      !contains(github.event.issue.labels.*.name, 'duplicate') &&
+      !contains(github.event.issue.labels.*.name, 'spam')
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0  # Full history for better context
+
+      - name: Run Sugar Issue Responder
+        id: responder
+        uses: ./action
+        with:
+          anthropic-api-key: ${{ secrets.ANTHROPIC_API_KEY }}
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          mode: auto
+          model: claude-sonnet-4-5
+          confidence-threshold: '0.7'
+          max-response-length: '2000'
+          skip-labels: 'wontfix,duplicate,spam'
+          dry-run: 'false'
+
+      - name: Log Response
+        if: always()
+        run: |
+          echo "Issue #${{ steps.responder.outputs.issue-number }}"
+          echo "Responded: ${{ steps.responder.outputs.responded }}"
+          echo "Confidence: ${{ steps.responder.outputs.confidence }}"

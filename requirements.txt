@@ -10,5 +10,5 @@ python-dotenv>=1.0.0
 # Claude Agent SDK (Sugar 3.0)
 claude-agent-sdk>=0.1.0
 
-# Optional: GitHub integration
-# PyGithub>=1.59.0  # Only needed if using token auth instead of gh CLI
+# GitHub integration (needed for the action)
+PyGithub>=1.59.0
