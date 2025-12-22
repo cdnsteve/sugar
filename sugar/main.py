@@ -2071,22 +2071,9 @@ sugar:
     use_structured_requests: true  # Enable structured JSON communication
     structured_input_file: ".sugar/claude_input.json"  # Temp file for complex inputs
     
-    # Agent Selection & Discovery System
-    enable_agents: true        # Enable Claude agent mode selection
-    agent_fallback: true       # Fall back to basic Claude if agent fails
-    agent_selection:           # Map work types to specific agents
-      bug_fix: "tech-lead"           # Strategic analysis for bug fixes
-      feature: "general-purpose"     # General development for features
-      refactor: "code-reviewer"      # Code review expertise for refactoring
-      test: "general-purpose"        # General development for tests
-      documentation: "general-purpose"  # General development for docs
-    
-    # Dynamic Agent Discovery (supports any agents you have configured locally)
-    # available_agents: []       # Optional: specify which agents are available
-                                # If empty, Sugar will accept any agent name
-                                # Example: ["my-custom-agent", "security-specialist", "database-expert"]
-    # auto_discover_agents: false  # Future: auto-discover agents from Claude CLI
-    
+    # Note: Legacy agent_selection settings removed in v3.1
+    # The SDK executor handles agent routing internally via TaskOrchestrator
+
   # Work Discovery
   discovery:
     # Global exclusions for all discovery modules
