@@ -307,6 +307,10 @@ def init(project_dir):
 @click.option("--input-file", help="JSON file containing task data")
 @click.option("--stdin", is_flag=True, help="Read task data from stdin (JSON format)")
 @click.option("--json", "parse_json", is_flag=True, help="Parse description as JSON")
+@click.option("--orchestrate", is_flag=True, help="Enable orchestration for this task")
+@click.option(
+    "--skip-stages", help="Comma-separated stages to skip (research,planning)"
+)
 @click.pass_context
 def add(
     ctx,
@@ -319,6 +323,8 @@ def add(
     input_file,
     stdin,
     parse_json,
+    orchestrate,
+    skip_stages,
 ):
     """Add a new task to Sugar work queue
 
@@ -395,11 +401,19 @@ def add(
             "priority": priority,
             "status": status,
             "source": "cli",
+            "orchestrate": orchestrate,
             "context": {
                 "added_via": "sugar_cli",
                 "timestamp": datetime.now(timezone.utc).isoformat(),
             },
         }
+
+        # Add orchestration metadata if enabled
+        if orchestrate:
+            if skip_stages:
+                task_data["context"]["skip_stages"] = [
+                    s.strip() for s in skip_stages.split(",")
+                ]
 
         # Override/merge with complex input data
         if task_data_override:
@@ -987,6 +1001,211 @@ def priority(ctx, task_id, priority, urgent, high, normal, low, minimal):
 
     except Exception as e:
         click.echo(f"❌ Error changing task priority: {e}", err=True)
+        sys.exit(1)
+
+
+@cli.command()
+@click.argument("task_id", required=False)
+@click.option("--stages", is_flag=True, help="Show orchestration stages")
+@click.pass_context
+def orchestrate(ctx, task_id, stages):
+    """View or manage task orchestration.
+
+    Without arguments: shows all orchestrating tasks
+    With task_id: shows orchestration status for that task
+    With --stages: shows detailed stage information
+    """
+    from .storage.work_queue import WorkQueue
+    import yaml
+
+    try:
+        config_file = ctx.obj["config"]
+        with open(config_file, "r") as f:
+            config = yaml.safe_load(f)
+
+        work_queue = WorkQueue(config["sugar"]["storage"]["database"])
+
+        async def show_orchestration():
+            await work_queue.initialize()
+
+            if task_id:
+                # Show specific task orchestration
+                task = await work_queue.get_work_by_id(task_id)
+                if not task:
+                    click.echo(f"❌ Task not found: {task_id}")
+                    return
+
+                click.echo(f"\n🎭 Orchestration Status for Task: {task['title']}")
+                click.echo(f"ID: {task['id']}")
+                click.echo(f"Type: {task['type']}")
+                click.echo(f"Status: {task['status']}")
+
+                if task.get("orchestrate"):
+                    click.echo(f"Orchestration: ✅ Enabled")
+                    if task.get("stage"):
+                        click.echo(f"Current Stage: {task['stage']}")
+                    if task.get("context_path"):
+                        click.echo(f"Context Path: {task['context_path']}")
+                    if task.get("assigned_agent"):
+                        click.echo(f"Assigned Agent: {task['assigned_agent']}")
+
+                    # Show subtasks
+                    subtasks = await work_queue.get_subtasks(task_id)
+                    if subtasks:
+                        click.echo(f"\nSubtasks ({len(subtasks)}):")
+                        for subtask in subtasks:
+                            status_emoji = {
+                                "pending": "⏳",
+                                "active": "🔄",
+                                "completed": "✅",
+                                "failed": "❌",
+                                "hold": "⏸️",
+                            }.get(subtask["status"], "❓")
+
+                            blocked_info = ""
+                            if subtask.get("blocked_by"):
+                                blocked_count = len(subtask["blocked_by"])
+                                blocked_info = f" (blocked by {blocked_count} task{'s' if blocked_count > 1 else ''})"
+
+                            agent_info = ""
+                            if subtask.get("assigned_agent"):
+                                agent_info = f" [{subtask['assigned_agent']}]"
+
+                            click.echo(
+                                f"  {status_emoji} {subtask['title']}{agent_info}{blocked_info}"
+                            )
+
+                        # Show ready subtasks
+                        ready = await work_queue.get_ready_subtasks(task_id)
+                        click.echo(f"\nReady to execute: {len(ready)} of {len(subtasks)}")
+
+                        # Show completion status
+                        all_complete = await work_queue.check_subtasks_complete(task_id)
+                        if all_complete:
+                            click.echo("✅ All subtasks complete!")
+                    else:
+                        click.echo("\nNo subtasks yet.")
+
+                    # Show skip_stages if present
+                    if task.get("context", {}).get("skip_stages"):
+                        skip_stages = task["context"]["skip_stages"]
+                        click.echo(f"\nSkipped Stages: {', '.join(skip_stages)}")
+
+                else:
+                    click.echo(f"Orchestration: ❌ Not enabled")
+
+                # Show stages if requested
+                if stages:
+                    click.echo("\n📋 Orchestration Stages:")
+                    default_stages = ["research", "planning", "implementation", "review"]
+                    skip_stages = task.get("context", {}).get("skip_stages", [])
+                    current_stage = task.get("stage")
+
+                    for stage in default_stages:
+                        status = ""
+                        if stage in skip_stages:
+                            status = "⏭️  Skipped"
+                        elif stage == current_stage:
+                            status = "▶️  Current"
+                        else:
+                            status = "⏸️  Pending"
+                        click.echo(f"  {status}: {stage}")
+            else:
+                # Show all orchestrating tasks
+                tasks = await work_queue.get_recent_work(limit=100)
+                orchestrating = [t for t in tasks if t.get("orchestrate")]
+
+                if not orchestrating:
+                    click.echo("No orchestrating tasks found.")
+                    return
+
+                click.echo(f"\n🎭 Orchestrating Tasks ({len(orchestrating)}):\n")
+                for task in orchestrating:
+                    status_emoji = {
+                        "pending": "⏳",
+                        "active": "🔄",
+                        "completed": "✅",
+                        "failed": "❌",
+                        "hold": "⏸️",
+                    }.get(task["status"], "❓")
+
+                    stage_info = f" [Stage: {task['stage']}]" if task.get("stage") else ""
+                    subtask_count = len(await work_queue.get_subtasks(task["id"]))
+                    subtask_info = f" ({subtask_count} subtasks)" if subtask_count > 0 else ""
+
+                    click.echo(
+                        f"{status_emoji} {task['title']}{stage_info}{subtask_info}"
+                    )
+                    click.echo(f"   ID: {task['id']}")
+
+        asyncio.run(show_orchestration())
+
+    except Exception as e:
+        click.echo(f"❌ Error showing orchestration: {e}", err=True)
+        import traceback
+        traceback.print_exc()
+        sys.exit(1)
+
+
+@cli.command()
+@click.argument("task_id")
+@click.pass_context
+def context(ctx, task_id):
+    """View accumulated context for an orchestrated task."""
+    from .storage.work_queue import WorkQueue
+    import yaml
+    from pathlib import Path
+
+    try:
+        config_file = ctx.obj["config"]
+        with open(config_file, "r") as f:
+            config = yaml.safe_load(f)
+
+        work_queue = WorkQueue(config["sugar"]["storage"]["database"])
+
+        async def show_context():
+            await work_queue.initialize()
+
+            task = await work_queue.get_work_by_id(task_id)
+            if not task:
+                click.echo(f"❌ Task not found: {task_id}")
+                return
+
+            if not task.get("orchestrate"):
+                click.echo(f"❌ Task is not orchestrated: {task['title']}")
+                return
+
+            click.echo(f"\n📝 Orchestration Context for: {task['title']}\n")
+
+            # Show context path if available
+            if task.get("context_path"):
+                context_path = Path(task["context_path"])
+                click.echo(f"Context Path: {context_path}")
+
+                if context_path.exists():
+                    click.echo(f"\nContents of {context_path}:\n")
+                    click.echo("=" * 80)
+                    with open(context_path, "r") as f:
+                        click.echo(f.read())
+                    click.echo("=" * 80)
+                else:
+                    click.echo("⚠️  Context file not found yet.")
+            else:
+                click.echo("⚠️  No context path set for this task.")
+
+            # Show task context metadata
+            if task.get("context"):
+                click.echo("\nTask Context Metadata:")
+                for key, value in task["context"].items():
+                    if key not in ["added_via", "timestamp"]:
+                        click.echo(f"  {key}: {value}")
+
+        asyncio.run(show_context())
+
+    except Exception as e:
+        click.echo(f"❌ Error showing context: {e}", err=True)
+        import traceback
+        traceback.print_exc()
         sys.exit(1)
 
 
