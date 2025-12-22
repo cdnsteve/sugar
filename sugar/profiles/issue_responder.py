@@ -232,16 +232,20 @@ Provide your response in this format:
         # Build the response
         response_content = parsed.get("response", content)
 
-        # Add signature if configured
+        # Get signature
+        signature = ""
         if self.config.settings.get("include_signature", True):
             signature = self.config.settings.get("signature", "")
-            if signature and signature not in response_content:
-                response_content += signature
 
-        # Truncate if needed
+        # Truncate if needed (reserve space for signature)
         max_length = self.config.settings.get("max_response_length", 2000)
-        if len(response_content) > max_length:
-            response_content = response_content[: max_length - 3] + "..."
+        content_max = max_length - len(signature) if signature else max_length
+        if len(response_content) > content_max:
+            response_content = response_content[: content_max - 3] + "..."
+
+        # Add signature after truncation
+        if signature and signature not in response_content:
+            response_content += signature
 
         confidence = parsed.get("confidence", 0.5)
         auto_post_threshold = self.config.settings.get("auto_post_threshold", 0.8)
