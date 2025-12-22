@@ -87,6 +87,8 @@ sugar add TITLE [OPTIONS]
 - `--priority INTEGER` - Priority level 1-5 (1=low, 5=urgent, default: 3)
 - `--description TEXT` - Detailed task description
 - `--urgent` - Mark as urgent (sets priority to 5)
+- `--orchestrate` - Enable task orchestration for complex features
+- `--skip-stages TEXT` - Skip specific orchestration stages (comma-separated)
 
 **Complex Data Input Options:**
 - `--input-file PATH` - JSON file containing task data
@@ -447,6 +449,66 @@ sugar run --dry-run
 - **Once**: Runs one discovery/execution cycle then exits
 - **Continuous**: Runs forever until interrupted (Ctrl+C)
 - **Validate**: Checks configuration and Claude CLI setup
+
+---
+
+### `sugar orchestrate`
+
+View or manage task orchestration status.
+
+```bash
+sugar orchestrate [TASK_ID] [OPTIONS]
+```
+
+**Arguments:**
+- `TASK_ID` - Task ID to view orchestration details (optional)
+
+**Options:**
+- `--stages` - Show detailed stage information
+
+**Examples:**
+```bash
+# View all orchestrating tasks
+sugar orchestrate
+
+# View specific task's orchestration status
+sugar orchestrate task-abc123
+
+# View stage details
+sugar orchestrate task-abc123 --stages
+```
+
+**Shows:**
+- Current orchestration stage (research, planning, implementation, review)
+- Subtasks and their status
+- Agent assignments
+- Stage completion status
+
+---
+
+### `sugar context`
+
+View accumulated context for an orchestrated task.
+
+```bash
+sugar context TASK_ID
+```
+
+**Arguments:**
+- `TASK_ID` - Task ID to view context (required)
+
+**Examples:**
+```bash
+sugar context task-abc123
+```
+
+**Shows:**
+- Research findings accumulated during orchestration
+- Implementation plan from planning stage
+- Subtask results
+- Files modified across subtasks
+
+---
 
 ## Task Status Lifecycle
 

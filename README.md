@@ -126,6 +126,12 @@ sugar list --status completed
 - Custom task types for your workflow
 - Queue management and filtering
 
+**Task Orchestration** *(New in v3.0)*
+- Auto-decomposes complex features into subtasks
+- 4-stage workflow: Research → Planning → Implementation → Review
+- Specialist agent routing (frontend, backend, QA, security, DevOps)
+- Parallel execution with dependency management
+
 **Autonomous Execution**
 - Specialized Claude agents (UX, backend, QA)
 - Automatic retries on failures
@@ -327,11 +333,40 @@ Sugar 3.0 is built natively on the **Claude Agent SDK**, providing:
 
 - **[Quick Start](docs/user/quick-start.md)** - Get running in 5 minutes
 - **[CLI Reference](docs/user/cli-reference.md)** - All commands
+- **[Task Orchestration](docs/task_orchestration.md)** - Complex feature decomposition
 - **[GitHub Integration](docs/user/github-integration.md)** - Connect to GitHub
 - **[Configuration Guide](docs/user/configuration-best-practices.md)** - Best practices
 - **[Claude Code Plugin](.claude-plugin/README.md)** - Native integration
 
 ## Advanced Usage
+
+**Task Orchestration**
+
+For complex features, Sugar can automatically decompose work and route to specialist agents:
+
+```bash
+# Add a feature that will be orchestrated
+sugar add "Add user authentication with OAuth" --type feature --orchestrate
+
+# Sugar will:
+# 1. RESEARCH - Search best practices, analyze codebase
+# 2. PLAN - Create implementation plan with subtasks
+# 3. IMPLEMENT - Route subtasks to specialists in parallel
+# 4. REVIEW - Code review and test verification
+
+# Check orchestration status
+sugar orchestrate <task_id> --stages
+
+# View accumulated context
+sugar context <task_id>
+```
+
+Specialist agents are automatically assigned based on task content:
+- `frontend-designer` - UI, components, styling
+- `backend-developer` - APIs, databases, services
+- `qa-engineer` - Testing, test strategies
+- `security-engineer` - Auth, vulnerabilities
+- `devops-engineer` - CI/CD, infrastructure
 
 **Custom Task Types**
 ```bash
