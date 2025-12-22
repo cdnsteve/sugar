@@ -13,73 +13,74 @@ When Sugar encounters a large feature request, the orchestration system:
 5. **Executes** sub-tasks with parallelism where possible
 6. **Reviews** the completed work before marking done
 
-```
-Large Feature Task
-        ↓
-┌───────────────────────────────────────────────────────┐
-│ Stage 1: RESEARCH                                     │
-│ • Web search for best practices                       │
-│ • Gather relevant documentation                       │
-│ • Analyze existing codebase patterns                  │
-│ Agent: tech-lead / Explore                            │
-│ Output: context.md, research_findings.md              │
-└───────────────────────────────────────────────────────┘
-        ↓ (context passes forward)
-┌───────────────────────────────────────────────────────┐
-│ Stage 2: PLANNING                                     │
-│ • Create implementation plan                          │
-│ • Break into sub-tasks                                │
-│ • Identify specialist agents needed                   │
-│ Agent: tech-lead / Plan                               │
-│ Output: plan.md, sub-tasks[]                          │
-└───────────────────────────────────────────────────────┘
-        ↓ (sub-tasks added to queue)
-┌───────────────────────────────────────────────────────┐
-│ Stage 3: IMPLEMENTATION (parallel where possible)     │
-│ • Sub-task A: Auth UI       → frontend-designer       │
-│ • Sub-task B: Auth API      → backend-developer       │
-│ • Sub-task C: Auth tests    → qa-engineer             │
-│ • Sub-task D: Auth docs     → general-purpose         │
-└───────────────────────────────────────────────────────┘
-        ↓ (all sub-tasks complete)
-┌───────────────────────────────────────────────────────┐
-│ Stage 4: REVIEW & INTEGRATION                         │
-│ • Code review all changes                             │
-│ • Run full test suite                                 │
-│ • Verify feature works end-to-end                     │
-│ Agent: code-reviewer, qa-engineer                     │
-└───────────────────────────────────────────────────────┘
+```mermaid
+flowchart TB
+    A[Large Feature Task] --> B
+
+    subgraph B["Stage 1: RESEARCH"]
+        B1["• Web search for best practices"]
+        B2["• Gather relevant documentation"]
+        B3["• Analyze existing codebase patterns"]
+        B4["Agent: tech-lead / Explore"]
+        B5["Output: context.md, research_findings.md"]
+    end
+
+    B -->|context passes forward| C
+
+    subgraph C["Stage 2: PLANNING"]
+        C1["• Create implementation plan"]
+        C2["• Break into sub-tasks"]
+        C3["• Identify specialist agents needed"]
+        C4["Agent: tech-lead / Plan"]
+        C5["Output: plan.md, sub-tasks[]"]
+    end
+
+    C -->|sub-tasks added to queue| D
+
+    subgraph D["Stage 3: IMPLEMENTATION"]
+        D1["Sub-task A: Auth UI → frontend-designer"]
+        D2["Sub-task B: Auth API → backend-developer"]
+        D3["Sub-task C: Auth tests → qa-engineer"]
+        D4["Sub-task D: Auth docs → general-purpose"]
+    end
+
+    D -->|all sub-tasks complete| E
+
+    subgraph E["Stage 4: REVIEW & INTEGRATION"]
+        E1["• Code review all changes"]
+        E2["• Run full test suite"]
+        E3["• Verify feature works end-to-end"]
+        E4["Agent: code-reviewer, qa-engineer"]
+    end
 ```
 
 ## Architecture
 
-```
-┌─────────────────────────────────────────┐
-│           TaskOrchestrator              │  ← High-level workflow
-│  - Stage management                     │
-│  - Context accumulation                 │
-│  - Sub-task generation                  │
-└─────────────────────────────────────────┘
-                    │
-                    ▼
-┌─────────────────────────────────────────┐
-│            AgentRouter                  │  ← Specialist selection
-│  - Pattern matching on task content     │
-│  - Maps to specialist agents            │
-└─────────────────────────────────────────┘
-                    │
-                    ▼
-┌─────────────────────────────────────────┐
-│          SubAgentManager                │  ← Parallel execution
-│  - Concurrency control                  │
-│  - Isolated execution                   │
-└─────────────────────────────────────────┘
-                    │
-                    ▼
-┌─────────────────────────────────────────┐
-│         AgentSDKExecutor                │  ← Task execution
-│  - Agent SDK integration                │
-└─────────────────────────────────────────┘
+```mermaid
+flowchart TB
+    subgraph Orchestrator["TaskOrchestrator"]
+        O1["Stage management"]
+        O2["Context accumulation"]
+        O3["Sub-task generation"]
+    end
+
+    subgraph Router["AgentRouter"]
+        R1["Pattern matching on task content"]
+        R2["Maps to specialist agents"]
+    end
+
+    subgraph Manager["SubAgentManager"]
+        M1["Concurrency control"]
+        M2["Isolated execution"]
+    end
+
+    subgraph Executor["AgentSDKExecutor"]
+        E1["Agent SDK integration"]
+    end
+
+    Orchestrator -->|"Specialist selection"| Router
+    Router -->|"Parallel execution"| Manager
+    Manager -->|"Task execution"| Executor
 ```
 
 ## Configuration
@@ -613,45 +614,55 @@ sugar add "Set up CI/CD pipeline with GitHub Actions and Kubernetes" --type feat
 
 **Orchestration Flow:**
 
-```
-┌─────────────────────────────────────────────────────────────┐
-│ RESEARCH: Explore agent                                      │
-│ • Analyze existing deployment scripts                        │
-│ • Review Kubernetes cluster configuration                    │
-│ • Check current GitHub Actions workflows                     │
-│ • Identify environment requirements (staging, production)    │
-└─────────────────────────────────────────────────────────────┘
-                              ↓
-┌─────────────────────────────────────────────────────────────┐
-│ PLANNING: Plan agent                                         │
-│ Subtasks created:                                            │
-│ 1. devops-engineer: Create Dockerfile with multi-stage build│
-│ 2. devops-engineer: Write Kubernetes manifests              │
-│ 3. devops-engineer: Create GitHub Actions workflows         │
-│ 4. security-engineer: Set up secrets management             │
-│ 5. qa-engineer: Add deployment verification tests           │
-│ 6. general-purpose: Document deployment process             │
-└─────────────────────────────────────────────────────────────┘
-                              ↓
-┌─────────────────────────────────────────────────────────────┐
-│ IMPLEMENTATION: Parallel execution                           │
-│                                                              │
-│ [devops-engineer]     [security-engineer]   [general-purpose]│
-│ • Dockerfile          • Secrets setup       • Documentation  │
-│ • K8s manifests       • RBAC config                         │
-│ • GH Actions          • Image scanning                      │
-│                              ↓                               │
-│                      [qa-engineer]                           │
-│                      • Smoke tests                           │
-│                      • Rollback tests                        │
-└─────────────────────────────────────────────────────────────┘
-                              ↓
-┌─────────────────────────────────────────────────────────────┐
-│ REVIEW: Validate deployment pipeline                         │
-│ • Dry-run deployment to staging                              │
-│ • Verify rollback mechanism                                  │
-│ • Check monitoring and alerting                              │
-└─────────────────────────────────────────────────────────────┘
+```mermaid
+flowchart TB
+    subgraph Research["RESEARCH: Explore agent"]
+        R1["Analyze existing deployment scripts"]
+        R2["Review Kubernetes cluster configuration"]
+        R3["Check current GitHub Actions workflows"]
+        R4["Identify environment requirements"]
+    end
+
+    subgraph Planning["PLANNING: Plan agent"]
+        P1["1. devops-engineer: Dockerfile"]
+        P2["2. devops-engineer: K8s manifests"]
+        P3["3. devops-engineer: GH Actions"]
+        P4["4. security-engineer: Secrets"]
+        P5["5. qa-engineer: Tests"]
+        P6["6. general-purpose: Docs"]
+    end
+
+    subgraph Implementation["IMPLEMENTATION: Parallel"]
+        subgraph DevOps["devops-engineer"]
+            D1["Dockerfile"]
+            D2["K8s manifests"]
+            D3["GH Actions"]
+        end
+        subgraph Security["security-engineer"]
+            S1["Secrets setup"]
+            S2["RBAC config"]
+            S3["Image scanning"]
+        end
+        subgraph Docs["general-purpose"]
+            Doc1["Documentation"]
+        end
+        subgraph QA["qa-engineer"]
+            Q1["Smoke tests"]
+            Q2["Rollback tests"]
+        end
+    end
+
+    subgraph Review["REVIEW: Validate"]
+        Rev1["Dry-run deployment to staging"]
+        Rev2["Verify rollback mechanism"]
+        Rev3["Check monitoring and alerting"]
+    end
+
+    Research --> Planning
+    Planning --> Implementation
+    DevOps --> QA
+    Security --> QA
+    Implementation --> Review
 ```
 
 ---
@@ -712,49 +723,48 @@ sugar add "Build real-time analytics dashboard" --type feature --orchestrate
 
 ## Architecture Integration
 
-```
-Your Application
-       │
-       ▼
-┌──────────────────────────────────────────────────────────────┐
-│                         Sugar                                 │
-│                                                              │
-│  ┌────────────────┐    ┌────────────────┐                   │
-│  │  Work Queue    │───▶│ Task Executor  │                   │
-│  │  (SQLite)      │    │                │                   │
-│  └────────────────┘    └───────┬────────┘                   │
-│                                │                             │
-│                    ┌───────────▼───────────┐                │
-│                    │  TaskOrchestrator     │                │
-│                    │  (if orchestration    │                │
-│                    │   is triggered)       │                │
-│                    └───────────┬───────────┘                │
-│                                │                             │
-│         ┌──────────────────────┼──────────────────────┐     │
-│         ▼                      ▼                      ▼     │
-│  ┌─────────────┐      ┌─────────────┐       ┌─────────────┐ │
-│  │ Research    │      │ Planning    │       │ Review      │ │
-│  │ (Explore)   │      │ (Plan)      │       │ (Reviewer)  │ │
-│  └─────────────┘      └─────────────┘       └─────────────┘ │
-│                                │                             │
-│                    ┌───────────▼───────────┐                │
-│                    │   Implementation       │                │
-│                    │   (Parallel agents)    │                │
-│                    └───────────────────────┘                │
-│                                                              │
-│  Specialist Agents:                                          │
-│  ┌──────────┐ ┌──────────┐ ┌──────────┐ ┌──────────┐       │
-│  │frontend  │ │backend   │ │qa        │ │security  │       │
-│  │designer  │ │developer │ │engineer  │ │engineer  │       │
-│  └──────────┘ └──────────┘ └──────────┘ └──────────┘       │
-│                                                              │
-└──────────────────────────────────────────────────────────────┘
-       │
-       ▼
-  Claude Agent SDK
-       │
-       ▼
-  Claude API
+```mermaid
+flowchart TB
+    subgraph App["Your Application"]
+        A[Task Request]
+    end
+
+    subgraph Sugar["Sugar"]
+        B[Work Queue<br/>SQLite] --> C[Task Executor]
+        C --> D{Needs<br/>Orchestration?}
+
+        D -->|No| E[Direct Execution]
+        D -->|Yes| F[TaskOrchestrator]
+
+        F --> G[Research<br/>Explore Agent]
+        G --> H[Planning<br/>Plan Agent]
+        H --> I[Implementation<br/>Parallel Agents]
+        I --> J[Review<br/>Code Reviewer]
+
+        subgraph Specialists["Specialist Agents"]
+            S1[frontend-designer]
+            S2[backend-developer]
+            S3[qa-engineer]
+            S4[security-engineer]
+            S5[devops-engineer]
+        end
+
+        I --> Specialists
+    end
+
+    subgraph SDK["Claude Agent SDK"]
+        K[Agent Execution]
+    end
+
+    subgraph API["Claude API"]
+        L[Claude Models]
+    end
+
+    A --> B
+    E --> K
+    J --> K
+    Specialists --> K
+    K --> L
 ```
 
 This architecture enables Sugar to handle everything from simple one-liner fixes to complex multi-day feature implementations, automatically choosing the right level of sophistication for each task.
