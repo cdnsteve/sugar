@@ -3203,9 +3203,14 @@ def issue_analyze(ctx, issue_number, repo, output_format):
 @click.option(
     "--dry-run", is_flag=True, help="Show what would be posted without posting"
 )
+@click.option(
+    "--max-length",
+    default=2000,
+    help="Maximum response length in characters (default: 2000)",
+)
 @click.pass_context
 def issue_respond(
-    ctx, issue_number, repo, post, force_post, confidence_threshold, dry_run
+    ctx, issue_number, repo, post, force_post, confidence_threshold, dry_run, max_length
 ):
     """Generate an AI response to a GitHub issue
 
@@ -3234,6 +3239,7 @@ def issue_respond(
 
         # Process with IssueResponderProfile
         profile = IssueResponderProfile()
+        profile.config.settings["max_response_length"] = max_length
         input_data = {"issue": issue.to_dict(), "repo": repo or ""}
         processed = await profile.process_input(input_data)
 
