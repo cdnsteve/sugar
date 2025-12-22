@@ -16,6 +16,10 @@ from typing import Any, Dict, List, Optional
 
 from .base import BaseExecutor, ExecutionResult
 from ..agent import SugarAgent, SugarAgentConfig
+from ..storage import IssueResponseManager
+from ..profiles import IssueResponderProfile
+from ..config import IssueResponderConfig
+from ..integrations import GitHubClient
 
 logger = logging.getLogger(__name__)
 
@@ -83,6 +87,76 @@ class AgentSDKExecutor(BaseExecutor):
             )
         return self._agent
 
+    async def _execute_issue_response(self, work_item: Dict) -> Dict:
+        """Execute an issue response task using IssueResponderProfile"""
+        # Extract issue data from work_item context
+        context = work_item.get("context", {})
+        issue_data = context.get("github_issue", {})
+        repo = context.get("repo", "")
+
+        # Load config
+        config = IssueResponderConfig.load_from_file(".sugar/config.yaml")
+
+        # Create profile with config settings
+        profile = IssueResponderProfile()
+        profile.config.settings["max_response_length"] = config.max_response_length
+        profile.config.settings["auto_post_threshold"] = config.auto_post_threshold
+
+        # Process input
+        input_data = {"issue": issue_data, "repo": repo}
+        processed = await profile.process_input(input_data)
+
+        # Execute with agent
+        agent_config = SugarAgentConfig(
+            model=config.model,
+            permission_mode="default",
+            allowed_tools=["Read", "Glob", "Grep"],
+            system_prompt_additions=profile.get_system_prompt({"repo": repo}),
+        )
+
+        agent = SugarAgent(agent_config)
+        await agent.start_session()
+
+        try:
+            response = await agent.execute(processed["prompt"])
+            output_data = {"content": response.content}
+            result = await profile.process_output(output_data)
+
+            response_data = result.get("response", {})
+            confidence = response_data.get("confidence", 0.0)
+            content = response_data.get("content", "")
+
+            # Check if should auto-post
+            should_post = confidence >= config.auto_post_threshold
+
+            if should_post:
+                # Post to GitHub
+                client = GitHubClient(repo=repo)
+                client.post_comment(issue_data["number"], content)
+
+                # Record response
+                manager = IssueResponseManager()
+                await manager.initialize()
+                await manager.record_response(
+                    repo=repo,
+                    issue_number=issue_data["number"],
+                    response_type="initial",
+                    confidence=confidence,
+                    response_content=content,
+                    labels_applied=response_data.get("suggested_labels", []),
+                    was_auto_posted=True,
+                    work_item_id=work_item.get("id"),
+                )
+
+            return {
+                "success": True,
+                "posted": should_post,
+                "confidence": confidence,
+                "content": content,
+            }
+        finally:
+            await agent.end_session()
+
     async def execute_work(self, work_item: Dict[str, Any]) -> Dict[str, Any]:
         """
         Execute a work item using the Claude Agent SDK.
@@ -93,6 +167,12 @@ class AgentSDKExecutor(BaseExecutor):
         Returns:
             Result dictionary compatible with Sugar's workflow
         """
+        # Check for specialized task types
+        task_type = work_item.get("type", "")
+
+        if task_type == "issue_response":
+            return await self._execute_issue_response(work_item)
+
         if self.dry_run:
             logger.info(f"DRY RUN: Simulating execution of {work_item.get('title')}")
             return await self._simulate_execution(work_item)

@@ -2126,6 +2126,29 @@ sugar:
   workflow:
     # Profiles: solo (direct commits), balanced (PRs), enterprise (full governance)
     profile: "solo"
+
+  # Issue Responder (AI-powered issue responses)
+  issue_responder:
+    enabled: false              # Enable automatic issue responses
+
+    # Response behavior
+    auto_post_threshold: 0.8    # Min confidence to auto-post (0.0-1.0)
+    max_response_length: 2000   # Max chars per response
+    response_delay_seconds: 0   # Delay before posting (0 = immediate)
+
+    # Rate limiting
+    rate_limit_per_hour: 10     # Max responses per hour (0 = unlimited)
+
+    # Issue filtering
+    respond_to_labels: []       # Empty = all issues, or ["question", "bug"]
+    skip_labels: ["wontfix", "duplicate", "stale"]
+    skip_bot_issues: true       # Skip issues created by bots
+
+    # Follow-up handling
+    handle_follow_ups: "ignore" # "ignore" | "queue" | "auto"
+
+    # Model selection
+    model: "claude-sonnet-4-20250514"
 """
 
 

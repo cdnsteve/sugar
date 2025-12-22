@@ -11,6 +11,9 @@ import os
 from datetime import datetime, timedelta, timezone
 from typing import List, Dict, Any, Optional
 
+from ..storage import IssueResponseManager
+from ..config import IssueResponderConfig
+
 # Optional PyGithub import
 try:
     from github import Github, GithubException
@@ -25,11 +28,20 @@ logger = logging.getLogger(__name__)
 class GitHubWatcher:
     """Monitor GitHub repository for issues and pull requests"""
 
-    def __init__(self, config: dict):
+    def __init__(
+        self,
+        config: dict,
+        issue_responder_config: Optional[IssueResponderConfig] = None,
+    ):
         self.config = config
         self.enabled = config.get("enabled", False)
         self.repo_name = config.get("repo", "")
         self.auth_method = config.get("auth_method", "auto")
+        self.issue_responder_config = issue_responder_config
+
+        # Initialize IssueResponseManager
+        db_path = config.get("db_path", ".sugar/sugar.db")
+        self.issue_response_manager = IssueResponseManager(db_path)
 
         if not self.enabled:
             return
@@ -156,6 +168,20 @@ class GitHubWatcher:
         work_items = []
 
         try:
+            # Initialize issue response manager
+            await self.issue_response_manager.initialize()
+
+            # Load issue responder config if not provided in constructor
+            responder_config = self.issue_responder_config
+            if responder_config is None:
+                try:
+                    responder_config = IssueResponderConfig.load_from_file(
+                        ".sugar/config.yaml"
+                    )
+                except (FileNotFoundError, KeyError):
+                    # If config doesn't exist, use default (disabled)
+                    responder_config = IssueResponderConfig()
+
             gh_command = self.config.get("gh_cli", {}).get("command", "gh")
             issue_labels = self.config.get("issue_labels", ["bug", "enhancement"])
 
@@ -163,6 +189,7 @@ class GitHubWatcher:
             self._log_label_filtering_mode(issue_labels)
 
             # Get all open issues first (we'll filter by labels after)
+            # Include author field for bot detection
             cmd = [
                 gh_command,
                 "issue",
@@ -174,7 +201,7 @@ class GitHubWatcher:
                 "--limit",
                 "50",  # Get more issues to filter from
                 "--json",
-                "number,title,body,labels,assignees,comments,createdAt,updatedAt,url",
+                "number,title,body,labels,assignees,comments,createdAt,updatedAt,url,author",
             ]
 
             # Note: We don't use --label flag here because it uses AND logic
@@ -211,6 +238,49 @@ class GitHubWatcher:
             )
 
             for issue in filtered_issues:
+                # Check if issue responder is enabled and should create response work item
+                if responder_config.enabled and self._should_respond_to_issue(
+                    issue, responder_config
+                ):
+                    # Check if we've already responded to this issue
+                    has_responded = await self.issue_response_manager.has_responded(
+                        self.repo_name, issue["number"], "initial"
+                    )
+
+                    if not has_responded:
+                        # Create issue response work item
+                        response_work_item = {
+                            "type": "issue_response",
+                            "title": f"Respond to issue #{issue['number']}: {issue['title']}",
+                            "source_file": f"github://issues/{issue['number']}",
+                            "priority": 2,  # Medium priority
+                            "context": {
+                                "github_issue": {
+                                    "number": issue["number"],
+                                    "title": issue["title"],
+                                    "body": issue.get("body", ""),
+                                    "user": {
+                                        "login": issue.get("author", {}).get(
+                                            "login", "unknown"
+                                        )
+                                    },
+                                    "labels": [
+                                        label["name"]
+                                        for label in issue.get("labels", [])
+                                    ],
+                                    "created_at": issue["createdAt"],
+                                },
+                                "repo": self.repo_name,
+                                "response_type": "initial",
+                            },
+                        }
+                        work_items.append(response_work_item)
+                        logger.debug(
+                            f"Created issue_response work item for #{issue['number']}"
+                        )
+                        continue
+
+                # Create standard work item if not creating a response item
                 work_item = self._create_work_item_from_issue_data(issue)
                 if work_item:
                     work_items.append(work_item)
@@ -225,6 +295,20 @@ class GitHubWatcher:
         work_items = []
 
         try:
+            # Initialize issue response manager
+            await self.issue_response_manager.initialize()
+
+            # Load issue responder config if not provided in constructor
+            responder_config = self.issue_responder_config
+            if responder_config is None:
+                try:
+                    responder_config = IssueResponderConfig.load_from_file(
+                        ".sugar/config.yaml"
+                    )
+                except (FileNotFoundError, KeyError):
+                    # If config doesn't exist, use default (disabled)
+                    responder_config = IssueResponderConfig()
+
             # Get recent issues
             since = datetime.now(timezone.utc) - timedelta(days=7)
             repo = self.github.get_repo(self.repo_name)
@@ -263,8 +347,50 @@ class GitHubWatcher:
                     "createdAt": issue.created_at.isoformat(),
                     "updatedAt": issue.updated_at.isoformat(),
                     "url": issue.html_url,
+                    "author": {"login": issue.user.login},
                 }
 
+                # Check if issue responder is enabled and should create response work item
+                if responder_config.enabled and self._should_respond_to_issue(
+                    issue_data, responder_config
+                ):
+                    # Check if we've already responded to this issue
+                    has_responded = await self.issue_response_manager.has_responded(
+                        self.repo_name, issue.number, "initial"
+                    )
+
+                    if not has_responded:
+                        # Create issue response work item
+                        response_work_item = {
+                            "type": "issue_response",
+                            "title": f"Respond to issue #{issue.number}: {issue.title}",
+                            "source_file": f"github://issues/{issue.number}",
+                            "priority": 2,  # Medium priority
+                            "context": {
+                                "github_issue": {
+                                    "number": issue.number,
+                                    "title": issue.title,
+                                    "body": issue.body or "",
+                                    "user": {"login": issue.user.login},
+                                    "labels": [label.name for label in issue.labels],
+                                    "created_at": issue.created_at.isoformat(),
+                                },
+                                "repo": self.repo_name,
+                                "response_type": "initial",
+                            },
+                        }
+                        work_items.append(response_work_item)
+                        logger.debug(
+                            f"Created issue_response work item for #{issue.number}"
+                        )
+                        processed_count += 1
+
+                        # Limit to 10 issues after filtering
+                        if processed_count >= 10:
+                            break
+                        continue
+
+                # Create standard work item if not creating a response item
                 work_item = self._create_work_item_from_issue_data(issue_data)
                 if work_item:
                     work_items.append(work_item)
@@ -551,6 +677,32 @@ class GitHubWatcher:
         except Exception as e:
             logger.error(f"Error using PyGithub to assign: {e}")
             return False
+
+    def _should_respond_to_issue(
+        self, issue: dict, config: IssueResponderConfig
+    ) -> bool:
+        """Check if we should create a response work item for this issue"""
+        # Check bot issues
+        if config.skip_bot_issues:
+            author = issue.get("author", {}).get("login", "")
+            if author.endswith("[bot]") or "[bot]" in author:
+                return False
+
+        # Check skip labels
+        issue_labels = [l.get("name", "") for l in issue.get("labels", [])]
+        for skip_label in config.skip_labels:
+            if skip_label in issue_labels:
+                return False
+
+        # Check respond_to_labels (if not empty, issue must have one of these)
+        if config.respond_to_labels:
+            has_matching_label = any(
+                label in issue_labels for label in config.respond_to_labels
+            )
+            if not has_matching_label:
+                return False
+
+        return True
 
     def _should_include_issue_by_labels(
         self, issue_labels: list, config_labels: list, original_config: list
