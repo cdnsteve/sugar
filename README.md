@@ -174,6 +174,16 @@ sugar issue respond 42 --post
 
 The Issue Responder evaluates confidence before posting. Use `--force-post` to override the confidence check, or adjust the threshold with `--confidence-threshold`.
 
+**Custom Prompts:** Customize Sugar's responses per-project by creating `.sugar/prompts/issue_responder.json`:
+
+```json
+{
+  "instructions": "You are a helpful assistant for MyProject. Be friendly and professional.",
+  "guidelines": ["Always search the codebase first", "Include file paths"],
+  "constraints": ["Never share API keys", "Don't promise release dates"]
+}
+```
+
 **Full documentation:** [docs/issue-responder.md](docs/issue-responder.md)
 
 ## How It Works

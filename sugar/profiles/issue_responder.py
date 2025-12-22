@@ -15,6 +15,7 @@ import re
 from dataclasses import dataclass, field
 from typing import Any, Dict, List, Optional
 
+from ..config import PromptConfig
 from .base import BaseProfile, ProfileConfig
 
 logger = logging.getLogger(__name__)
@@ -110,7 +111,7 @@ class IssueResponderProfile(BaseProfile):
             if repo:
                 repo_info = f"\nRepository: {repo}"
 
-        return f"""You are Sugar, an AI assistant that helps respond to GitHub issues.
+        base_prompt = f"""You are Sugar, an AI assistant that helps respond to GitHub issues.
 
 {repo_info}
 
@@ -155,6 +156,20 @@ Rate your confidence in your response:
 
 Only auto-post responses with confidence >= 0.8.
 """
+
+        # Load custom prompt config if available
+        custom_config = PromptConfig.load_from_file()
+        if custom_config:
+            errors = custom_config.validate()
+            if errors:
+                logger.warning(f"Invalid prompt config: {errors}")
+            else:
+                custom_additions = custom_config.build_system_prompt_additions()
+                if custom_additions:
+                    base_prompt += f"\n\n# Custom Configuration\n\n{custom_additions}"
+                    logger.info("Loaded custom prompt configuration")
+
+        return base_prompt
 
     async def process_input(self, input_data: Dict[str, Any]) -> Dict[str, Any]:
         """Process issue data for analysis"""
