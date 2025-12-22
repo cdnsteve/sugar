@@ -513,3 +513,248 @@ async def run_implementation_stage(self, subtasks: List[Task]) -> List[Result]:
 
     return results
 ```
+
+## Real-World Example Scenarios
+
+### Example 1: E-Commerce Payment Integration
+
+A team needs to integrate Stripe payment processing into their e-commerce platform.
+
+```bash
+sugar add "Integrate Stripe payment processing" --type feature
+```
+
+**Stage 1: Research**
+The Explore agent:
+- Searches for Stripe API best practices and PCI compliance requirements
+- Analyzes existing checkout flow in the codebase
+- Identifies current order and cart models
+- Reviews existing payment placeholders
+
+**Stage 2: Planning**
+The Plan agent creates subtasks:
+```
+1. backend-developer: Create Stripe configuration and API wrapper
+2. backend-developer: Implement payment intent creation endpoint
+3. backend-developer: Add webhook handlers for payment events
+4. frontend-designer: Build payment form with Stripe Elements
+5. security-engineer: Implement PCI-compliant token handling
+6. qa-engineer: Write payment flow tests (success, failure, refunds)
+7. general-purpose: Update checkout documentation
+```
+
+**Stage 3: Implementation**
+Parallel execution groups:
+- Group 1: Config + Webhook handlers (no dependencies)
+- Group 2: Payment endpoints + UI (after config)
+- Group 3: Tests + Docs (after implementation)
+
+**Stage 4: Review**
+- Security review of token handling
+- Test payment flow end-to-end with Stripe test mode
+- Verify PCI compliance measures
+
+---
+
+### Example 2: API Platform with GraphQL
+
+Building a new GraphQL API layer on top of existing REST services.
+
+```bash
+sugar add "Build GraphQL API layer for user management" --type feature
+```
+
+**How Orchestration Helps:**
+
+| Stage | What Happens | Value Added |
+|-------|--------------|-------------|
+| Research | Analyzes existing REST endpoints, identifies data models, reviews GraphQL schema patterns | Understands existing architecture before proposing changes |
+| Planning | Creates schema design, identifies resolvers needed, plans authentication integration | Ensures comprehensive coverage of all endpoints |
+| Implementation | Parallel work on schema, resolvers, auth middleware, client SDK | 3x faster than sequential development |
+| Review | Schema validation, resolver testing, performance benchmarking | Catches N+1 queries and auth gaps |
+
+**Subtask Breakdown:**
+```
+Schema & Types (backend-developer)
+├── Define User type and queries
+├── Define mutations (createUser, updateUser, deleteUser)
+└── Add input types and validation
+
+Resolvers (backend-developer)
+├── User query resolvers
+├── Mutation resolvers with REST service calls
+└── DataLoader for batching
+
+Auth & Middleware (security-engineer)
+├── JWT validation middleware
+├── Permission directives
+└── Rate limiting
+
+Testing (qa-engineer)
+├── Schema snapshot tests
+├── Resolver unit tests
+└── Integration tests with mocked REST services
+
+Documentation (general-purpose)
+├── Schema documentation
+├── Authentication guide
+└── Example queries and mutations
+```
+
+---
+
+### Example 3: CI/CD Pipeline Setup
+
+Setting up a complete CI/CD pipeline for a new microservice.
+
+```bash
+sugar add "Set up CI/CD pipeline with GitHub Actions and Kubernetes" --type feature
+```
+
+**Orchestration Flow:**
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│ RESEARCH: Explore agent                                      │
+│ • Analyze existing deployment scripts                        │
+│ • Review Kubernetes cluster configuration                    │
+│ • Check current GitHub Actions workflows                     │
+│ • Identify environment requirements (staging, production)    │
+└─────────────────────────────────────────────────────────────┘
+                              ↓
+┌─────────────────────────────────────────────────────────────┐
+│ PLANNING: Plan agent                                         │
+│ Subtasks created:                                            │
+│ 1. devops-engineer: Create Dockerfile with multi-stage build│
+│ 2. devops-engineer: Write Kubernetes manifests              │
+│ 3. devops-engineer: Create GitHub Actions workflows         │
+│ 4. security-engineer: Set up secrets management             │
+│ 5. qa-engineer: Add deployment verification tests           │
+│ 6. general-purpose: Document deployment process             │
+└─────────────────────────────────────────────────────────────┘
+                              ↓
+┌─────────────────────────────────────────────────────────────┐
+│ IMPLEMENTATION: Parallel execution                           │
+│                                                              │
+│ [devops-engineer]     [security-engineer]   [general-purpose]│
+│ • Dockerfile          • Secrets setup       • Documentation  │
+│ • K8s manifests       • RBAC config                         │
+│ • GH Actions          • Image scanning                      │
+│                              ↓                               │
+│                      [qa-engineer]                           │
+│                      • Smoke tests                           │
+│                      • Rollback tests                        │
+└─────────────────────────────────────────────────────────────┘
+                              ↓
+┌─────────────────────────────────────────────────────────────┐
+│ REVIEW: Validate deployment pipeline                         │
+│ • Dry-run deployment to staging                              │
+│ • Verify rollback mechanism                                  │
+│ • Check monitoring and alerting                              │
+└─────────────────────────────────────────────────────────────┘
+```
+
+---
+
+### Example 4: Full-Stack Dashboard Feature
+
+Building an analytics dashboard with real-time updates.
+
+```bash
+sugar add "Build real-time analytics dashboard" --type feature --orchestrate
+```
+
+**Agent Routing in Action:**
+
+| Subtask | Assigned Agent | Reasoning |
+|---------|----------------|-----------|
+| Design dashboard layout and components | frontend-designer | Contains "dashboard", "design", "components" |
+| Create WebSocket server for real-time data | backend-developer | Contains "server", "data" |
+| Implement chart components with D3.js | frontend-designer | Contains "components" |
+| Add user preference storage | backend-developer | Contains "storage" |
+| Write component tests | qa-engineer | Contains "tests" |
+| Set up WebSocket authentication | security-engineer | Contains "authentication" |
+| Configure CDN for static assets | devops-engineer | Contains "CDN", "assets" |
+
+**Parallel Execution Benefits:**
+- Frontend and backend work happens simultaneously
+- Tests are written as features are built
+- Security review runs in parallel with documentation
+- Total time: ~40% of sequential execution
+
+---
+
+## When Orchestration Shines
+
+### Best Use Cases
+
+1. **Cross-cutting features** - Features that touch UI, API, database, and tests
+2. **Complex integrations** - Third-party API integrations requiring research
+3. **New subsystems** - Building entirely new functionality from scratch
+4. **Refactoring epics** - Large-scale code modernization efforts
+5. **Security implementations** - Auth, encryption, compliance features
+
+### Signs a Task Needs Orchestration
+
+- Description includes multiple technical domains (frontend + backend + database)
+- Requires research before implementation can begin
+- Will touch more than 10 files
+- Needs coordination between different specialties
+- Has complex dependencies between subtasks
+
+### When to Skip Orchestration
+
+- Simple bug fixes (one file, clear solution)
+- Documentation updates
+- Minor UI tweaks
+- Configuration changes
+- Single-endpoint API additions
+
+## Architecture Integration
+
+```
+Your Application
+       │
+       ▼
+┌──────────────────────────────────────────────────────────────┐
+│                         Sugar                                 │
+│                                                              │
+│  ┌────────────────┐    ┌────────────────┐                   │
+│  │  Work Queue    │───▶│ Task Executor  │                   │
+│  │  (SQLite)      │    │                │                   │
+│  └────────────────┘    └───────┬────────┘                   │
+│                                │                             │
+│                    ┌───────────▼───────────┐                │
+│                    │  TaskOrchestrator     │                │
+│                    │  (if orchestration    │                │
+│                    │   is triggered)       │                │
+│                    └───────────┬───────────┘                │
+│                                │                             │
+│         ┌──────────────────────┼──────────────────────┐     │
+│         ▼                      ▼                      ▼     │
+│  ┌─────────────┐      ┌─────────────┐       ┌─────────────┐ │
+│  │ Research    │      │ Planning    │       │ Review      │ │
+│  │ (Explore)   │      │ (Plan)      │       │ (Reviewer)  │ │
+│  └─────────────┘      └─────────────┘       └─────────────┘ │
+│                                │                             │
+│                    ┌───────────▼───────────┐                │
+│                    │   Implementation       │                │
+│                    │   (Parallel agents)    │                │
+│                    └───────────────────────┘                │
+│                                                              │
+│  Specialist Agents:                                          │
+│  ┌──────────┐ ┌──────────┐ ┌──────────┐ ┌──────────┐       │
+│  │frontend  │ │backend   │ │qa        │ │security  │       │
+│  │designer  │ │developer │ │engineer  │ │engineer  │       │
+│  └──────────┘ └──────────┘ └──────────┘ └──────────┘       │
+│                                                              │
+└──────────────────────────────────────────────────────────────┘
+       │
+       ▼
+  Claude Agent SDK
+       │
+       ▼
+  Claude API
+```
+
+This architecture enables Sugar to handle everything from simple one-liner fixes to complex multi-day feature implementations, automatically choosing the right level of sophistication for each task.
