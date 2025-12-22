@@ -71,6 +71,7 @@ class WorkQueue:
             # Migrate existing databases to add timing columns and task types table
             await self._migrate_timing_columns(db)
             await self._migrate_task_types_table(db)
+            await self._migrate_orchestration_columns(db)
 
             await db.commit()
 
@@ -219,6 +220,61 @@ class WorkQueue:
 
         logger.debug(f"✅ Work queue initialized: {self.db_path}")
 
+    async def _migrate_orchestration_columns(self, db):
+        """Add orchestration columns to work_items table"""
+        try:
+            # Check if orchestration columns exist
+            cursor = await db.execute("PRAGMA table_info(work_items)")
+            columns = await cursor.fetchall()
+            column_names = [col[1] for col in columns]
+
+            # Add orchestrate column (boolean flag)
+            if "orchestrate" not in column_names:
+                await db.execute(
+                    "ALTER TABLE work_items ADD COLUMN orchestrate BOOLEAN DEFAULT 0"
+                )
+                logger.info("Added orchestrate column to existing database")
+
+            # Add parent_task_id column (foreign key to work_items.id)
+            if "parent_task_id" not in column_names:
+                await db.execute(
+                    "ALTER TABLE work_items ADD COLUMN parent_task_id TEXT"
+                )
+                logger.info("Added parent_task_id column to existing database")
+
+            # Add stage column (current orchestration stage)
+            if "stage" not in column_names:
+                await db.execute("ALTER TABLE work_items ADD COLUMN stage TEXT")
+                logger.info("Added stage column to existing database")
+
+            # Add blocked_by column (JSON array of task IDs)
+            if "blocked_by" not in column_names:
+                await db.execute("ALTER TABLE work_items ADD COLUMN blocked_by TEXT")
+                logger.info("Added blocked_by column to existing database")
+
+            # Add context_path column (path to orchestration context)
+            if "context_path" not in column_names:
+                await db.execute("ALTER TABLE work_items ADD COLUMN context_path TEXT")
+                logger.info("Added context_path column to existing database")
+
+            # Add assigned_agent column (specialist agent)
+            if "assigned_agent" not in column_names:
+                await db.execute(
+                    "ALTER TABLE work_items ADD COLUMN assigned_agent TEXT"
+                )
+                logger.info("Added assigned_agent column to existing database")
+
+            # Create index for parent_task_id queries
+            await db.execute(
+                """
+                CREATE INDEX IF NOT EXISTS idx_work_items_parent_task_id
+                ON work_items (parent_task_id)
+            """
+            )
+
+        except Exception as e:
+            logger.warning(f"Orchestration migration warning (non-critical): {e}")
+
     async def close(self):
         """Close the work queue (for testing)"""
         # SQLite connections are closed automatically, but this method
@@ -253,13 +309,22 @@ class WorkQueue:
         work_item.setdefault("status", "pending")
         work_item.setdefault("priority", 3)
         work_item.setdefault("attempts", 0)
+        work_item.setdefault("orchestrate", False)
 
         async with aiosqlite.connect(self.db_path) as db:
+            # Prepare blocked_by as JSON if it's a list
+            blocked_by = work_item.get("blocked_by", [])
+            if isinstance(blocked_by, list):
+                blocked_by_json = json.dumps(blocked_by)
+            else:
+                blocked_by_json = blocked_by
+
             await db.execute(
                 """
-                INSERT INTO work_items 
-                (id, type, title, description, priority, status, source, source_file, context)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+                INSERT INTO work_items
+                (id, type, title, description, priority, status, source, source_file, context,
+                 orchestrate, parent_task_id, stage, blocked_by, context_path, assigned_agent)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             """,
                 (
                     work_id,
@@ -271,6 +336,12 @@ class WorkQueue:
                     work_item.get("source", ""),
                     work_item.get("source_file", ""),
                     json.dumps(work_item.get("context", {})),
+                    work_item.get("orchestrate", False),
+                    work_item.get("parent_task_id"),
+                    work_item.get("stage"),
+                    blocked_by_json if blocked_by else None,
+                    work_item.get("context_path"),
+                    work_item.get("assigned_agent"),
                 ),
             )
             await db.commit()
@@ -576,11 +647,12 @@ class WorkQueue:
         async with aiosqlite.connect(self.db_path) as db:
             async with db.execute(
                 """
-                SELECT id, type, title, description, priority, status, source, 
-                       context, created_at, updated_at, attempts, last_attempt_at, 
-                       completed_at, result, total_execution_time, started_at, 
-                       total_elapsed_time, commit_sha
-                FROM work_items 
+                SELECT id, type, title, description, priority, status, source,
+                       context, created_at, updated_at, attempts, last_attempt_at,
+                       completed_at, result, total_execution_time, started_at,
+                       total_elapsed_time, commit_sha,
+                       orchestrate, parent_task_id, stage, blocked_by, context_path, assigned_agent
+                FROM work_items
                 WHERE id = ?
             """,
                 (work_id,),
@@ -607,6 +679,12 @@ class WorkQueue:
                         "started_at": row[15],
                         "total_elapsed_time": row[16],
                         "commit_sha": row[17],
+                        "orchestrate": bool(row[18]) if row[18] is not None else False,
+                        "parent_task_id": row[19],
+                        "stage": row[20],
+                        "blocked_by": json.loads(row[21]) if row[21] else [],
+                        "context_path": row[22],
+                        "assigned_agent": row[23],
                     }
                 return None
 
@@ -775,3 +853,98 @@ class WorkQueue:
         if "details" in error_info:
             error_message += f": {error_info['details']}"
         await self.fail_work(work_id, error_message, max_retries)
+
+    async def get_subtasks(self, parent_task_id: str) -> List[Dict[str, Any]]:
+        """Get all subtasks for a parent task."""
+        async with aiosqlite.connect(self.db_path) as db:
+            db.row_factory = aiosqlite.Row
+
+            cursor = await db.execute(
+                """
+                SELECT * FROM work_items
+                WHERE parent_task_id = ?
+                ORDER BY created_at ASC
+                """,
+                (parent_task_id,),
+            )
+            rows = await cursor.fetchall()
+
+            subtasks = []
+            for row in rows:
+                work_item = dict(row)
+                # Parse JSON fields
+                for field in ["context", "result", "blocked_by"]:
+                    if work_item.get(field):
+                        try:
+                            work_item[field] = json.loads(work_item[field])
+                        except json.JSONDecodeError:
+                            work_item[field] = [] if field == "blocked_by" else {}
+                    else:
+                        work_item[field] = [] if field == "blocked_by" else {}
+                subtasks.append(work_item)
+
+            return subtasks
+
+    async def get_ready_subtasks(self, parent_task_id: str) -> List[Dict[str, Any]]:
+        """Get subtasks that are not blocked."""
+        subtasks = await self.get_subtasks(parent_task_id)
+        ready_tasks = []
+
+        for task in subtasks:
+            # Check if task is blocked
+            blocked_by = task.get("blocked_by", [])
+            if not blocked_by:
+                ready_tasks.append(task)
+            else:
+                # Check if blocking tasks are complete
+                all_blockers_complete = True
+                async with aiosqlite.connect(self.db_path) as db:
+                    for blocker_id in blocked_by:
+                        cursor = await db.execute(
+                            "SELECT status FROM work_items WHERE id = ?",
+                            (blocker_id,),
+                        )
+                        row = await cursor.fetchone()
+                        if not row or row[0] != "completed":
+                            all_blockers_complete = False
+                            break
+
+                if all_blockers_complete:
+                    ready_tasks.append(task)
+
+        return ready_tasks
+
+    async def update_orchestration_stage(self, task_id: str, stage: str) -> bool:
+        """Update the current orchestration stage."""
+        async with aiosqlite.connect(self.db_path) as db:
+            cursor = await db.execute(
+                """
+                UPDATE work_items
+                SET stage = ?, updated_at = CURRENT_TIMESTAMP
+                WHERE id = ?
+                """,
+                (stage, task_id),
+            )
+            await db.commit()
+            return cursor.rowcount > 0
+
+    async def check_subtasks_complete(self, parent_task_id: str) -> bool:
+        """Check if all subtasks for a parent are complete."""
+        async with aiosqlite.connect(self.db_path) as db:
+            cursor = await db.execute(
+                """
+                SELECT COUNT(*) as total,
+                       SUM(CASE WHEN status = 'completed' THEN 1 ELSE 0 END) as completed
+                FROM work_items
+                WHERE parent_task_id = ?
+                """,
+                (parent_task_id,),
+            )
+            row = await cursor.fetchone()
+
+            if not row or row[0] == 0:
+                # No subtasks found
+                return False
+
+            total, completed = row
+            return total == completed
