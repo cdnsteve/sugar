@@ -13,6 +13,7 @@ from .hooks import (
     create_security_hook,
 )
 from .subagent_manager import SubAgentManager, SubAgentResult
+from .context_manager import ContextManager, Message, ContextSummary
 
 __all__ = [
     "SugarAgent",
@@ -23,4 +24,7 @@ __all__ = [
     "create_security_hook",
     "SubAgentManager",
     "SubAgentResult",
+    "ContextManager",
+    "Message",
+    "ContextSummary",
 ]
